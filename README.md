@@ -13,4 +13,4 @@ Fork of [PolyMC](https://github.com/PolyMC/PolyMC) And the Themes are from Prism
 Get the latest release from the **Releases** page of this repository.
 
 > [!WARNING]
-> Offline accounts **cannot** join premium (online-mode) Minecraft servers such as Hypixel, DonutSMP, or any other server that requires a valid Microsoft/Minecraft account. To access those servers, you must own an official copy of Minecraft.
+> Offline accounts **cannot** join premium (online-mode) Minecraft servers such as Hypixel, DonutSMP, or any other server that requires a valid Microsoft/Minecraft account. To access those servers, you must own an official copy of Minecraft. and im using Cursor for support..
