@@ -122,12 +122,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
 
         // if you try to add a widget to a toolbar in a .ui file
         // qt designer will delete it when you save the file >:(
+        // Instance icon editing is intentionally disabled in XylarJava: the
+        // button is kept as a valid (hidden) object so icon-update callbacks stay
+        // safe, but it is never shown in the toolbar.
         changeIconButton = new LabeledToolButton(this);
         changeIconButton->setObjectName(QStringLiteral("changeIconButton"));
         changeIconButton->setIcon(QIcon::fromTheme("news"));
         changeIconButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-        connect(changeIconButton, &QToolButton::clicked, this, &MainWindow::on_actionChangeInstIcon_triggered);
-        ui->instanceToolBar->insertWidgetBefore(ui->actionLaunchInstance, changeIconButton);
+        changeIconButton->setVisible(false);
 
         renameButton = new LabeledToolButton(this);
         renameButton->setObjectName(QStringLiteral("renameButton"));
@@ -190,6 +192,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         }
 
         ui->actionViewJavaFolder->setEnabled(BuildConfig.JAVA_DOWNLOADER_ENABLED);
+
+        // Instance icon editing is disabled in XylarJava.
+        ui->actionChangeInstIcon->setVisible(false);
     }
 
     {  // logs viewing
@@ -223,15 +228,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     // Add the news label to the news toolbar.
     {
         newsLabel = new QToolButton();
-<<<<<<< HEAD
         newsLabel->setIcon(QIcon());  // no cat/news animal icon
         newsLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
         newsLabel->setToolButtonStyle(Qt::ToolButtonTextOnly);
-=======
-        newsLabel->setIcon(QIcon::fromTheme("news"));
-        newsLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-        newsLabel->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
         newsLabel->setFocusPolicy(Qt::NoFocus);
         ui->newsToolBar->addWidget(newsLabel);
 
@@ -283,11 +282,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         connect(view, &InstanceView::groupStateChanged, APPLICATION->instances(), &InstanceList::on_GroupStateChanged);
         ui->horizontalLayout->addWidget(view);
     }
-<<<<<<< HEAD
-=======
-    // Cat easter egg removed — keep instance list background clean.
-    setCatBackground(false);
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
 
     // Togglable status bar
     {
@@ -373,7 +367,35 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     // removing this looks stupid
     view->setFocus();
 
+    applyXylarBranding();
+
     retranslateUi();
+}
+
+void MainWindow::applyXylarBranding()
+{
+    // Scoped, theme-aware accent styling. Everything is expressed through
+    // palette() roles so it adapts to whatever widget/icon theme is active
+    // (Breeze dark, light, etc.) instead of hard-coding colours.
+    const QString style = QStringLiteral(
+        // Toolbars: a little breathing room and a subtle separator.
+        "QToolBar { padding: 3px; spacing: 3px; border: none; }"
+        "QToolBar::separator { background: palette(mid); width: 1px; height: 1px; margin: 4px 6px; }"
+        // Tool buttons: rounded with a highlight on hover/press.
+        "QToolBar QToolButton { border-radius: 6px; padding: 4px; }"
+        "QToolBar QToolButton:hover { background-color: palette(highlight); color: palette(highlighted-text); }"
+        "QToolBar QToolButton:pressed, QToolBar QToolButton:checked {"
+        " background-color: palette(highlight); color: palette(highlighted-text); }"
+        // Status bar sits a touch quieter than the main surface.
+        "QStatusBar QLabel { padding: 0 4px; }");
+
+    // Apply only to the toolbars and status bar so the rest of the application
+    // (settings pages, dialogs and the custom instance view) keeps the plain
+    // theme look and its own painting.
+    ui->mainToolBar->setStyleSheet(style);
+    ui->instanceToolBar->setStyleSheet(style);
+    ui->newsToolBar->setStyleSheet(style);
+    statusBar()->setStyleSheet(style);
 }
 
 // macOS always has a native menu bar, so these fixes are not applicable
@@ -450,7 +472,7 @@ void MainWindow::showInstanceContextMenu(const QPoint& pos)
         actions.removeLast();
         actions.removeLast();
 
-        actions.prepend(ui->actionChangeInstIcon);
+        // actionChangeInstIcon intentionally omitted: instance icon editing is disabled.
         actions.prepend(ui->actionRenameInstance);
 
         // add header
@@ -730,15 +752,6 @@ QString intListToString(const QList<int>& list)
     return slist.join(',');
 }
 
-<<<<<<< HEAD
-=======
-void MainWindow::setCatBackground(bool enabled)
-{
-    view->setPaintCat(enabled);
-    view->viewport()->repaint();
-}
-
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
 void MainWindow::runModalTask(Task* task)
 {
     connect(task, &Task::failed,
@@ -906,7 +919,7 @@ void MainWindow::processURLs(QList<QUrl> urls)
                     receivedData.insert(it->first, it->second);
                 emit APPLICATION->oauthReplyRecieved(receivedData);
                 continue;
-            } else if ((url.scheme() == "xylarjava" || url.scheme() == "prismlauncher" || url.scheme() == BuildConfig.LAUNCHER_APP_BINARY_NAME)
+            } else if ((url.scheme() == "xylarjava" || url.scheme() == "xylarjava" || url.scheme() == BuildConfig.LAUNCHER_APP_BINARY_NAME)
                         && isExternalURLImport) {
                 // Launcher URL protocol modpack import.
                 // preferred import format: xylarjava://import?url=ENCODED
@@ -1261,11 +1274,7 @@ void MainWindow::globalSettingsClosed()
     updateThemeMenu();
     updateStatusCenter();
     // This needs to be done to prevent UI elements disappearing in the event the config is changed
-<<<<<<< HEAD
     // but PolyMC exits abnormally, causing the window state to never be saved:
-=======
-    // but Prism Launcher exits abnormally, causing the window state to never be saved:
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
     APPLICATION->settings()->set("MainWindowState", QString::fromUtf8(saveState().toBase64()));
     update();
 }

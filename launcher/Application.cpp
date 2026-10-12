@@ -1,11 +1,8 @@
 #include "Application.h"
 #include "BuildConfig.h"
 #include "DataMigrationTask.h"
-<<<<<<< HEAD
-=======
-#include "EmbeddedSecrets.h"
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
 #include "java/JavaInstallList.h"
+#include "minecraft/skins/XylarSkinClient.h"
 #include "net/PasteUpload.h"
 #include "tasks/Task.h"
 #include "tools/GenericProfiler.h"
@@ -31,6 +28,7 @@
 #include "ui/setupwizard/LoginWizardPage.h"
 #include "ui/setupwizard/PasteWizardPage.h"
 #include "ui/setupwizard/SetupWizard.h"
+#include "ui/setupwizard/XylarWelcomeWizardPage.h"
 #include "ui/setupwizard/ThemeWizardPage.h"
 
 #include "ui/dialogs/CustomMessageBox.h"
@@ -401,11 +399,7 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
     m_dataPath = dataPath;
 
     /*
-<<<<<<< HEAD
      * Establish the mechanism for communication with an already running PolyMC that uses the same data path.
-=======
-     * Establish the mechanism for communication with an already running PrismLauncher that uses the same data path.
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
      * If there is one, tell it what the user actually wanted to do and exit.
      * We want to initialize this before logging to avoid messing with the log of a potential already running copy.
      */
@@ -605,20 +599,18 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
         m_settings.reset(new INISettingsObject({ BuildConfig.LAUNCHER_CONFIGFILE, "polymc.cfg", "multimc.cfg" }, this));
 
         // Theming
-        m_settings->registerSetting("IconTheme", QString());
-        m_settings->registerSetting("ApplicationTheme", QString());
-<<<<<<< HEAD
-=======
-        m_settings->registerSetting("BackgroundCat", QString("kitteh"));
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
+        m_settings->registerSetting("IconTheme", QString("pe_light"));
+        m_settings->registerSetting("ApplicationTheme", QString("fusion"));
 
         // Remembered state
         m_settings->registerSetting("LastUsedGroupForNewInstance", QString());
 
         m_settings->registerSetting("MenuBarInsteadOfToolBar", false);
 
-        m_settings->registerSetting("NumberOfConcurrentTasks", 10);
-        m_settings->registerSetting("NumberOfConcurrentDownloads", 6);
+        // Higher defaults make instance downloads noticeably faster on modern
+        // connections (more files fetched in parallel).
+        m_settings->registerSetting("NumberOfConcurrentTasks", 24);
+        m_settings->registerSetting("NumberOfConcurrentDownloads", 16);
         m_settings->registerSetting("NumberOfManualRetries", 1);
         m_settings->registerSetting("RequestTimeout", 60);
 
@@ -712,15 +704,12 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
         m_settings->registerSetting("JavaVersion", "");
         m_settings->registerSetting("JavaVendor", "");
         m_settings->registerSetting("LastHostname", "");
-<<<<<<< HEAD
-        m_settings->registerSetting("JvmArgs", "");
-=======
-        // Sensible low-pause GC defaults for new installs (users can still override per-instance).
-        // These reduce GC-related stutter/frame-time spikes without needing a huge heap.
+        // Performance-tuned default JVM args (G1GC, Aikar-style) for smoother
+        // gameplay out of the box. Users can still override these per instance.
         m_settings->registerSetting("JvmArgs",
-                                     "-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 "
-                                     "-XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M");
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
+                                    "-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 "
+                                    "-XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M "
+                                    "-XX:+ParallelRefProcEnabled -XX:+DisableExplicitGC -XX:+AlwaysPreTouch");
         m_settings->registerSetting("IgnoreJavaCompatibility", false);
         m_settings->registerSetting("IgnoreJavaWizard", false);
         auto defaultEnableAutoJava = m_settings->get("JavaPath").toString().isEmpty();
@@ -765,14 +754,6 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
         m_settings->registerSetting({ "PreLaunchCommand", "PreLaunchCmd" }, "");
         m_settings->registerSetting({ "PostExitCommand", "PostExitCmd" }, "");
 
-<<<<<<< HEAD
-=======
-        // The cat
-        m_settings->registerSetting("TheCat", false);
-        m_settings->registerSetting("CatOpacity", 100);
-        m_settings->registerSetting("CatFit", "fit");
-
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
         m_settings->registerSetting("StatusBarVisible", true);
 
         m_settings->registerSetting("ToolbarsLocked", false);
@@ -877,6 +858,13 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
 
         // Custom Technic Client ID
         m_settings->registerSetting("TechnicClientID", "");
+
+        // XylarJava Skin Backend
+        m_settings->registerSetting("XylarSkinBackendUrl", "https://xylarjava-skin-backend.xylarinc.workers.dev");
+        m_settings->registerSetting("XylarSkinToken", "8bfa4b2fe4fde8fb6caa3906280c598bc3fd9bc8c9d0e5def411ae3b5e61166f");
+
+        // Tracks whether the first-run welcome page has been shown.
+        m_settings->registerSetting("XylarSetupCompleted", false);
 
         // Init page provider
         {
@@ -1034,9 +1022,9 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
 
     // check update locks
     {
-        auto update_log_path = FS::PathCombine(m_dataPath, "logs", "prism_launcher_update.log");
+        auto update_log_path = FS::PathCombine(m_dataPath, "logs", "xylarjava_update.log");
 
-        auto update_lock = QFileInfo(FS::PathCombine(m_dataPath, ".prism_launcher_update.lock"));
+        auto update_lock = QFileInfo(FS::PathCombine(m_dataPath, ".xylarjava_update.lock"));
         if (update_lock.exists()) {
             auto [timestamp, from, to, target, data_path] = read_lock_File(update_lock.absoluteFilePath());
             auto infoMsg = tr("This installation has a update lock file present at: %1\n"
@@ -1078,7 +1066,7 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
             }
         }
 
-        auto update_fail_marker = QFileInfo(FS::PathCombine(m_dataPath, ".prism_launcher_update.fail"));
+        auto update_fail_marker = QFileInfo(FS::PathCombine(m_dataPath, ".xylarjava_update.fail"));
         if (update_fail_marker.exists()) {
             auto infoMsg = tr("An update attempt failed\n"
                               "\n"
@@ -1110,7 +1098,7 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
             }
         }
 
-        auto update_success_marker = QFileInfo(FS::PathCombine(m_dataPath, ".prism_launcher_update.success"));
+        auto update_success_marker = QFileInfo(FS::PathCombine(m_dataPath, ".xylarjava_update.success"));
         if (update_success_marker.exists()) {
             auto infoMsg = tr("Update succeeded\n"
                               "\n"
@@ -1207,25 +1195,24 @@ bool Application::createSetupWizard()
     bool validIcons = m_themeManager->isValidIconTheme(settings()->get("IconTheme").toString());
     bool login = !m_accounts->anyAccountIsValid() && capabilities() & Application::SupportsMSA;
     bool themeInterventionRequired = !validWidgets || !validIcons;
-    bool wizardRequired = javaRequired || languageRequired || pasteInterventionRequired || themeInterventionRequired || askjava || login;
+    bool welcomeRequired = !settings()->get("XylarSetupCompleted").toBool();
+    bool wizardRequired =
+        javaRequired || languageRequired || pasteInterventionRequired || themeInterventionRequired || askjava || login || welcomeRequired;
     if (wizardRequired) {
         // set default theme after going into theme wizard
         if (!validIcons)
-            settings()->set("IconTheme", QString("pe_colored"));
+            settings()->set("IconTheme", QString("pe_light"));
         if (!validWidgets) {
-#if defined(Q_OS_WIN32) && QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
-            const QString style =
-                QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark ? QStringLiteral("dark") : QStringLiteral("bright");
-#else
-            const QString style = QStringLiteral("system");
-#endif
-
-            settings()->set("ApplicationTheme", style);
+            settings()->set("ApplicationTheme", QString("fusion"));
         }
 
         m_themeManager->applyCurrentlySelectedTheme(true);
 
         m_setupWizard = new SetupWizard(nullptr);
+        if (welcomeRequired) {
+            m_setupWizard->addPage(new XylarWelcomeWizardPage(m_setupWizard));
+            settings()->set("XylarSetupCompleted", true);
+        }
         if (languageRequired) {
             m_setupWizard->addPage(new LanguageWizardPage(m_setupWizard));
         }
@@ -1307,6 +1294,11 @@ void Application::setupWizardFinished(int status)
 void Application::performMainStartupAction()
 {
     m_status = Application::Initialized;
+
+    // Initialize the XylarSkin backend client eagerly so it is ready for
+    // any UI page that needs it (skin preview, launch-time skin injection).
+    initSkinClient();
+
     if (!m_instanceIdToLaunch.isEmpty()) {
         auto inst = instances()->getInstanceById(m_instanceIdToLaunch);
         if (inst) {
@@ -1835,8 +1827,14 @@ QString Application::getJarPath(QString jarFile)
 #if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD) || defined(Q_OS_OPENBSD)
         FS::PathCombine(m_rootPath, "share", BuildConfig.LAUNCHER_NAME),
 #endif
-        FS::PathCombine(m_rootPath, "jars"), FS::PathCombine(applicationDirPath(), "jars"),
-        FS::PathCombine(applicationDirPath(), "..", "jars")  // from inside build dir, for debuging
+        FS::PathCombine(m_rootPath, "jars"),
+        FS::PathCombine(m_rootPath, "libraries"),
+        FS::PathCombine(m_dataPath, "jars"),
+        FS::PathCombine(m_dataPath, "libraries"),
+        FS::PathCombine(applicationDirPath(), "jars"),
+        FS::PathCombine(applicationDirPath(), "libraries"),
+        FS::PathCombine(applicationDirPath(), "..", "jars"),       // from inside build dir, for debugging
+        FS::PathCombine(applicationDirPath(), "..", "libraries")
     };
     for (QString p : potentialPaths) {
         QString jarPath = FS::PathCombine(p, jarFile);
@@ -1899,17 +1897,10 @@ QString Application::getMSAClientID()
         }
     }
 
-<<<<<<< HEAD
-    return BuildConfig.MSA_CLIENT_ID;
-=======
     if (!BuildConfig.MSA_CLIENT_ID.isEmpty()) {
         return BuildConfig.MSA_CLIENT_ID;
     }
-
-    // Built-in fallback so Microsoft sign-in works out of the box even when no
-    // MSA_CLIENT_ID was supplied at build time and no auth-settings.ini override exists.
-    return EmbeddedSecrets::msaClientId();
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
+    return QStringLiteral("cfc5f1ca-20c4-4e6c-bb12-9154b04a87a0");
 }
 
 bool Application::useMSALauncherLoginEndpoint()
@@ -2093,4 +2084,25 @@ bool Application::checkQSavePath(QString path)
         }
     }
     return false;
+}
+
+void Application::initSkinClient()
+{
+    if (m_skinClient) {
+        return;  // already initialized
+    }
+
+    m_skinClient = new XylarSkinClient(this);
+
+    QString backendUrl = m_settings->get("XylarSkinBackendUrl").toString().trimmed();
+    QString token = m_settings->get("XylarSkinToken").toString().trimmed();
+
+    if (!backendUrl.isEmpty()) {
+        m_skinClient->setBackendUrl(backendUrl);
+    }
+    if (!token.isEmpty()) {
+        m_skinClient->setAuthToken(token);
+    }
+
+    m_skinClient->setCacheDir(XylarSkinClient::defaultCacheDir());
 }

@@ -19,10 +19,6 @@ int main(int argc, char* argv[])
         case Application::StartingUp:
         case Application::Initialized: {
             Q_INIT_RESOURCE(multimc);
-<<<<<<< HEAD
-=======
-            Q_INIT_RESOURCE(backgrounds);
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
             Q_INIT_RESOURCE(documents);
             Q_INIT_RESOURCE(XylarJava);
 

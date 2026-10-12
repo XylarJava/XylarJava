@@ -170,12 +170,11 @@ class MainWindow : public QMainWindow {
    private:
     void retranslateUi();
 
+    /// Apply XylarJava's accent styling to the toolbars and instance view.
+    void applyXylarBranding();
+
     void addInstance(const QString& url = QString(), const QMap<QString, QString>& extra_info = {});
     void activateInstance(BaseInstance* instance);
-<<<<<<< HEAD
-=======
-    void setCatBackground(bool enabled);
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
     void updateInstanceToolIcon(QString new_icon);
     void setSelectedInstanceById(const QString& id);
     void updateStatusCenter();

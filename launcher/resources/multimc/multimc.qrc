@@ -69,16 +69,6 @@
         <file>scalable/custom-commands.svg</file>
         <file>scalable/datapacks.svg</file>
 
-        <!-- The cat button. Freeware, http://findicons.com/icon/73096/black_cat -->
-<<<<<<< HEAD
-=======
-        <file>16x16/cat.png</file>
-        <file>22x22/cat.png</file>
-        <file>24x24/cat.png</file>
-        <file>32x32/cat.png</file>
-        <file>48x48/cat.png</file>
-        <file>64x64/cat.png</file>
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
 
         <!-- Show mods folder. LGPL3 http://openiconlibrary.sourceforge.net/gallery2/?./Icons/places/oxygen-style/folder-favorites.png -->
         <file>scalable/centralmods.svg</file>
@@ -314,7 +304,7 @@
 
         <file>50x50/instances/enderman_legacy.png</file>
 
-        <file>scalable/instances/prismlauncher.svg</file>
+        <file>scalable/instances/xylarjava.svg</file>
         <file>scalable/instances/fox_legacy.svg</file>
         <file>scalable/instances/bee_legacy.svg</file>
 

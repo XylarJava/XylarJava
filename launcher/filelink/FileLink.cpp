@@ -24,11 +24,7 @@ FileLinkApp::FileLinkApp(int& argc, char** argv) : QCoreApplication(argc, argv),
 
     // Commandline parsing
     QCommandLineParser parser;
-<<<<<<< HEAD
     parser.setApplicationDescription(QObject::tr("a batch MKLINK program for windows to be used with polymc"));
-=======
-    parser.setApplicationDescription(QObject::tr("a batch MKLINK program for windows to be used with prismlauncher"));
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
 
     parser.addOptions({ { { "s", "server" }, "Join the specified server on launch", "pipe name" },
                         { { "H", "hard" }, "use hard links instead of symbolic", "true/false" } });

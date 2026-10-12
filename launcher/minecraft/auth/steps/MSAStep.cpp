@@ -79,7 +79,6 @@ class LoggingOAuthHttpServerReplyHandler final : public QOAuthHttpServerReplyHan
 MSAStep::MSAStep(AccountData* data, bool silent) : AuthStep(data), m_silent(silent)
 {
     m_clientId = APPLICATION->getMSAClientID();
-<<<<<<< HEAD
 
     // Always use localhost HTTP callback so it matches Azure "Mobile and desktop" public-client
     // redirect URIs (http://127.0.0.1 / http://localhost). Avoid custom scheme + device-code.
@@ -89,37 +88,15 @@ MSAStep::MSAStep(AccountData* data, bool silent) : AuthStep(data), m_silent(sile
       <meta http-equiv="Refresh" content="0; URL=%1" />
     </noscript>
     Login Successful, you can close this tab and return to XylarJava.
-=======
-    if (QCoreApplication::applicationFilePath().startsWith("/tmp/.mount_") || APPLICATION->isPortable() || !isSchemeHandlerRegistered())
-
-    {
-        auto replyHandler = new LoggingOAuthHttpServerReplyHandler(this);
-        replyHandler->setCallbackText(QString(R"XXX(
-    <noscript>
-      <meta http-equiv="Refresh" content="0; URL=%1" />
-    </noscript>
-    Login Successful, redirecting...
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
     <script>
       window.location.replace("%1");
     </script>
     )XXX")
-<<<<<<< HEAD
                                       .arg(BuildConfig.LOGIN_CALLBACK_URL));
     m_oauth2.setReplyHandler(replyHandler);
     m_oauth2.setAuthorizationUrl(QUrl("https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize"));
     m_oauth2.setAccessTokenUrl(QUrl("https://login.microsoftonline.com/consumers/oauth2/v2.0/token"));
     m_oauth2.setScope("XboxLive.signin XboxLive.offline_access");
-=======
-                                          .arg(BuildConfig.LOGIN_CALLBACK_URL));
-        m_oauth2.setReplyHandler(replyHandler);
-    } else {
-        m_oauth2.setReplyHandler(new CustomOAuthOobReplyHandler(this));
-    }
-    m_oauth2.setAuthorizationUrl(QUrl("https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize"));
-    m_oauth2.setAccessTokenUrl(QUrl("https://login.microsoftonline.com/consumers/oauth2/v2.0/token"));
-    m_oauth2.setScope("XboxLive.SignIn XboxLive.offline_access");
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
     m_oauth2.setClientIdentifier(m_clientId);
     m_oauth2.setNetworkAccessManager(APPLICATION->network());
 

@@ -10,11 +10,7 @@
 
 /*!
  * List of available Mojang accounts.
-<<<<<<< HEAD
  * This should be loaded in the background by PolyMC on startup.
-=======
- * This should be loaded in the background by Prism Launcher on startup.
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
  */
 class AccountList : public QAbstractListModel {
     Q_OBJECT

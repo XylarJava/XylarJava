@@ -244,6 +244,8 @@ set(MINECRAFT_SOURCES
     minecraft/auth/steps/MSADeviceCodeStep.h
     minecraft/auth/steps/MSAStep.cpp
     minecraft/auth/steps/MSAStep.h
+    minecraft/auth/steps/MSAWamStep.cpp
+    minecraft/auth/steps/MSAWamStep.h
     minecraft/auth/steps/XboxAuthorizationStep.cpp
     minecraft/auth/steps/XboxAuthorizationStep.h
     minecraft/auth/steps/XboxUserStep.cpp
@@ -386,6 +388,8 @@ set(MINECRAFT_SOURCES
     minecraft/skins/SkinModel.h
     minecraft/skins/SkinList.cpp
     minecraft/skins/SkinList.h
+    minecraft/skins/XylarSkinClient.cpp
+    minecraft/skins/XylarSkinClient.h
 
     minecraft/Agent.h)
 
@@ -864,6 +868,8 @@ SET(LAUNCHER_SOURCES
     ui/setupwizard/AutoJavaWizardPage.h
     ui/setupwizard/LoginWizardPage.cpp
     ui/setupwizard/LoginWizardPage.h
+    ui/setupwizard/XylarWelcomeWizardPage.cpp
+    ui/setupwizard/XylarWelcomeWizardPage.h
 
     # GUI - themes
     ui/themes/FusionTheme.cpp
@@ -886,13 +892,6 @@ SET(LAUNCHER_SOURCES
     ui/themes/IconTheme.h
     ui/themes/ThemeManager.cpp
     ui/themes/ThemeManager.h
-<<<<<<< HEAD
-=======
-    ui/themes/CatPack.cpp
-    ui/themes/CatPack.h
-    ui/themes/CatPainter.cpp
-    ui/themes/CatPainter.h
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
 
     # Processes
     LaunchMode.h
@@ -1110,6 +1109,9 @@ SET(LAUNCHER_SOURCES
     ui/dialogs/skins/SkinManageDialog.cpp
     ui/dialogs/skins/SkinManageDialog.h
 
+    ui/dialogs/skins/XylarSkinsPage.cpp
+    ui/dialogs/skins/XylarSkinsPage.h
+
     ui/dialogs/skins/draw/SkinOpenGLWindow.h
     ui/dialogs/skins/draw/SkinOpenGLWindow.cpp
     ui/dialogs/skins/draw/Scene.h
@@ -1276,6 +1278,7 @@ qt_wrap_ui(LAUNCHER_UI
     ui/dialogs/BlockedModsDialog.ui
     ui/dialogs/ChooseProviderDialog.ui
     ui/dialogs/skins/SkinManageDialog.ui
+    ui/dialogs/skins/XylarSkinsPage.ui
     ui/dialogs/ChooseOfflineNameDialog.ui
 )
 
@@ -1288,10 +1291,6 @@ if (NOT Apple)
 endif()
 
 qt_add_resources(LAUNCHER_RESOURCES
-<<<<<<< HEAD
-=======
-    resources/backgrounds/backgrounds.qrc
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
     resources/multimc/multimc.qrc
     resources/pe_dark/pe_dark.qrc
     resources/pe_light/pe_light.qrc
@@ -1305,10 +1304,6 @@ qt_add_resources(LAUNCHER_RESOURCES
     resources/flat_white/flat_white.qrc
     resources/documents/documents.qrc
     resources/shaders/shaders.qrc
-<<<<<<< HEAD
-=======
-    resources/themes/themes.qrc
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
     "${CMAKE_CURRENT_BINARY_DIR}/../${Launcher_Branding_LogoQRC}"
 )
 
@@ -1321,6 +1316,15 @@ qt_wrap_ui(PRISMUPDATER_UI
 ######## Windows resource files ########
 if(WIN32)
     set(LAUNCHER_RCS ${CMAKE_CURRENT_BINARY_DIR}/../${Launcher_Branding_WindowsRC})
+endif()
+
+######## Windows token broker (C++/WinRT, MSVC only) ########
+if(WIN32 AND MSVC)
+    list(APPEND LOGIC_SOURCES
+        minecraft/auth/WamBroker.cpp
+        minecraft/auth/WamBroker.h
+    )
+    set(Launcher_USE_WAM ON)
 endif()
 
 ######## Precompiled Headers ###########
@@ -1340,6 +1344,13 @@ endif()
 add_library(Launcher_logic STATIC ${LOGIC_SOURCES} ${LAUNCHER_SOURCES} ${LAUNCHER_UI} ${LAUNCHER_RESOURCES})
 target_include_directories(Launcher_logic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(Launcher_logic PUBLIC LAUNCHER_APPLICATION)
+if(Launcher_USE_WAM)
+    # only on the step, so the shared precompiled header stays the same for every target
+    set_source_files_properties(minecraft/auth/steps/MSAWamStep.cpp PROPERTIES COMPILE_DEFINITIONS XYLARJAVA_WAM)
+    target_link_libraries(Launcher_logic windowsapp)
+    # C++/WinRT headers have no precompiled header in common with the Qt sources
+    set_source_files_properties(minecraft/auth/WamBroker.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_OPTIONS "/bigobj")
+endif()
 
 if(${Launcher_USE_PCH})
     target_precompile_headers(Launcher_logic PRIVATE ${PRECOMPILED_HEADERS})
@@ -1377,6 +1388,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         gamemode
     )
 endif()
+
 
 target_link_libraries(Launcher_logic
     Qt${QT_VERSION_MAJOR}::Core
@@ -1450,7 +1462,6 @@ install(TARGETS ${Launcher_Name}
     FRAMEWORK DESTINATION ${FRAMEWORK_DEST_DIR} COMPONENT Runtime
 )
 
-<<<<<<< HEAD
 # Ship community + custom application themes next to the executable
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/community_themes/"
     DESTINATION "themes"
@@ -1458,12 +1469,24 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/community_themes/"
     PATTERN "Cat" EXCLUDE
 )
 
-=======
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
 # Deploy PDBs
 if(CMAKE_CXX_LINKER_SUPPORTS_PDB)
     install(FILES $<TARGET_PDB_FILE:${Launcher_Name}> DESTINATION ${BINARY_DEST_DIR} OPTIONAL)
 endif()
+
+# Generate/copy Windows .exe and auth-settings.ini alongside Linux build
+add_custom_command(TARGET ${Launcher_Name} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/auth-settings.ini"
+            "${PROJECT_BINARY_DIR}/auth-settings.ini"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/dist-windows/XylarJava.exe"
+            "${PROJECT_BINARY_DIR}/XylarJava.exe"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/auth-settings.ini"
+            "${CMAKE_SOURCE_DIR}/dist-windows/auth-settings.ini"
+    COMMENT "Generating Windows .exe and auth-settings.ini alongside Linux build"
+)
 
 if(Launcher_BUILD_UPDATER)
     # Updater
@@ -1579,14 +1602,23 @@ if (UNIX AND APPLE AND Launcher_ENABLE_UPDATER)
     install(DIRECTORY ${MACOSX_SPARKLE_DIR}/Sparkle.framework DESTINATION ${FRAMEWORK_DEST_DIR} USE_SOURCE_PERMISSIONS)
 endif()
 
-# Set basic compiler warning/error flags for all targets
+# Set basic compiler warning/error flags for all targets.
+# Treating warnings as errors is useful for development but breaks builds on
+# newer/other compilers that emit extra warnings in existing code, so it can be
+# turned off with -DLauncher_WARNINGS_AS_ERRORS=OFF.
+option(Launcher_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
 get_property(Launcher_TARGETS DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY BUILDSYSTEM_TARGETS)
 foreach(target ${Launcher_TARGETS})
-    message(STATUS "Enabling all warnings as errors for target '${target}'")
     if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
-        target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+        target_compile_options(${target} PRIVATE /W4 /permissive-)
+        if(Launcher_WARNINGS_AS_ERRORS)
+            target_compile_options(${target} PRIVATE /WX)
+        endif()
     else()
-        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Werror)
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Wno-error=sfinae-incomplete)
+        if(Launcher_WARNINGS_AS_ERRORS)
+            target_compile_options(${target} PRIVATE -Werror)
+        endif()
     endif()
 endforeach()
 

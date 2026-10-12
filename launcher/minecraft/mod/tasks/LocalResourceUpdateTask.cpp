@@ -21,11 +21,7 @@ LocalResourceUpdateTask::LocalResourceUpdateTask(QDir index_dir, ModPlatform::In
     if (index_dir.dirName().startsWith('.')) {
         SetFileAttributesW(wpath.c_str(), FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_NOT_CONTENT_INDEXED);
     } else {
-<<<<<<< HEAD
         // fix shaderpacks folder being hidden by PolyMC 10.0.1
-=======
-        // fix shaderpacks folder being hidden by Prism Launcher 10.0.1
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
         SetFileAttributesW(wpath.c_str(), FILE_ATTRIBUTE_NORMAL);
     }
 #endif

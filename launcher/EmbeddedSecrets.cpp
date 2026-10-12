@@ -25,18 +25,6 @@ static const char kLegacyFmlLibsUrlEnc[] = {
     0x33, 0x29, 0x37, 0x36, 0x3b, 0x2f, 0x34, 0x39, 0x32, 0x3f, 0x28, 0x74, 0x35, 0x28, 0x3d, 0x75,
     0x3c, 0x37, 0x36, 0x36, 0x33, 0x38, 0x29, 0x75,
 };
-<<<<<<< HEAD
-=======
-
-// Azure AD application (client) ID used for Microsoft/Xbox Live sign-in (MSA_CLIENT_ID fallback).
-// This is a public OAuth client identifier, not a secret credential; it is obfuscated here only
-// to match the existing convention in this file, not for security purposes.
-static const char kMsaClientIdEnc[] = {
-    0x39, 0x3c, 0x39, 0x6f, 0x3c, 0x6b, 0x39, 0x3b, 0x77, 0x68, 0x6a, 0x39, 0x6e, 0x77, 0x6e, 0x3f,
-    0x6c, 0x39, 0x77, 0x38, 0x38, 0x6b, 0x68, 0x77, 0x63, 0x6b, 0x6f, 0x6e, 0x38, 0x6a, 0x6e, 0x3b,
-    0x62, 0x6d, 0x3b, 0x6a,
-};
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
 }  // namespace
 
 QString EmbeddedSecrets::metaBaseUrl()
@@ -48,11 +36,3 @@ QString EmbeddedSecrets::legacyFmlLibsUrl()
 {
     return decode(kLegacyFmlLibsUrlEnc, static_cast<int>(sizeof(kLegacyFmlLibsUrlEnc)));
 }
-<<<<<<< HEAD
-=======
-
-QString EmbeddedSecrets::msaClientId()
-{
-    return decode(kMsaClientIdEnc, static_cast<int>(sizeof(kMsaClientIdEnc)));
-}
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe

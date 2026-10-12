@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>XylarSkinsPage</class>
+ <widget class="QDialog" name="XylarSkinsPage">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>720</width>
+    <height>540</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Skins</string>
+  </property>
+  <layout class="QVBoxLayout" name="mainVLayout">
+   <property name="spacing">
+    <number>12</number>
+   </property>
+   <property name="leftMargin">
+    <number>16</number>
+   </property>
+   <property name="topMargin">
+    <number>16</number>
+   </property>
+   <property name="rightMargin">
+    <number>16</number>
+   </property>
+   <property name="bottomMargin">
+    <number>16</number>
+   </property>
+   <item>
+    <!-- Header banner -->
+    <widget class="QFrame" name="headerFrame">
+     <property name="styleSheet">
+      <string notr="true">QFrame#headerFrame { border-radius: 10px; background-color: palette(highlight); }</string>
+     </property>
+     <layout class="QVBoxLayout" name="headerLayout">
+      <property name="leftMargin">
+       <number>14</number>
+      </property>
+      <property name="topMargin">
+       <number>10</number>
+      </property>
+      <property name="rightMargin">
+       <number>14</number>
+      </property>
+      <property name="bottomMargin">
+       <number>10</number>
+      </property>
+      <property name="spacing">
+       <number>2</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="titleLabel">
+        <property name="styleSheet">
+         <string notr="true">color: palette(highlighted-text); font-size: 16px; font-weight: bold;</string>
+        </property>
+        <property name="text">
+         <string>Your Skin</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="headerSubLabel">
+        <property name="styleSheet">
+         <string notr="true">color: palette(highlighted-text);</string>
+        </property>
+        <property name="text">
+         <string>Upload, preview and manage your Minecraft skin across XylarJava.</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <!-- Content: preview (left) + controls (right) -->
+    <layout class="QHBoxLayout" name="contentHLayout">
+     <property name="spacing">
+      <number>16</number>
+     </property>
+     <item>
+      <!-- Preview card -->
+      <widget class="QGroupBox" name="previewGroupBox">
+       <property name="title">
+        <string>Preview</string>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>240</width>
+         <height>340</height>
+        </size>
+       </property>
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <layout class="QVBoxLayout" name="previewGroupLayout">
+        <property name="spacing">
+         <number>10</number>
+        </property>
+        <item>
+         <!-- The OpenGL/2D preview is inserted here at runtime -->
+         <layout class="QVBoxLayout" name="skinPreviewLayout"/>
+        </item>
+        <item>
+         <widget class="QLabel" name="modelHintLabel">
+          <property name="text">
+           <string>Model</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignHCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="modelBtnHLayout">
+          <property name="spacing">
+           <number>8</number>
+          </property>
+          <item>
+           <widget class="QRadioButton" name="steveBtn">
+            <property name="text">
+             <string>Classic</string>
+            </property>
+            <property name="toolTip">
+             <string>Standard 4px-wide arms (Steve)</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QRadioButton" name="alexBtn">
+            <property name="text">
+             <string>Slim</string>
+            </property>
+            <property name="toolTip">
+             <string>Slim 3px-wide arms (Alex)</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <!-- Controls column -->
+      <layout class="QVBoxLayout" name="controlsVLayout">
+       <property name="spacing">
+        <number>12</number>
+       </property>
+       <item>
+        <widget class="QGroupBox" name="uploadGroupBox">
+         <property name="title">
+          <string>Upload a new skin</string>
+         </property>
+         <layout class="QVBoxLayout" name="uploadGroupLayout">
+          <property name="spacing">
+           <number>8</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="infoLabel">
+            <property name="text">
+             <string>Choose a 64×64 PNG image to use as your Minecraft skin.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="fileHLayout">
+            <property name="spacing">
+             <number>6</number>
+            </property>
+            <item>
+             <widget class="QLineEdit" name="filePathEdit">
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+              <property name="placeholderText">
+               <string>No file selected…</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="selectFileBtn">
+              <property name="text">
+               <string>Browse…</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QPushButton" name="uploadBtn">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>Upload Skin</string>
+            </property>
+            <property name="toolTip">
+             <string>Send this skin to the XylarJava skin backend</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="currentGroupBox">
+         <property name="title">
+          <string>Current skin</string>
+         </property>
+         <layout class="QVBoxLayout" name="currentGroupLayout">
+          <property name="spacing">
+           <number>8</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="currentSkinLabel">
+            <property name="text">
+             <string>Loading…</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="deleteBtn">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>Remove Skin</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="statusLabel">
+         <property name="text">
+          <string/>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="controlsBottomSpacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Close</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>XylarSkinsPage</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>400</x>
+     <y>520</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>340</x>
+     <y>520</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>XylarSkinsPage</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>400</x>
+     <y>520</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>340</x>
+     <y>520</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

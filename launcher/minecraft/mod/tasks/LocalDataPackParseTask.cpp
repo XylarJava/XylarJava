@@ -317,7 +317,7 @@ bool processPackPNG(const DataPack* pack)
             } else {
                 return png_invalid();  // pack.png does not exists or is not a valid file.
             }
-            return false;  // not processed correctly; https://github.com/PrismLauncher/PrismLauncher/issues/1740
+            return false;  // not processed correctly; https://github.com/XylarJava/XylarJava/issues/1740
         }
         case ResourceType::ZIPFILE: {
             MMCZip::ArchiveReader zip(pack->fileinfo().filePath());
@@ -332,7 +332,7 @@ bool processPackPNG(const DataPack* pack)
             if (!pack_png_result) {
                 return png_invalid();  // pack.png invalid
             }
-            return false;  // not processed correctly; https://github.com/PrismLauncher/PrismLauncher/issues/1740
+            return false;  // not processed correctly; https://github.com/XylarJava/XylarJava/issues/1740
         }
         default:
             qWarning() << "Invalid type for data pack parse task!";

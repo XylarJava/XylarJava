@@ -36,26 +36,7 @@ LauncherPartLaunch::LauncherPartLaunch(LaunchTask* parent)
 
 void LauncherPartLaunch::executeTask()
 {
-    QString jarPath = APPLICATION->getJarPath("NewLaunch.jar");
-    if (jarPath.isEmpty()) {
-        const char* reason = QT_TR_NOOP("Launcher library could not be found. Please check your installation.");
-        emit logLine(tr(reason), MessageLevel::Fatal);
-        emitFailed(tr(reason));
-        return;
-    }
-
     auto instance = m_parent->instance();
-
-    QString legacyJarPath;
-    if (instance->getLauncher() == "legacy" || instance->shouldApplyOnlineFixes()) {
-        legacyJarPath = APPLICATION->getJarPath("NewLaunchLegacy.jar");
-        if (legacyJarPath.isEmpty()) {
-            const char* reason = QT_TR_NOOP("Legacy launcher library could not be found. Please check your installation.");
-            emit logLine(tr(reason), MessageLevel::Fatal);
-            emitFailed(tr(reason));
-            return;
-        }
-    }
 
     m_launchScript = instance->createLaunchScript(m_session, m_targetToJoin);
     QStringList args = instance->javaArguments();
@@ -70,10 +51,6 @@ void LauncherPartLaunch::executeTask()
     m_process.setDetachable(true);
 
     auto classPath = instance->getClassPath();
-    classPath.prepend(jarPath);
-
-    if (!legacyJarPath.isEmpty())
-        classPath.prepend(legacyJarPath);
 
     auto natPath = instance->getNativePath();
 #ifdef Q_OS_WIN
@@ -91,7 +68,23 @@ void LauncherPartLaunch::executeTask()
 #else
     args << classPath.join(':');
 #endif
-    args << "org.prismlauncher.EntryPoint";
+
+    QString mainClass = instance->getMainClass();
+    if (mainClass.isEmpty()) {
+        mainClass = "net.minecraft.client.main.Main";
+    }
+    args << mainClass;
+
+    auto mcArgs = instance->processMinecraftArgs(m_session, m_targetToJoin);
+    if (!mcArgs.contains("--width") && !mcArgs.contains("-width")) {
+        int width = instance->settings()->get("MinecraftWinWidth").toInt();
+        int height = instance->settings()->get("MinecraftWinHeight").toInt();
+        if (width > 0 && height > 0) {
+            mcArgs << "--width" << QString::number(width);
+            mcArgs << "--height" << QString::number(height);
+        }
+    }
+    args << mcArgs;
 
     qDebug() << args.join(' ');
 
@@ -163,9 +156,7 @@ void LauncherPartLaunch::on_state(LoggedProcess::State state)
         case LoggedProcess::Running:
             emit logLine(QString("Minecraft process ID: %1\n\n").arg(m_process.processId()), MessageLevel::Launcher);
             m_parent->setPid(m_process.processId());
-            // send the launch script to the launcher part
-            m_process.write(m_launchScript.toUtf8());
-
+            m_parent->instance()->setMinecraftRunning(true);
             mayProceed = true;
             emit readyForLaunch();
             break;
@@ -183,8 +174,6 @@ void LauncherPartLaunch::proceed()
 {
     if (mayProceed) {
         m_parent->instance()->setMinecraftRunning(true);
-        QString launchString("launch\n");
-        m_process.write(launchString.toUtf8());
         mayProceed = false;
     }
 }
@@ -193,13 +182,10 @@ bool LauncherPartLaunch::abort()
 {
     if (mayProceed) {
         mayProceed = false;
-        QString launchString("abort\n");
-        m_process.write(launchString.toUtf8());
-    } else {
-        auto state = m_process.state();
-        if (state == LoggedProcess::Running || state == LoggedProcess::Starting) {
-            m_process.kill();
-        }
+    }
+    auto state = m_process.state();
+    if (state == LoggedProcess::Running || state == LoggedProcess::Starting) {
+        m_process.kill();
     }
     return true;
 }

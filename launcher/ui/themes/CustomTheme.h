@@ -29,10 +29,6 @@ class CustomTheme : public ITheme {
     QString m_styleSheet;
     QString m_name;
     QString m_id;
-<<<<<<< HEAD
-=======
-    QString m_basePath;
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
     QString m_widgets;
     QString m_qssFilePath;
     LogColors m_logColors;

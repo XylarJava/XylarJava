@@ -63,12 +63,9 @@ flatbuild
 
 # Snap
 *.snap
-<<<<<<< HEAD
 
 # Single-exe packaging artifacts
 /dist-single/
 /tools/SingleExePacker/payload.zip
 /tools/SingleExePacker/bin/
 /tools/SingleExePacker/obj/
-=======
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe

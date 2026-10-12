@@ -5,8 +5,7 @@
 #include "HintOverrideProxyStyle.h"
 #include "ThemeManager.h"
 
-// See https://github.com/MultiMC/Launcher/issues/1790
-// or https://github.com/PrismLauncher/PrismLauncher/issues/490
+// See https://github.com/XylarJava/XylarJava/issues/490
 static const QStringList S_NATIVE_STYLES{ "windows11", "windowsvista", "macos", "system", "windows" };
 
 SystemTheme::SystemTheme(const QString& styleName, const QPalette& defaultPalette, bool isDefaultTheme)

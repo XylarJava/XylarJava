@@ -122,7 +122,7 @@ void JavaListLoadTask::executeTask()
     setStatus(tr("Detecting Java installations..."));
 
     JavaUtils ju;
-    QList<QString> candidate_paths = m_only_managed_versions ? getPrismJavaBundle() : ju.FindJavaPaths();
+    QList<QString> candidate_paths = m_only_managed_versions ? getXylarJavaBundle() : ju.FindJavaPaths();
 
     ConcurrentTask::Ptr job(new ConcurrentTask("Java detection", APPLICATION->settings()->get("NumberOfConcurrentTasks").toInt()));
     m_job.reset(job);

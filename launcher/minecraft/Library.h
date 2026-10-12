@@ -117,11 +117,7 @@ class Library {
     QString getCompatibleNative(const RuntimeContext& runtimeContext) const;
 
    private: /* methods */
-<<<<<<< HEAD
     /// the default storage prefix used by PolyMC
-=======
-    /// the default storage prefix used by Prism Launcher
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
     static QString defaultStoragePrefix();
 
     /// Get the prefix - root of the storage to be used
@@ -139,7 +135,6 @@ class Library {
     /// DEPRECATED URL prefix of the maven repo where the file can be downloaded
     QString m_repositoryURL;
 
-<<<<<<< HEAD
     /// DEPRECATED: PolyMC-specific absolute URL. takes precedence over the implicit maven repo URL, if defined
     QString m_absoluteURL;
 
@@ -151,30 +146,12 @@ class Library {
 
     /**
      * PolyMC-specific type hint - modifies how the library is treated
-=======
-    /// DEPRECATED: Prism Launcher-specific absolute URL. takes precedence over the implicit maven repo URL, if defined
-    QString m_absoluteURL;
-
-    /// Prism Launcher extension - filename override
-    QString m_filename;
-
-    /// DEPRECATED Prism Launcher extension - display name
-    QString m_displayname;
-
-    /**
-     * Prism Launcher-specific type hint - modifies how the library is treated
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
      */
     QString m_hint;
 
     /**
-<<<<<<< HEAD
      * storage - by default the local libraries folder in PolyMC, but could be elsewhere
      * PolyMC specific, because of FTB.
-=======
-     * storage - by default the local libraries folder in Prism Launcher, but could be elsewhere
-     * Prism Launcher specific, because of FTB.
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
      */
     QString m_storagePrefix;
 

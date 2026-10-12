@@ -30,7 +30,6 @@ class VersionFile : public ProblemContainer {
     void applyTo(LaunchProfile* profile, const RuntimeContext& runtimeContext);
 
    public: /* data */
-<<<<<<< HEAD
     /// PolyMC: order hint for this version file if no explicit order is set
     int order = 0;
 
@@ -44,21 +43,6 @@ class VersionFile : public ProblemContainer {
     QString version;
 
     /// PolyMC: DEPRECATED dependency on a Minecraft version
-=======
-    /// Prism Launcher: order hint for this version file if no explicit order is set
-    int order = 0;
-
-    /// Prism Launcher: human readable name of this package
-    QString name;
-
-    /// Prism Launcher: package ID of this package
-    QString uid;
-
-    /// Prism Launcher: version of this package
-    QString version;
-
-    /// Prism Launcher: DEPRECATED dependency on a Minecraft version
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
     QString dependsOnMinecraftVersion;
 
     /// Mojang: DEPRECATED used to version the Mojang version format
@@ -70,21 +54,13 @@ class VersionFile : public ProblemContainer {
     /// Mojang: class to launch Minecraft with
     QString mainClass;
 
-<<<<<<< HEAD
     /// PolyMC: class to launch legacy Minecraft with (embed in a custom window)
-=======
-    /// Prism Launcher: class to launch legacy Minecraft with (embed in a custom window)
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
     QString appletClass;
 
     /// Mojang: Minecraft launch arguments (may contain placeholders for variable substitution)
     QString minecraftArguments;
 
-<<<<<<< HEAD
     /// PolyMC: Additional JVM launch arguments
-=======
-    /// Prism Launcher: Additional JVM launch arguments
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
     QStringList addnJvmArguments;
 
     /// Mojang: list of compatible java majors
@@ -105,33 +81,21 @@ class VersionFile : public ProblemContainer {
     /// Mojang: DEPRECATED asset group to be used with Minecraft
     QString assets;
 
-<<<<<<< HEAD
     /// PolyMC: list of tweaker mod arguments for launchwrapper
-=======
-    /// Prism Launcher: list of tweaker mod arguments for launchwrapper
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
     QStringList addTweakers;
 
     /// Mojang: list of libraries to add to the version
     QList<LibraryPtr> libraries;
 
-<<<<<<< HEAD
     /// PolyMC: list of maven files to put in the libraries folder, but not in classpath
     QList<LibraryPtr> mavenFiles;
 
     /// PolyMC: list of agents to add to JVM arguments
-=======
-    /// Prism Launcher: list of maven files to put in the libraries folder, but not in classpath
-    QList<LibraryPtr> mavenFiles;
-
-    /// Prism Launcher: list of agents to add to JVM arguments
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
     QList<Agent> agents;
 
     /// The main jar (Minecraft version library, normally)
     LibraryPtr mainJar;
 
-<<<<<<< HEAD
     /// PolyMC: list of attached traits of this version file - used to enable features
     QSet<QString> traits;
 
@@ -143,29 +107,12 @@ class VersionFile : public ProblemContainer {
 
     /**
      * PolyMC: set of packages this depends on
-=======
-    /// Prism Launcher: list of attached traits of this version file - used to enable features
-    QSet<QString> traits;
-
-    /// Prism Launcher: list of jar mods added to this version
-    QList<LibraryPtr> jarMods;
-
-    /// Prism Launcher: list of mods added to this version
-    QList<LibraryPtr> mods;
-
-    /**
-     * Prism Launcher: set of packages this depends on
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
      * NOTE: this is shared with the meta format!!!
      */
     Meta::RequireSet m_requires;
 
     /**
-<<<<<<< HEAD
      * PolyMC: set of packages this conflicts with
-=======
-     * Prism Launcher: set of packages this conflicts with
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
      * NOTE: this is shared with the meta format!!!
      */
     Meta::RequireSet conflicts;

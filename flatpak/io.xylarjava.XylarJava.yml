@@ -29,7 +29,7 @@ modules:
     config-opts:
       - -DLauncher_BUILD_PLATFORM=flatpak
       - -DLauncher_ENABLE_JAVA_DOWNLOADER=ON
-      - -DLauncher_MSA_CLIENT_ID=273f0e9f-05a2-4132-9a03-7dd3e69057d4
+      - -DLauncher_MSA_CLIENT_ID=cfc5f1ca-20c4-4e6c-bb12-9154b04a87a0
       - -DCMAKE_BUILD_TYPE=RelWithDebInfo
       - -DLauncher_BUILD_UPDATER=OFF
     build-options:

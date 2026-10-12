@@ -43,6 +43,7 @@ class LogModel;
 
 struct MinecraftTarget;
 class MinecraftAccount;
+class XylarSkinClient;
 
 namespace Meta {
 class Index;
@@ -132,6 +133,9 @@ class Application : public QApplication {
     QString getModrinthAPIToken();
     QString getUserAgent();
 
+    XylarSkinClient* skinClient() const { return m_skinClient; }
+    void initSkinClient();
+
     /// this is the root of the 'installation'. Used for automatic updates
     const QString& root() { return m_rootPath; }
 
@@ -169,10 +173,6 @@ class Application : public QApplication {
     void updateAllowedChanged(bool status);
     void globalSettingsAboutToOpen();
     void globalSettingsApplied();
-<<<<<<< HEAD
-=======
-    int currentCatChanged(int index);
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
 
     void oauthReplyRecieved(QVariantMap);
 
@@ -232,6 +232,7 @@ class Application : public QApplication {
     std::unique_ptr<MCEditTool> m_mcedit;
     QSet<QString> m_features;
     std::unique_ptr<ThemeManager> m_themeManager;
+    XylarSkinClient* m_skinClient = nullptr;
 
     QMap<QString, std::shared_ptr<BaseProfilerFactory>> m_profilers;
 

@@ -1,4 +1,5 @@
 #include "MinecraftInstance.h"
+#include <QFile>
 #include "Application.h"
 #include "BuildConfig.h"
 #include "Json.h"
@@ -536,7 +537,17 @@ QStringList MinecraftInstance::javaArguments()
     args << "-Duser.language=en";
     args << "-Dminecraft.api.auth.host=https://nope.invalid";
     args << "-Dminecraft.api.account.host=https://nope.invalid";
-    args << "-Dminecraft.api.session.host=https://nope.invalid";
+
+    QString skinBackendUrl = APPLICATION->settings()->get("XylarSkinBackendUrl").toString().trimmed();
+    QString injectorJar = APPLICATION->getJarPath("authlib-injector.jar");
+    if (!skinBackendUrl.isEmpty() && !injectorJar.isEmpty() && QFile::exists(injectorJar)) {
+#ifdef Q_OS_WIN
+        injectorJar = FS::getPathNameInLocal8bit(injectorJar);
+#endif
+        args << QString("-javaagent:%1=%2").arg(injectorJar, skinBackendUrl);
+    } else {
+        args << "-Dminecraft.api.session.host=https://nope.invalid";
+    }
     args << "-Dminecraft.api.services.host=https://nope.invalid";
 
     // custom args go first. we want to override them if we have our own here.
@@ -706,6 +717,10 @@ QProcessEnvironment MinecraftInstance::createLaunchEnvironment()
         env.insert("MESA_LOADER_DRIVER_OVERRIDE", "zink");
         env.insert("GALLIUM_DRIVER", "zink");
         env.insert("LIBGL_KOPPER_DRI2", "1");
+    }
+
+    if (!env.contains("mesa_glthread")) {
+        env.insert("mesa_glthread", "true");
     }
 #endif
     return env;

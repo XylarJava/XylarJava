@@ -40,6 +40,7 @@ class AccountListPage : public QMainWindow, public BasePage {
     void on_actionSetDefault_triggered();
     void on_actionNoDefault_triggered();
     void on_actionManageSkins_triggered();
+    void on_actionXylarSkins_triggered();
     void on_actionMoveUp_triggered();
     void on_actionMoveDown_triggered();
 

@@ -20,7 +20,6 @@ QString buildIdentityToken(const QString& uhs, const QString& xToken)
 
 QString parseMinecraftAuthError(const QByteArray& response)
 {
-<<<<<<< HEAD
     // Retries can concatenate bodies; take the first JSON object.
     const int start = response.indexOf('{');
     const int end = response.indexOf('}', start);
@@ -28,10 +27,6 @@ QString parseMinecraftAuthError(const QByteArray& response)
 
     QJsonParseError jsonError;
     const QJsonDocument doc = QJsonDocument::fromJson(slice, &jsonError);
-=======
-    QJsonParseError jsonError;
-    const QJsonDocument doc = QJsonDocument::fromJson(response, &jsonError);
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
     if (jsonError.error != QJsonParseError::NoError || !doc.isObject()) {
         return {};
     }
@@ -57,10 +52,7 @@ QString LauncherLoginStep::describe()
 
 void LauncherLoginStep::perform()
 {
-<<<<<<< HEAD
     // Custom Azure apps must use login_with_xbox. /launcher/login is partner-only.
-=======
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
     startRequest(APPLICATION->useMSALauncherLoginEndpoint());
 }
 
@@ -97,11 +89,7 @@ void LauncherLoginStep::startRequest(bool useLauncherEndpoint)
     auto [request, response] = Net::Upload::makeByteArray(url, requestBody);
     m_request = request;
     m_request->addHeaderProxy(std::make_unique<Net::RawHeaderProxy>(headers));
-<<<<<<< HEAD
     m_request->enableAutoRetry(false);  // avoid duplicating 403 bodies
-=======
-    m_request->enableAutoRetry(true);
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
 
     m_task.reset(new NetJob("LauncherLoginStep", APPLICATION->network()));
     m_task->setAskRetry(false);
@@ -121,7 +109,6 @@ void LauncherLoginStep::onRequestDone(QByteArray* response)
         const int status = m_request->replyStatusCode();
         const QString apiError = parseMinecraftAuthError(*response);
 
-<<<<<<< HEAD
         if (status == 403 && !m_triedFallback) {
             m_triedFallback = true;
             const bool nextUseLauncher = !m_useLauncherEndpoint;
@@ -131,33 +118,20 @@ void LauncherLoginStep::onRequestDone(QByteArray* response)
             // Keep the first/more specific API error for the final message if the fallback also fails.
             m_firstApiError = apiError;
             startRequest(nextUseLauncher);
-=======
-        if (status == 403 && !m_useLauncherEndpoint && !m_triedFallback) {
-            m_triedFallback = true;
-            qWarning() << "login_with_xbox returned 403, retrying with launcher/login endpoint";
-            startRequest(true);
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
             return;
         }
 
         qWarning() << "Reply error:" << m_request->error() << "HTTP" << status << apiError;
 
-<<<<<<< HEAD
         const QString shownError = !m_firstApiError.isEmpty() ? m_firstApiError : apiError;
 
         QString message = tr("Failed to get Minecraft access token");
         if (!shownError.isEmpty()) {
             message += QStringLiteral(": %1").arg(shownError);
-=======
-        QString message = tr("Failed to get Minecraft access token");
-        if (!apiError.isEmpty()) {
-            message += QStringLiteral(": %1").arg(apiError);
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
         } else {
             message += QStringLiteral(": %1").arg(m_request->errorString());
         }
 
-<<<<<<< HEAD
         if (status == 403 || shownError.contains(QStringLiteral("Invalid app registration"), Qt::CaseInsensitive)) {
             message += QStringLiteral("\n\n%1").arg(
                 tr("This is NOT blocked by XylarJava.\n"
@@ -169,12 +143,6 @@ void LauncherLoginStep::onRequestDone(QByteArray* response)
                    "Info: https://aka.ms/AppRegInfo\n\n"
                    "Until Microsoft approves App ID %1, no launcher can make this custom client ID work.")
                     .arg(APPLICATION->getMSAClientID()));
-=======
-        if (status == 403) {
-            message += QStringLiteral("\n\n%1")
-                            .arg(tr("This usually means the Microsoft account does not own Minecraft Java Edition, "
-                                    "or the Azure client ID in auth-settings.ini is not authorized for Minecraft login."));
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
         }
 
         if (Net::isApplicationError(m_request->error())) {

@@ -17,11 +17,7 @@ class Setting : public QObject {
      * Construct a Setting
      *
      * Synonyms are all the possible names used in the settings object, in order of preference.
-<<<<<<< HEAD
      * First synonym is the ID, which identifies the setting in PolyMC.
-=======
-     * First synonym is the ID, which identifies the setting in Prism Launcher.
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
      *
      * defVal is the default value that will be returned when the settings object
      * doesn't have any value for this setting.

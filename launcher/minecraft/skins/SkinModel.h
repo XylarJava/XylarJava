@@ -11,7 +11,11 @@ class SkinModel {
     SkinModel() = default;
     SkinModel(QString path);
     SkinModel(QDir skinDir, QJsonObject obj);
+    SkinModel(const QImage& texture, Model model = CLASSIC);
     virtual ~SkinModel() = default;
+
+    static QImage defaultSteveTexture();
+    static QImage defaultAlexTexture();
 
     QString name() const;
     QString getModelString() const;
@@ -26,6 +30,7 @@ class SkinModel {
     bool rename(QString newName);
     void setCapeId(QString capeID) { m_capeId = capeID; }
     void setModel(Model model);
+    void setTexture(const QImage& texture);
     void setURL(QString url) { m_url = url; }
     void refresh();
 

@@ -13,7 +13,6 @@ CustomTheme::CustomTheme(ITheme* baseTheme, QFileInfo& fileInfo, bool isManifest
     if (isManifest) {
         m_id = fileInfo.dir().dirName();
 
-<<<<<<< HEAD
         QString path = FS::PathCombine("themes", m_id);
         QString pathResources = FS::PathCombine("themes", m_id, "resources");
 
@@ -24,26 +23,6 @@ CustomTheme::CustomTheme(ITheme* baseTheme, QFileInfo& fileInfo, bool isManifest
 
         if (!FS::ensureFolderPathExists(pathResources)) {
             themeWarningLog() << "Resources directory for" << m_id << "could not be created";
-=======
-        // Resolve the theme's base directory from the actual fileInfo we were given, rather than
-        // always assuming an on-disk "themes/<id>" folder relative to the working directory. This
-        // makes it possible to load manifest themes bundled as Qt resources (":/themes/<id>/...")
-        // in addition to themes installed on disk in the user's themes folder.
-        QString path = fileInfo.dir().path();
-        m_basePath = path;
-        QString pathResources = FS::PathCombine(path, "resources");
-
-        const bool isBundledResource = path.startsWith(":/");
-        if (!isBundledResource) {
-            if (!FS::ensureFolderPathExists(path)) {
-                themeWarningLog() << "Theme directory for" << m_id << "could not be created. This theme might be invalid";
-                return;
-            }
-
-            if (!FS::ensureFolderPathExists(pathResources)) {
-                themeWarningLog() << "Resources directory for" << m_id << "could not be created";
-            }
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
         }
 
         auto themeFilePath = FS::PathCombine(path, themeFile);
@@ -105,14 +84,7 @@ CustomTheme::CustomTheme(ITheme* baseTheme, QFileInfo& fileInfo, bool isManifest
 
 QStringList CustomTheme::searchPaths()
 {
-<<<<<<< HEAD
     QString pathResources = FS::PathCombine("themes", m_id, "resources");
-=======
-    if (m_basePath.isEmpty())
-        return {};
-
-    QString pathResources = FS::PathCombine(m_basePath, "resources");
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
     if (QFileInfo::exists(pathResources))
         return { pathResources };
 

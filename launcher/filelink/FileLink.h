@@ -12,7 +12,7 @@
 #include <QUrl>
 #include <memory>
 
-#define PRISM_EXTERNAL_EXE
+#define XYLAR_EXTERNAL_EXE
 #include "FileSystem.h"
 
 class FileLinkApp : public QCoreApplication {

@@ -8,6 +8,7 @@
 #include "minecraft/auth/steps/LauncherLoginStep.h"
 #include "minecraft/auth/steps/MSADeviceCodeStep.h"
 #include "minecraft/auth/steps/MSAStep.h"
+#include "minecraft/auth/steps/MSAWamStep.h"
 #include "minecraft/auth/steps/MinecraftProfileStep.h"
 #include "minecraft/auth/steps/XboxAuthorizationStep.h"
 #include "minecraft/auth/steps/XboxUserStep.h"
@@ -26,8 +27,9 @@ AuthFlow::AuthFlow(AccountData* data, Action action) : Task(), m_data(data)
             connect(this, &Task::aborted, oauthStep.get(), &MSADeviceCodeStep::abort);
             m_steps.append(oauthStep);
         } else {
-            auto oauthStep = makeShared<MSAStep>(m_data, action == Action::Refresh);
-            connect(oauthStep.get(), &MSAStep::authorizeWithBrowser, this, &AuthFlow::authorizeWithBrowser);
+            // Windows token broker first, the browser sign-in when it is not available
+            auto oauthStep = makeShared<MSAWamStep>(m_data, action == Action::Refresh);
+            connect(oauthStep.get(), &MSAWamStep::authorizeWithBrowser, this, &AuthFlow::authorizeWithBrowser);
             m_steps.append(oauthStep);
         }
         m_steps.append(makeShared<XboxUserStep>(m_data));

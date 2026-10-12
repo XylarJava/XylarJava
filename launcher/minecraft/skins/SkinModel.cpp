@@ -37,7 +37,7 @@ static QImage improveSkin(QImage skin)
         return skin;
     }
     // It seems some older skins may use this format, which can't be drawn onto
-    // https://github.com/PrismLauncher/PrismLauncher/issues/4032
+    // https://github.com/XylarJava/XylarJava/issues/4032
     // https://doc.qt.io/qt-6/qpainter.html#begin
     if (skin.format() <= QImage::Format_Indexed8 || !skin.hasAlphaChannel()) {
         skin = skin.convertToFormat(QImage::Format_ARGB32);
@@ -212,3 +212,72 @@ void SkinModel::setModel(Model model)
     m_model = model;
     m_preview = generatePreviews(m_texture, m_model == Model::SLIM);
 }
+
+SkinModel::SkinModel(const QImage& texture, Model model)
+    : m_model(model)
+{
+    setTexture(texture);
+}
+
+void SkinModel::setTexture(const QImage& texture)
+{
+    m_texture = improveSkin(texture);
+    m_preview = generatePreviews(m_texture, m_model == Model::SLIM);
+}
+
+QImage SkinModel::defaultSteveTexture()
+{
+    QImage img(64, 64, QImage::Format_ARGB32);
+    img.fill(Qt::transparent);
+    QPainter p(&img);
+    // Head: 8x8 at (8,8)
+    p.fillRect(QRect(8, 8, 8, 8), QColor(0xbc, 0x8b, 0x68));
+    p.fillRect(QRect(8, 8, 8, 3), QColor(0x4a, 0x32, 0x1d));
+    p.fillRect(QRect(10, 12, 1, 1), QColor(0x2c, 0x35, 0x7d));
+    p.fillRect(QRect(13, 12, 1, 1), QColor(0x2c, 0x35, 0x7d));
+    // Torso: 8x12 at (20, 20)
+    p.fillRect(QRect(20, 20, 8, 12), QColor(0x00, 0x93, 0x9c));
+    // Right arm: 4x12 at (44, 20)
+    p.fillRect(QRect(44, 20, 4, 4), QColor(0x00, 0x93, 0x9c));
+    p.fillRect(QRect(44, 24, 4, 8), QColor(0xbc, 0x8b, 0x68));
+    // Left arm: 4x12 at (36, 52)
+    p.fillRect(QRect(36, 52, 4, 4), QColor(0x00, 0x93, 0x9c));
+    p.fillRect(QRect(36, 56, 4, 8), QColor(0xbc, 0x8b, 0x68));
+    // Right leg: 4x12 at (4, 20)
+    p.fillRect(QRect(4, 20, 4, 10), QColor(0x2a, 0x3c, 0x7c));
+    p.fillRect(QRect(4, 30, 4, 2), QColor(0x35, 0x35, 0x35));
+    // Left leg: 4x12 at (20, 52)
+    p.fillRect(QRect(20, 52, 4, 10), QColor(0x2a, 0x3c, 0x7c));
+    p.fillRect(QRect(20, 62, 4, 2), QColor(0x35, 0x35, 0x35));
+    p.end();
+    return improveSkin(img);
+}
+
+QImage SkinModel::defaultAlexTexture()
+{
+    QImage img(64, 64, QImage::Format_ARGB32);
+    img.fill(Qt::transparent);
+    QPainter p(&img);
+    // Head: 8x8 at (8,8)
+    p.fillRect(QRect(8, 8, 8, 8), QColor(0xda, 0xa3, 0x7c));
+    p.fillRect(QRect(8, 8, 8, 3), QColor(0xab, 0x57, 0x22));
+    p.fillRect(QRect(10, 12, 1, 1), QColor(0x2c, 0x6b, 0x35));
+    p.fillRect(QRect(13, 12, 1, 1), QColor(0x2c, 0x6b, 0x35));
+    // Torso: 8x12 at (20, 20)
+    p.fillRect(QRect(20, 20, 8, 12), QColor(0x55, 0x74, 0x3b));
+    // Right arm (slim 3x12) at (44, 20)
+    p.fillRect(QRect(44, 20, 3, 4), QColor(0x55, 0x74, 0x3b));
+    p.fillRect(QRect(44, 24, 3, 8), QColor(0xda, 0xa3, 0x7c));
+    // Left arm (slim 3x12) at (36, 52)
+    p.fillRect(QRect(36, 52, 3, 4), QColor(0x55, 0x74, 0x3b));
+    p.fillRect(QRect(36, 56, 3, 8), QColor(0xda, 0xa3, 0x7c));
+    // Right leg: 4x12 at (4, 20)
+    p.fillRect(QRect(4, 20, 4, 10), QColor(0x52, 0x40, 0x2b));
+    p.fillRect(QRect(4, 30, 4, 2), QColor(0x3c, 0x30, 0x24));
+    // Left leg: 4x12 at (20, 52)
+    p.fillRect(QRect(20, 52, 4, 10), QColor(0x52, 0x40, 0x2b));
+    p.fillRect(QRect(20, 62, 4, 2), QColor(0x3c, 0x30, 0x24));
+    p.end();
+    return improveSkin(img);
+}
+

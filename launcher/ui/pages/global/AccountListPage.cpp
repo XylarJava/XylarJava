@@ -1,5 +1,6 @@
 #include "AccountListPage.h"
 #include "ui/dialogs/skins/SkinManageDialog.h"
+#include "ui/dialogs/skins/XylarSkinsPage.h"
 #include "ui_AccountListPage.h"
 
 #include <QItemSelectionModel>
@@ -197,6 +198,8 @@ void AccountListPage::updateButtonStates()
     ui->actionRemove->setEnabled(accountIsReady);
     ui->actionSetDefault->setEnabled(accountIsReady);
     ui->actionManageSkins->setEnabled(accountIsReady && accountIsOnline);
+    // XylarSkins works for both online and offline accounts
+    ui->actionXylarSkins->setEnabled(accountIsReady);
     ui->actionRefresh->setEnabled(accountIsReady && accountIsOnline);
 
     if (m_accounts->defaultAccount().get() == nullptr) {
@@ -237,5 +240,16 @@ void AccountListPage::on_actionMoveDown_triggered()
     if (selection.size() > 0) {
         QModelIndex selected = selection.first();
         m_accounts->moveAccount(selected, 1);
+    }
+}
+
+void AccountListPage::on_actionXylarSkins_triggered()
+{
+    QModelIndexList selection = ui->listView->selectionModel()->selectedIndexes();
+    if (selection.size() > 0) {
+        QModelIndex selected = selection.first();
+        MinecraftAccountPtr account = selected.data(AccountList::PointerRole).value<MinecraftAccountPtr>();
+        XylarSkinsPage dialog(this, account);
+        dialog.exec();
     }
 }

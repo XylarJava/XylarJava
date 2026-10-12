@@ -76,6 +76,9 @@ Config::Config()
     LOGIN_CALLBACK_URL = "@Launcher_LOGIN_CALLBACK_URL@";
     IMGUR_CLIENT_ID = "@Launcher_IMGUR_CLIENT_ID@";
     MSA_CLIENT_ID = "@Launcher_MSA_CLIENT_ID@";
+    if (MSA_CLIENT_ID.isEmpty()) {
+        MSA_CLIENT_ID = "cfc5f1ca-20c4-4e6c-bb12-9154b04a87a0";
+    }
     FLAME_API_KEY = "@Launcher_CURSEFORGE_API_KEY@";
     META_URL = "@Launcher_META_URL@";
     LEGACY_FMLLIBS_BASE_URL = "@Launcher_LEGACY_FMLLIBS_BASE_URL@";
@@ -100,14 +103,9 @@ QString Config::printableVersionString() const
 {
     QString vstr = versionString();
 
-<<<<<<< HEAD
     // Never append branch names like "main" to the displayed version.
     // Only keep an explicit release channel when it is not a git branch name.
     if (VERSION_CHANNEL != "stable" && VERSION_CHANNEL != "main" && VERSION_CHANNEL != "master" && GIT_TAG != vstr) {
-=======
-    // If the build is not a main release, append the channel
-    if (VERSION_CHANNEL != "stable" && GIT_TAG != vstr) {
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
         vstr += "-" + VERSION_CHANNEL;
     }
     return vstr;

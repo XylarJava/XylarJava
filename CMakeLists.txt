@@ -139,7 +139,7 @@ if (DEBUG_ADDRESS_SANITIZER)
 endif()
 
 
-option(ENABLE_LTO "Enable Link Time Optimization" off)
+option(ENABLE_LTO "Enable Link Time Optimization" on)
 
 if(ENABLE_LTO)
     include(CheckIPOSupported)
@@ -264,16 +264,15 @@ endif()
 
 # By using this key in your builds you accept the terms of use laid down in
 # https://docs.microsoft.com/en-us/legal/microsoft-identity-platform/terms-of-use
-<<<<<<< HEAD
-set(Launcher_MSA_CLIENT_ID "273f0e9f-05a2-4132-9a03-7dd3e69057d4" CACHE STRING "Client ID for Microsoft Authentication (prefer auth-settings.ini at runtime)")
-=======
-set(Launcher_MSA_CLIENT_ID "" CACHE STRING "Client ID for Microsoft Authentication (prefer auth-settings.ini at runtime)")
->>>>>>> bbd42f92ed29e2e874cb4182999b18155dd83efe
+set(Launcher_MSA_CLIENT_ID "cfc5f1ca-20c4-4e6c-bb12-9154b04a87a0" CACHE STRING "Client ID for Microsoft Authentication (prefer auth-settings.ini at runtime)")
+if (Launcher_MSA_CLIENT_ID STREQUAL "" OR Launcher_MSA_CLIENT_ID STREQUAL "273f0e9f-05a2-4132-9a03-7dd3e69057d4")
+    set(Launcher_MSA_CLIENT_ID "cfc5f1ca-20c4-4e6c-bb12-9154b04a87a0" CACHE STRING "Client ID for Microsoft Authentication (prefer auth-settings.ini at runtime)" FORCE)
+endif()
 
 # By using this key in your builds you accept the terms and conditions laid down in
 # https://support.curseforge.com/en/support/solutions/articles/9000207405-curse-forge-3rd-party-api-terms-and-conditions
 # NOTE: CurseForge requires you to change this if you make any kind of derivative work.
-# This key was issued specifically for Prism Launcher
+# This key was issued specifically for XylarJava
 set(Launcher_CURSEFORGE_API_KEY "$2a$10$wuAJuNZuted3NORVmpgUC.m8sI.pv1tOPKZyBgLFGjxFp/br0lZCC" CACHE STRING "API key for the CurseForge platform")
 
 set(Launcher_COMPILER_NAME ${CMAKE_CXX_COMPILER_ID})
@@ -492,6 +491,20 @@ elseif(WIN32)
     set(JARS_DEST_DIR "jars")
 else()
     message(FATAL_ERROR "Platform not supported")
+endif()
+
+# Bundle the authlib-injector agent so offline skin injection works in packaged
+# builds (not just when running from the build tree). getJarPath() looks for
+# "authlib-injector.jar" under the jars/ directory next to the executable.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/jars/authlib-injector.jar")
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/jars/authlib-injector.jar" DESTINATION ${JARS_DEST_DIR})
+endif()
+
+# Bundle all community themes next to the executable so they ship with the
+# launcher. ThemeManager::installBundledThemes() copies them from "<appdir>/themes"
+# into the user theme folder on first run.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/themes")
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/themes" DESTINATION "${BINARY_DEST_DIR}")
 endif()
 
 
