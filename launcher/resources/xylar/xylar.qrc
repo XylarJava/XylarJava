@@ -1,0 +1,13 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/xylar">
+        <file>check.png</file>
+        <file>check@2x.png</file>
+        <file>radio.png</file>
+        <file>radio@2x.png</file>
+        <file>arrow-down.png</file>
+        <file>arrow-down@2x.png</file>
+        <file>arrow-up.png</file>
+        <file>arrow-up@2x.png</file>
+    </qresource>
+</RCC>
