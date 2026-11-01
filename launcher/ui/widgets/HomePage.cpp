@@ -448,6 +448,10 @@ void HomePage::leaveEvent(QEvent* event)
 void HomePage::resizeEvent(QResizeEvent* event)
 {
     QWidget::resizeEvent(event);
+    // Let the character grow on big windows instead of staying a fixed size.
+    const int skinHeight = qBound(220, int(height() * 0.45), 460);
+    m_skin->setMaximumHeight(skinHeight);
+    m_playerPanel->setFixedWidth(qBound(220, int(skinHeight * 0.8), 320));
     m_backdropDirty = true;
     update();
 }
