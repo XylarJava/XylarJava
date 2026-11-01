@@ -221,6 +221,7 @@ class MainWindow : public QMainWindow {
     Page m_currentPage = Page::Home;
     bool m_instanceToolBarWanted = true;
     bool m_pageChromeReady = false;
+    QString m_appliedChromeStyle;
 
     BaseInstance* m_selectedInstance = nullptr;
     QString m_currentInstIcon;

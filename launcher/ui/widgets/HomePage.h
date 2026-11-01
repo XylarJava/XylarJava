@@ -38,6 +38,12 @@ class HomePage : public QWidget {
     /// Optional menu with extra launch options (e.g. "Launch offline"), shown by the arrow next to Play.
     void setLaunchMenu(QMenu* menu);
 
+    /// Accent colour for a palette: the highlight colour, or a readable fallback when a
+    /// theme's highlight is too close to its window colour.
+    static QColor accentFor(const QPalette& palette);
+    /// Black or white, whichever reads better on the given background.
+    static QColor textOn(const QColor& background);
+
    signals:
     void playRequested();
     void stopRequested();

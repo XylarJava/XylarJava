@@ -455,8 +455,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
 
 void MainWindow::applyXylarBranding()
 {
-    // Theme-aware styling for the main window chrome. Everything is expressed
-    // through palette() roles so it follows the active built-in or community theme.
+    // Theme-aware styling for the main window chrome. Colours come from the active
+    // palette so it follows the built-in or community theme in use. The accent is
+    // picked for readability, since some themes use a highlight close to the background.
+    const QColor accent = HomePage::accentFor(palette());
+    const QColor accentText = HomePage::textOn(accent);
     const QString style = QStringLiteral(
         // Top navigation bar: roomy and flat.
         "QToolBar#mainToolBar { padding: 6px 12px; spacing: 6px; border: none;"
@@ -464,19 +467,25 @@ void MainWindow::applyXylarBranding()
         "QToolBar::separator { background: palette(mid); width: 1px; height: 1px; margin: 6px 8px; }"
         "QToolBar QToolButton { border-radius: 8px; padding: 6px 10px; }"
         "QToolBar QToolButton:hover { background-color: palette(button); }"
-        "QToolBar QToolButton:pressed { background-color: palette(highlight); color: palette(highlighted-text); }"
+        "QToolBar QToolButton:pressed { background-color: %1; color: %2; }"
         // Navigation tabs: bold text with an accent underline when active.
         "QToolButton#navButton { font-weight: 700; padding: 6px 14px; border-radius: 0;"
         " border-bottom: 2px solid transparent; }"
         "QToolButton#navButton:hover { background: transparent; border-bottom-color: palette(mid); }"
-        "QToolButton#navButton:checked { background: transparent; color: palette(highlight);"
-        " border-bottom-color: palette(highlight); }"
+        "QToolButton#navButton:checked { background: transparent; color: %1;"
+        " border-bottom-color: %1; }"
         // Instance toolbar keeps regular rounded buttons.
         "QToolBar#instanceToolBar { padding: 6px; spacing: 4px; border: none; border-left: 1px solid palette(mid); }"
-        "QToolBar#instanceToolBar QToolButton:checked { background-color: palette(highlight); color: palette(highlighted-text); }"
+        "QToolBar#instanceToolBar QToolButton:checked { background-color: %1; color: %2; }"
         "QToolBar#newsToolBar { padding: 2px 12px; border: none; }"
         // Status bar sits a touch quieter than the main surface.
-        "QStatusBar QLabel { padding: 0 6px; }");
+        "QStatusBar QLabel { padding: 0 6px; }")
+                              .arg(accent.name(), accentText.name());
+
+    // Only re-apply when something changed, so palette notifications can never loop.
+    if (style == m_appliedChromeStyle)
+        return;
+    m_appliedChromeStyle = style;
 
     // Apply only to the toolbars and status bar so the rest of the application
     // (settings pages, dialogs and the custom instance view) keeps its own look.
@@ -1701,6 +1710,8 @@ void MainWindow::changeEvent(QEvent* event)
 {
     if (event->type() == QEvent::LanguageChange) {
         retranslateUi();
+    } else if (event->type() == QEvent::PaletteChange) {
+        applyXylarBranding();
     }
     QMainWindow::changeEvent(event);
 }

@@ -14,6 +14,8 @@
 #include <QVBoxLayout>
 #include <QtMath>
 
+#include <cmath>
+
 #include "BuildConfig.h"
 
 namespace {
@@ -28,6 +30,20 @@ QColor mix(const QColor& a, const QColor& b, qreal t)
 QString rgba(const QColor& c, int alpha)
 {
     return QStringLiteral("rgba(%1, %2, %3, %4)").arg(c.red()).arg(c.green()).arg(c.blue()).arg(alpha);
+}
+
+// WCAG relative luminance and contrast ratio.
+qreal luminance(const QColor& c)
+{
+    auto channel = [](qreal v) { return v <= 0.03928 ? v / 12.92 : std::pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * channel(qreal(c.redF())) + 0.7152 * channel(qreal(c.greenF())) + 0.0722 * channel(qreal(c.blueF()));
+}
+
+qreal contrast(const QColor& a, const QColor& b)
+{
+    const qreal la = luminance(a);
+    const qreal lb = luminance(b);
+    return (qMax(la, lb) + 0.05) / (qMin(la, lb) + 0.05);
 }
 
 // Small deterministic PRNG so the scenery looks the same on every repaint.
@@ -224,6 +240,24 @@ void HomePage::setLaunchMenu(QMenu* menu)
     updateCardStyle();
 }
 
+QColor HomePage::accentFor(const QPalette& pal)
+{
+    const QColor bg = pal.color(QPalette::Window);
+    const QColor candidates[] = { pal.color(QPalette::Highlight), pal.color(QPalette::Link), pal.color(QPalette::WindowText) };
+    for (const QColor& candidate : candidates) {
+        if (contrast(candidate, bg) >= 2.2)
+            return candidate;
+    }
+    return pal.color(QPalette::WindowText);
+}
+
+QColor HomePage::textOn(const QColor& background)
+{
+    const QColor black(0x10, 0x10, 0x10);
+    const QColor white(0xFF, 0xFF, 0xFF);
+    return contrast(black, background) >= contrast(white, background) ? black : white;
+}
+
 void HomePage::updateCardStyle()
 {
     if (m_updatingStyle)
@@ -233,8 +267,8 @@ void HomePage::updateCardStyle()
     const QPalette pal = palette();
     const QColor bg = pal.color(QPalette::Window);
     const QColor fg = pal.color(QPalette::WindowText);
-    const QColor accent = pal.color(QPalette::Highlight);
-    const QColor accentText = pal.color(QPalette::HighlightedText);
+    const QColor accent = accentFor(pal);
+    const QColor accentText = textOn(accent);
     const QColor muted = mix(fg, bg, 0.4);
     const QColor border = mix(bg, fg, 0.15);
     const bool splitPlay = m_playMenuButton->menu() != nullptr;
@@ -341,7 +375,7 @@ void HomePage::paintScenery(QPainter& painter)
 
     const QPalette pal = palette();
     const QColor bg = pal.color(QPalette::Window);
-    const QColor accent = pal.color(QPalette::Highlight);
+    const QColor accent = accentFor(pal);
     const QColor fg = pal.color(QPalette::WindowText);
     const bool darkTheme = bg.lightnessF() < 0.5f;
 
