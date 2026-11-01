@@ -34,6 +34,7 @@
 #include <QToolButton>
 #include <QWidget>
 #include <QWidgetAction>
+#include <QDateTime>
 #include <algorithm>
 #include <memory>
 
@@ -365,7 +366,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         m_sideBar = new SideBar(ui->centralWidget);
         m_sideBar->setLogo(APPLICATION->logo(), BuildConfig.LAUNCHER_DISPLAYNAME);
         m_sideBar->addPage(QIcon::fromTheme(QStringLiteral("launch")), QString());
-        m_sideBar->addPage(QIcon::fromTheme(QStringLiteral("instance-settings")), QString());
+        m_sideBar->addPage(QIcon::fromTheme(QStringLiteral("minecraft")), QString());
         m_sideBar->addPage(QIcon::fromTheme(QStringLiteral("settings")), QString());
         m_sideBar->addActionButton(ui->actionFoldersButton);
         if (qgetenv("XDG_CURRENT_DESKTOP") == "gamescope")
@@ -386,6 +387,24 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         connect(m_homePage, &HomePage::createInstanceRequested, this, &MainWindow::on_actionAddInstance_triggered);
         connect(m_homePage, &HomePage::manageInstancesRequested, this, [this] { switchToPage(Page::Instances); });
         connect(m_homePage, &HomePage::manageAccountsRequested, this, &MainWindow::on_actionManageAccounts_triggered);
+        connect(m_homePage, &HomePage::playInstanceRequested, this, [this](const QString& id) {
+            if (auto instance = instanceById(id)) {
+                setSelectedInstanceById(id);
+                APPLICATION->launch(instance);
+            }
+        });
+        connect(m_homePage, &HomePage::stopInstanceRequested, this, [this](const QString& id) {
+            if (auto instance = instanceById(id); instance && instance->isRunning()) {
+                setSelectedInstanceById(id);
+                on_actionKillInstance_triggered();
+            }
+        });
+        connect(m_homePage, &HomePage::editInstanceRequested, this, [this](const QString& id) {
+            if (instanceById(id)) {
+                setSelectedInstanceById(id);
+                on_actionEditInstance_triggered();
+            }
+        });
 
         // Keep the Home screen in sync when instances are added, removed or reloaded.
         connect(APPLICATION->instances(), &InstanceList::rowsInserted, this, [this] { updateHomePage(); });
@@ -468,6 +487,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     // GitHub release updater
     m_updater = new XylarUpdater(this, this);
+    m_homePage->setVersionInfo(XylarUpdater::currentVersion(), QString());
+    connect(m_homePage, &HomePage::checkUpdatesRequested, this, [this] { m_updater->checkForUpdates(true); });
     if (!APPLICATION->updaterEnabled()) {
         ui->actionCheckUpdate->setVisible(true);
         ui->actionCheckUpdate->setEnabled(true);
@@ -697,6 +718,8 @@ void MainWindow::updateHomePage()
     if (!m_homePage)
         return;
 
+    updateHomeRecent();
+
     if (!m_selectedInstance) {
         m_homePage->showNoInstance(APPLICATION->instances()->count() > 0);
         return;
@@ -704,6 +727,82 @@ void MainWindow::updateHomePage()
 
     m_homePage->showInstance(APPLICATION->icons()->getIcon(m_selectedInstance->iconKey()), m_selectedInstance->name(),
                              describeInstance(m_selectedInstance), m_selectedInstance->canLaunch(), m_selectedInstance->isRunning());
+}
+
+BaseInstance* MainWindow::instanceById(const QString& id) const
+{
+    return APPLICATION->instances()->getInstanceById(id);
+}
+
+namespace {
+QString playedAgo(qint64 lastLaunchMs)
+{
+    if (lastLaunchMs <= 0)
+        return QObject::tr("Never played");
+    const qint64 seconds = qMax<qint64>(0, (QDateTime::currentMSecsSinceEpoch() - lastLaunchMs) / 1000);
+    if (seconds < 60)
+        return QObject::tr("Just now");
+    if (seconds < 3600) {
+        const int n = int(seconds / 60);
+        return n == 1 ? QObject::tr("1 minute ago") : QObject::tr("%1 minutes ago").arg(n);
+    }
+    if (seconds < 86400) {
+        const int n = int(seconds / 3600);
+        return n == 1 ? QObject::tr("1 hour ago") : QObject::tr("%1 hours ago").arg(n);
+    }
+    if (seconds < 86400 * 2)
+        return QObject::tr("Yesterday");
+    if (seconds < 86400 * 30)
+        return QObject::tr("%1 days ago").arg(int(seconds / 86400));
+    return QDateTime::fromMSecsSinceEpoch(lastLaunchMs).date().toString(QStringLiteral("d MMM yyyy"));
+}
+}  // namespace
+
+void MainWindow::updateHomeRecent()
+{
+    if (!m_homePage)
+        return;
+
+    auto instanceList = APPLICATION->instances();
+    QList<BaseInstance*> sorted;
+    for (int i = 0; i < instanceList->count(); i++) {
+        if (auto instance = instanceList->at(i))
+            sorted.append(instance);
+    }
+    // Running instances first, then most recently played.
+    std::sort(sorted.begin(), sorted.end(), [](BaseInstance* a, BaseInstance* b) {
+        if (a->isRunning() != b->isRunning())
+            return a->isRunning();
+        return a->lastLaunch() > b->lastLaunch();
+    });
+
+    qint64 secondsPlayed = 0;
+    BaseInstance* mostPlayed = nullptr;
+    for (BaseInstance* instance : sorted) {
+        const qint64 played = instance->totalTimePlayed();
+        secondsPlayed += played;
+        if (played > 0 && (!mostPlayed || played > mostPlayed->totalTimePlayed()))
+            mostPlayed = instance;
+    }
+    m_homePage->setStats(int(sorted.size()), secondsPlayed, mostPlayed ? mostPlayed->name() : QString());
+
+    QList<HomePage::RecentInstance> recent;
+    const QString separator = QStringLiteral("  ") + QChar(0x00B7) + QStringLiteral("  ");
+    for (BaseInstance* instance : sorted) {
+        if (recent.size() >= 4)
+            break;
+        if (instance->lastLaunch() <= 0 && !instance->isRunning())
+            continue;
+        HomePage::RecentInstance entry;
+        entry.id = instance->id();
+        entry.icon = APPLICATION->icons()->getIcon(instance->iconKey());
+        entry.name = instance->name();
+        entry.running = instance->isRunning();
+        entry.canLaunch = instance->canLaunch();
+        entry.details = describeInstance(instance) + separator + (entry.running ? tr("Playing now") : playedAgo(instance->lastLaunch()));
+        recent.append(entry);
+    }
+    m_homePage->setRecentInstances(recent);
 }
 
 void MainWindow::populateHomeInstanceMenu()
@@ -856,6 +955,7 @@ void MainWindow::onInstanceRunningChanged(bool running)
     else if (instance == m_playingInstance)
         m_playingInstance = nullptr;
     updateDiscordPresence();
+    updateHomeRecent();
     // The selected instance's skin source (default skin jar) may only exist after a first launch.
     if (!running)
         updateHomePlayer();

@@ -67,5 +67,6 @@ class SideBar : public QFrame {
     QVariantAnimation* m_indicatorAnim = nullptr;
 
     bool m_updatingStyle = false;
+    bool m_restylePending = false;
     QString m_appliedStyleSheet;
 };

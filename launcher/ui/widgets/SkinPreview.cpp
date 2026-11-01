@@ -1,5 +1,6 @@
 #include "SkinPreview.h"
 
+#include <QApplication>
 #include <QEvent>
 #include <QPainter>
 #include <QPainterPath>
@@ -110,7 +111,7 @@ void SkinPreview::paintSkin(QPainter& painter, const QRectF& area, qreal phase)
 
     // Soft shadow under the feet.
     {
-        const QColor shadowColor = palette().color(QPalette::Shadow);
+        const QColor shadowColor = QApplication::palette(this).color(QPalette::Shadow);
         QColor shadow = shadowColor;
         shadow.setAlpha(70);
         const qreal shadowW = modelW * unit * (0.95 - qSin(phase) * 0.04);
@@ -168,7 +169,7 @@ void SkinPreview::paintSkin(QPainter& painter, const QRectF& area, qreal phase)
 void SkinPreview::paintPlaceholder(QPainter& painter, const QRectF& area, qreal phase)
 {
     // A neutral, rounded figure in theme colours: clearly "no skin yet".
-    const QPalette pal = palette();
+    const QPalette pal = QApplication::palette(this);
     const QColor bg = pal.color(QPalette::Window);
     const QColor fg = pal.color(QPalette::WindowText);
     const QColor body = blend(bg, fg, 0.22);

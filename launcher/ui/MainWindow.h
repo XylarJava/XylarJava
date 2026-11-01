@@ -200,6 +200,8 @@ class MainWindow : public QMainWindow {
     void updateHomePage();
     /// Fill the Home screen's instance picker menu.
     void populateHomeInstanceMenu();
+    void updateHomeRecent();
+    BaseInstance* instanceById(const QString& id) const;
     /// Show the active account and the skin it will have in game on the Home screen.
     void updateHomePlayer();
     /// Apply the Discord settings and show the right status.
