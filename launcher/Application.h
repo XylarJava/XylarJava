@@ -21,6 +21,7 @@ class MainWindow;
 class ViewLogWindow;
 class SetupWizard;
 class GenericPageProvider;
+class BasePageProvider;
 class QFile;
 class HttpMetaCache;
 class SettingsObject;
@@ -82,6 +83,8 @@ class Application : public QApplication {
     bool event(QEvent* event) override;
 
     SettingsObject* settings() const { return m_settings.get(); }
+    /// The pages of the global settings, for showing them inside the main window.
+    BasePageProvider* globalSettingsProvider();
 
     qint64 timeSinceStart() const { return m_startTime.msecsTo(QDateTime::currentDateTime()); }
 

@@ -25,6 +25,8 @@ class FadingStackedWidget;
 class DiscordPresence;
 class XylarUpdater;
 class MojangSkinFetcher;
+class PageContainer;
+class SettingsObjectLockHolder;
 class QAction;
 class QMenu;
 
@@ -185,7 +187,11 @@ class MainWindow : public QMainWindow {
     /// Apply XylarJava's accent styling to the toolbars and instance view.
     void applyXylarBranding();
 
-    enum class Page { Home = 0, Instances = 1 };
+    enum class Page { Home = 0, Instances = 1, Settings = 2 };
+    /// Show the global settings inside the window, on the given settings page.
+    void openSettings(const QString& pageId);
+    /// Save and close the embedded settings. Returns false if a page refused to close.
+    bool closeSettings();
     /// Switch the central area between the Home screen and the instance list.
     void switchToPage(Page page);
     /// Show/hide page-specific chrome (the instance toolbar only belongs to the instance list).
@@ -234,6 +240,9 @@ class MainWindow : public QMainWindow {
     XylarUpdater* m_updater = nullptr;
     MojangSkinFetcher* m_skinFetcher = nullptr;
     QString m_homeSkinKey;  // Mojang lookup the Home screen is waiting for
+    QWidget* m_settingsPage = nullptr;
+    PageContainer* m_settingsContainer = nullptr;
+    std::unique_ptr<SettingsObjectLockHolder> m_settingsLock;
     BaseInstance* m_playingInstance = nullptr;
     Page m_currentPage = Page::Home;
     bool m_instanceToolBarWanted = true;

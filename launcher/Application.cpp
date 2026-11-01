@@ -1616,6 +1616,11 @@ void Application::controllerFinished()
     }
 }
 
+BasePageProvider* Application::globalSettingsProvider()
+{
+    return m_globalSettingsProvider.get();
+}
+
 void Application::ShowGlobalSettings(class QWidget* parent, QString open_page)
 {
     if (!m_globalSettingsProvider) {

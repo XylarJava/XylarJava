@@ -5,10 +5,6 @@
 #include "BuildConfig.h"
 #include "ui/themes/ITheme.h"
 #include "ui/themes/ThemeManager.h"
-#include "ui/widgets/SideBar.h"
-
-#include <QAction>
-#include <QHBoxLayout>
 
 #include <Application.h>
 #include "settings/SettingsObject.h"
@@ -19,18 +15,6 @@ AppearanceWidget::AppearanceWidget(bool themesOnly, QWidget* parent)
     m_ui->setupUi(this);
 
     m_defaultFormat = QTextCharFormat(m_ui->consolePreview->currentCharFormat());
-
-    // Preview of the launcher's sidebar, so icon and theme changes show up where they matter most.
-    {
-        auto sideBarPreview = new SideBar(m_ui->previewBox);
-        sideBarPreview->setLogo(APPLICATION->logo(), BuildConfig.LAUNCHER_DISPLAYNAME);
-        sideBarPreview->addPage(QIcon::fromTheme(QStringLiteral("launch")), tr("Home"));
-        sideBarPreview->addPage(QIcon::fromTheme(QStringLiteral("instance-settings")), tr("Instances"));
-        sideBarPreview->addActionButton(new QAction(QIcon::fromTheme(QStringLiteral("viewfolder")), tr("Folders"), sideBarPreview));
-        sideBarPreview->addActionButton(new QAction(QIcon::fromTheme(QStringLiteral("settings")), tr("Settings"), sideBarPreview));
-        sideBarPreview->setMinimumHeight(260);
-        m_ui->horizontalLayout_3->insertWidget(0, sideBarPreview);
-    }
 
     if (themesOnly) {
         m_ui->settingsBox->hide();

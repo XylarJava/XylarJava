@@ -78,6 +78,8 @@
 #include "minecraft/skins/DefaultSkin.h"
 #include "minecraft/skins/MojangSkinFetcher.h"
 #include "ui/widgets/FadingStackedWidget.h"
+#include "ui/widgets/PageContainer.h"
+#include "settings/SettingsObject.h"
 #include "ui/widgets/HomePage.h"
 #include "ui/widgets/SideBar.h"
 #include "ui/widgets/SkinPreview.h"
@@ -103,6 +105,17 @@
 #include "Json.h"
 
 #include "MMCTime.h"
+
+// Keeps settings from being written to disk piece by piece while the pages are open,
+// like the settings dialog does.
+class SettingsObjectLockHolder {
+   public:
+    explicit SettingsObjectLockHolder(SettingsObject* settings) : m_lock(settings) {}
+
+   private:
+    SettingsObject::Lock m_lock;
+};
+
 
 namespace {
 QString profileInUseFilter(const QString& profile, bool used)
@@ -310,12 +323,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         instancesLayout->setSpacing(0);
 
         auto header = new QFrame(instancesPage);
-        header->setObjectName(QStringLiteral("instancesHeader"));
+        header->setObjectName(QStringLiteral("pageHeader"));
         auto headerLayout = new QHBoxLayout(header);
         headerLayout->setContentsMargins(24, 18, 24, 14);
         headerLayout->setSpacing(12);
         auto title = new QLabel(tr("Your instances"), header);
-        title->setObjectName(QStringLiteral("instancesTitle"));
+        title->setObjectName(QStringLiteral("pageTitle"));
         auto addButton = new QPushButton(QIcon::fromTheme(QStringLiteral("new")), tr("Add instance"), header);
         addButton->setObjectName(QStringLiteral("addInstanceButton"));
         addButton->setCursor(Qt::PointingHandCursor);
@@ -328,13 +341,33 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         instancesLayout->addWidget(view, 1);
         m_pages->addWidget(instancesPage);
 
+        // Settings live inside the window too, so the sidebar never goes away.
+        m_settingsPage = new QWidget(m_pages);
+        m_settingsPage->setObjectName(QStringLiteral("settingsPage"));
+        auto settingsLayout = new QVBoxLayout(m_settingsPage);
+        settingsLayout->setContentsMargins(0, 0, 0, 0);
+        settingsLayout->setSpacing(0);
+        auto settingsHeader = new QFrame(m_settingsPage);
+        settingsHeader->setObjectName(QStringLiteral("pageHeader"));
+        auto settingsHeaderLayout = new QHBoxLayout(settingsHeader);
+        settingsHeaderLayout->setContentsMargins(24, 18, 24, 14);
+        auto settingsTitle = new QLabel(tr("Settings"), settingsHeader);
+        settingsTitle->setObjectName(QStringLiteral("pageTitle"));
+        auto settingsHint = new QLabel(tr("Changes are saved when you leave this page."), settingsHeader);
+        settingsHint->setObjectName(QStringLiteral("pageHint"));
+        settingsHeaderLayout->addWidget(settingsTitle);
+        settingsHeaderLayout->addStretch(1);
+        settingsHeaderLayout->addWidget(settingsHint);
+        settingsLayout->addWidget(settingsHeader);
+        m_pages->addWidget(m_settingsPage);
+
         // Sidebar on the left: logo, pages, quick actions and the account switcher.
         m_sideBar = new SideBar(ui->centralWidget);
         m_sideBar->setLogo(APPLICATION->logo(), BuildConfig.LAUNCHER_DISPLAYNAME);
         m_sideBar->addPage(QIcon::fromTheme(QStringLiteral("launch")), QString());
         m_sideBar->addPage(QIcon::fromTheme(QStringLiteral("instance-settings")), QString());
+        m_sideBar->addPage(QIcon::fromTheme(QStringLiteral("settings")), QString());
         m_sideBar->addActionButton(ui->actionFoldersButton);
-        m_sideBar->addActionButton(ui->actionSettings);
         if (qgetenv("XDG_CURRENT_DESKTOP") == "gamescope")
             m_sideBar->addActionButton(ui->actionCloseWindow);
         m_sideBar->setAccountAction(ui->actionAccountsButton);
@@ -507,8 +540,9 @@ void MainWindow::applyXylarBranding()
                               "QToolBar#instanceToolBar QToolButton:checked { background-color: %1; color: %2; }"
                               "QToolBar#newsToolBar { padding: 2px 12px; border: none; }"
                               "QStatusBar QLabel { padding: 0 6px; }"
-                              "#instancesHeader { background: transparent; border-bottom: 1px solid palette(mid); }"
-                              "#instancesTitle { font-size: 22px; font-weight: 800; }"
+                              "#pageHeader { background: transparent; border-bottom: 1px solid palette(mid); }"
+                              "#pageTitle { font-size: 22px; font-weight: 800; }"
+                              "#pageHint { color: palette(placeholder-text); }"
                               "#addInstanceButton { background-color: %1; color: %2; border: none; border-radius: 10px;"
                               " padding: 8px 16px; font-weight: 700; }"
                               "#addInstanceButton:hover { background-color: %3; }")
@@ -524,6 +558,11 @@ void MainWindow::applyXylarBranding()
     statusBar()->setStyleSheet(style);
     if (m_pages && m_pages->count() > 1)
         m_pages->widget(1)->setStyleSheet(style);
+    if (m_settingsPage) {
+        // Only style the header: the settings pages keep the theme's own look.
+        for (auto header : m_settingsPage->findChildren<QFrame*>(QStringLiteral("pageHeader"), Qt::FindDirectChildrenOnly))
+            header->setStyleSheet(style);
+    }
 }
 
 void MainWindow::showEvent(QShowEvent* event)
@@ -540,6 +579,16 @@ void MainWindow::showEvent(QShowEvent* event)
 
 void MainWindow::switchToPage(Page page)
 {
+    if (page == m_currentPage && page != Page::Settings)
+        return;
+    if (m_currentPage == Page::Settings && page != Page::Settings && !closeSettings()) {
+        // A settings page refused to close (e.g. invalid input): stay here.
+        if (m_sideBar)
+            m_sideBar->setCurrentPage(static_cast<int>(Page::Settings));
+        return;
+    }
+    if (page == Page::Settings && !m_settingsContainer)
+        openSettings(QStringLiteral("global-settings"));
     m_currentPage = page;
     if (m_pages)
         m_pages->setCurrentIndexAnimated(static_cast<int>(page));
@@ -548,6 +597,42 @@ void MainWindow::switchToPage(Page page)
     applyPageChrome();
     if (page == Page::Instances && view)
         view->setFocus();
+}
+
+void MainWindow::openSettings(const QString& pageId)
+{
+    if (m_settingsContainer) {
+        m_settingsContainer->selectPage(pageId);
+        if (m_currentPage != Page::Settings)
+            switchToPage(Page::Settings);
+        return;
+    }
+    auto provider = APPLICATION->globalSettingsProvider();
+    if (!provider || !m_settingsPage)
+        return;
+
+    emit APPLICATION->globalSettingsAboutToOpen();
+    m_settingsLock = std::make_unique<SettingsObjectLockHolder>(APPLICATION->settings());
+    m_settingsContainer = new PageContainer(provider, pageId, m_settingsPage);
+    m_settingsPage->layout()->addWidget(m_settingsContainer);
+
+    if (m_currentPage != Page::Settings)
+        switchToPage(Page::Settings);
+}
+
+bool MainWindow::closeSettings()
+{
+    if (!m_settingsContainer)
+        return true;
+    if (!m_settingsContainer->prepareToClose())
+        return false;
+
+    m_settingsPage->layout()->removeWidget(m_settingsContainer);
+    m_settingsContainer->deleteLater();
+    m_settingsContainer = nullptr;
+    m_settingsLock.reset();
+    emit APPLICATION->globalSettingsApplied();
+    return true;
 }
 
 void MainWindow::applyPageChrome()
@@ -826,6 +911,7 @@ void MainWindow::retranslateUi()
     if (m_sideBar) {
         m_sideBar->setPageText(static_cast<int>(Page::Home), tr("Home"));
         m_sideBar->setPageText(static_cast<int>(Page::Instances), tr("Instances"));
+        m_sideBar->setPageText(static_cast<int>(Page::Settings), tr("Settings"));
     }
     if (m_addAccountAction)
         m_addAccountAction->setText(tr("Add an account..."));
@@ -1669,7 +1755,7 @@ void MainWindow::checkForUpdates()
 
 void MainWindow::on_actionSettings_triggered()
 {
-    APPLICATION->ShowGlobalSettings(this, "global-settings");
+    openSettings(QStringLiteral("global-settings"));
 }
 
 void MainWindow::globalSettingsClosed()
@@ -1707,7 +1793,7 @@ void MainWindow::on_actionEditInstance_triggered()
 
 void MainWindow::on_actionManageAccounts_triggered()
 {
-    APPLICATION->ShowGlobalSettings(this, "accounts");
+    openSettings(QStringLiteral("accounts"));
 }
 
 void MainWindow::on_actionReportBug_triggered()
@@ -1868,6 +1954,10 @@ void MainWindow::on_actionViewSelectedInstFolder_triggered()
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
+    if (m_settingsContainer && !closeSettings()) {
+        event->ignore();
+        return;
+    }
     // Save the window state and geometry.
     APPLICATION->settings()->set("MainWindowState", serializedWindowState());
     APPLICATION->settings()->set("MainWindowGeometry", QString::fromUtf8(saveGeometry().toBase64()));
