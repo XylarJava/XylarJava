@@ -310,9 +310,9 @@ void XylarSkinsPage::on_selectFileBtn_clicked()
     // Show immediate preview
     QFile f(path);
     if (f.open(QIODevice::ReadOnly)) {
-        QByteArray data = f.readAll();
+        QByteArray bytes = f.readAll();
         f.close();
-        applySkinToPreview(data, currentModel());
+        applySkinToPreview(bytes, currentModel());
     }
 }
 
@@ -496,9 +496,9 @@ void XylarSkinsPage::onSkinDownloaded(const QString& uuid, const QString& localP
 
     QFile f(localPath);
     if (f.open(QIODevice::ReadOnly)) {
-        QByteArray data = f.readAll();
+        QByteArray bytes = f.readAll();
         f.close();
-        applySkinToPreview(data, model);
+        applySkinToPreview(bytes, model);
     }
 
     m_ui->currentSkinLabel->setText(tr("Current skin: downloaded and cached."));
@@ -516,9 +516,9 @@ void XylarSkinsPage::onSkinUploaded(const QString& uuid, const QString& skinHash
     if (!m_selectedFilePath.isEmpty()) {
         QFile f(m_selectedFilePath);
         if (f.open(QIODevice::ReadOnly)) {
-            QByteArray data = f.readAll();
+            QByteArray bytes = f.readAll();
             f.close();
-            applySkinToPreview(data, model);
+            applySkinToPreview(bytes, model);
         }
     } else if (m_acct && m_acct->accountData()) {
         applySkinToPreview(m_acct->accountData()->minecraftProfile.skin.data, model);

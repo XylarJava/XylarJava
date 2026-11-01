@@ -170,7 +170,7 @@
           <item>
            <widget class="QLabel" name="infoLabel">
             <property name="text">
-             <string>Choose a 64×64 PNG image to use as your Minecraft skin.</string>
+             <string>Choose a 64x64 PNG image to use as your Minecraft skin.</string>
             </property>
             <property name="wordWrap">
              <bool>true</bool>
@@ -188,14 +188,14 @@
                <bool>true</bool>
               </property>
               <property name="placeholderText">
-               <string>No file selected…</string>
+               <string>No file selected...</string>
               </property>
              </widget>
             </item>
             <item>
              <widget class="QPushButton" name="selectFileBtn">
               <property name="text">
-               <string>Browse…</string>
+               <string>Browse...</string>
               </property>
              </widget>
             </item>
@@ -229,7 +229,7 @@
           <item>
            <widget class="QLabel" name="currentSkinLabel">
             <property name="text">
-             <string>Loading…</string>
+             <string>Loading...</string>
             </property>
             <property name="wordWrap">
              <bool>true</bool>
