@@ -600,7 +600,7 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
 
         // Theming
         m_settings->registerSetting("IconTheme", QString("pe_light"));
-        m_settings->registerSetting("ApplicationTheme", QString("fusion"));
+        m_settings->registerSetting("ApplicationTheme", QString("xylar_dark"));
 
         // Remembered state
         m_settings->registerSetting("LastUsedGroupForNewInstance", QString());
@@ -1203,7 +1203,7 @@ bool Application::createSetupWizard()
         if (!validIcons)
             settings()->set("IconTheme", QString("pe_light"));
         if (!validWidgets) {
-            settings()->set("ApplicationTheme", QString("fusion"));
+            settings()->set("ApplicationTheme", QString("xylar_dark"));
         }
 
         m_themeManager->applyCurrentlySelectedTheme(true);

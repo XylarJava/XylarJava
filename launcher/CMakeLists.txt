@@ -878,6 +878,8 @@ SET(LAUNCHER_SOURCES
     ui/themes/BrightTheme.h
     ui/themes/Win7AeroTheme.cpp
     ui/themes/Win7AeroTheme.h
+    ui/themes/XylarDarkTheme.cpp
+    ui/themes/XylarDarkTheme.h
     ui/themes/CustomTheme.cpp
     ui/themes/CustomTheme.h
     ui/themes/DarkTheme.cpp
@@ -1132,6 +1134,8 @@ SET(LAUNCHER_SOURCES
     ui/widgets/IconLabel.h
     ui/widgets/JavaWizardWidget.cpp
     ui/widgets/JavaWizardWidget.h
+    ui/widgets/HomePage.cpp
+    ui/widgets/HomePage.h
     ui/widgets/LabeledToolButton.cpp
     ui/widgets/LabeledToolButton.h
     ui/widgets/LanguageSelectionWidget.cpp

@@ -18,9 +18,24 @@
 #include "ui/themes/FusionTheme.h"
 #include "ui/themes/SystemTheme.h"
 #include "ui/themes/Win7AeroTheme.h"
+#include "ui/themes/XylarDarkTheme.h"
 
 #include "Application.h"
 #include "settings/SettingsObject.h"
+
+namespace {
+// Themes that used to ship with the launcher and were removed. A copy may still
+// sit in the user's themes folder from an older install, so skip them by id.
+bool isRetiredTheme(const QString& id)
+{
+    static const QStringList retired{ QStringLiteral("Cat"), QStringLiteral("Tommy-Simpson-SNUPPOVERSE") };
+    for (const QString& r : retired) {
+        if (id.compare(r, Qt::CaseInsensitive) == 0)
+            return true;
+    }
+    return false;
+}
+}  // namespace
 
 ThemeManager::ThemeManager()
 {
@@ -123,8 +138,8 @@ void ThemeManager::installBundledThemes()
     while (directoryIterator.hasNext()) {
         const QDir srcDir(directoryIterator.next());
         const QString id = srcDir.dirName();
-        // Skip the old cat theme if somehow present next to the binary
-        if (id.compare("Cat", Qt::CaseInsensitive) == 0)
+        // Skip retired themes if somehow present next to the binary
+        if (isRetiredTheme(id))
             continue;
 
         const QString destPath = m_applicationThemeFolder.absoluteFilePath(id);
@@ -145,7 +160,7 @@ void ThemeManager::loadThemesFromFolder(const QDir& folder, const QString& darkT
     QDirIterator directoryIterator(folder.path(), QDir::Dirs | QDir::NoDotAndDotDot);
     while (directoryIterator.hasNext()) {
         QDir dir(directoryIterator.next());
-        if (dir.dirName().compare("Cat", Qt::CaseInsensitive) == 0)
+        if (isRetiredTheme(dir.dirName()))
             continue;
 
         QFileInfo themeJson(dir.absoluteFilePath("theme.json"));
@@ -173,6 +188,7 @@ void ThemeManager::initializeWidgets()
     themeDebugLog() << "Loading Built-in Theme:" << addTheme(std::make_unique<BrightTheme>());
     themeDebugLog() << "Loading Built-in Theme:" << addTheme(std::make_unique<FusionTheme>());
     themeDebugLog() << "Loading Built-in Theme:" << addTheme(std::make_unique<Win7AeroTheme>());
+    themeDebugLog() << "Loading Built-in Theme:" << addTheme(std::make_unique<XylarDarkTheme>());
 
     themeDebugLog() << "<> Initializing System Widget Themes";
     QStringList styles = QStyleFactory::keys();
@@ -302,7 +318,9 @@ void ThemeManager::applyCurrentlySelectedTheme(bool initial)
     themeDebugLog() << "<> Icon theme set.";
     auto applicationTheme = settings->get("ApplicationTheme").toString();
     if (applicationTheme.isEmpty() || !isValidApplicationTheme(applicationTheme)) {
-        if (isValidApplicationTheme("Breeze-Dark")) {
+        if (isValidApplicationTheme("xylar_dark")) {
+            applicationTheme = "xylar_dark";
+        } else if (isValidApplicationTheme("Breeze-Dark")) {
             applicationTheme = "Breeze-Dark";
         } else if (isValidApplicationTheme("Breeze Dark")) {
             applicationTheme = "Breeze Dark";

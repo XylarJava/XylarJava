@@ -18,6 +18,7 @@
 #include <QFileDialog>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QVBoxLayout>
 #include <QInputDialog>
 #include <QKeyEvent>
 #include <QLabel>
@@ -27,11 +28,14 @@
 #include <QMessageBox>
 #include <QProgressDialog>
 #include <QShortcut>
+#include <QShowEvent>
+#include <QStackedWidget>
 #include <QStatusBar>
 #include <QToolBar>
 #include <QToolButton>
 #include <QWidget>
 #include <QWidgetAction>
+#include <algorithm>
 #include <memory>
 
 #include <BaseInstance.h>
@@ -69,6 +73,7 @@
 #include "ui/instanceview/InstanceView.h"
 #include "ui/themes/ITheme.h"
 #include "ui/themes/ThemeManager.h"
+#include "ui/widgets/HomePage.h"
 #include "ui/widgets/LabeledToolButton.h"
 
 #include "minecraft/PackProfile.h"
@@ -280,7 +285,40 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         view->setSourceOfGroupCollapseStatus(
             [](const QString& groupName) -> bool { return APPLICATION->instances()->isGroupCollapsed(groupName); });
         connect(view, &InstanceView::groupStateChanged, APPLICATION->instances(), &InstanceList::on_GroupStateChanged);
-        ui->horizontalLayout->addWidget(view);
+    }
+
+    // Central pages: the Home screen and the instance list
+    {
+        m_pages = new QStackedWidget(ui->centralWidget);
+        m_pages->setObjectName(QStringLiteral("mainPages"));
+
+        m_homePage = new HomePage(m_pages);
+        m_pages->addWidget(m_homePage);
+
+        auto instancesPage = new QWidget(m_pages);
+        instancesPage->setObjectName(QStringLiteral("instancesPage"));
+        auto instancesLayout = new QVBoxLayout(instancesPage);
+        instancesLayout->setContentsMargins(0, 0, 0, 0);
+        instancesLayout->setSpacing(0);
+        instancesLayout->addWidget(view);
+        m_pages->addWidget(instancesPage);
+
+        ui->horizontalLayout->addWidget(m_pages);
+
+        m_homeInstanceMenu = new QMenu(this);
+        m_homeInstanceMenu->setStyleSheet(QStringLiteral("QMenu { menu-scrollable: 1; }"));
+        connect(m_homeInstanceMenu, &QMenu::aboutToShow, this, &MainWindow::populateHomeInstanceMenu);
+        m_homePage->setInstanceMenu(m_homeInstanceMenu);
+
+        connect(m_homePage, &HomePage::playRequested, this, &MainWindow::on_actionLaunchInstance_triggered);
+        connect(m_homePage, &HomePage::stopRequested, this, &MainWindow::on_actionKillInstance_triggered);
+        connect(m_homePage, &HomePage::createInstanceRequested, this, &MainWindow::on_actionAddInstance_triggered);
+        connect(m_homePage, &HomePage::manageInstancesRequested, this, [this] { switchToPage(Page::Instances); });
+
+        // Keep the Home screen in sync when instances are added, removed or reloaded.
+        connect(APPLICATION->instances(), &InstanceList::rowsInserted, this, [this] { updateHomePage(); });
+        connect(APPLICATION->instances(), &InstanceList::rowsRemoved, this, [this] { updateHomePage(); });
+        connect(APPLICATION->instances(), &InstanceList::modelReset, this, [this] { updateHomePage(); });
     }
 
     // Togglable status bar
@@ -325,6 +363,49 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     QWidget* spacer = new QWidget();
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     ui->mainToolBar->insertWidget(ui->actionAccountsButton, spacer);
+
+    // Top navigation: Home / Instances, in front of the existing toolbar actions
+    {
+        auto navGroup = new QActionGroup(this);
+        navGroup->setExclusive(true);
+
+        m_navHomeAction = new QAction(this);
+        m_navHomeAction->setObjectName(QStringLiteral("actionNavHome"));
+        m_navHomeAction->setCheckable(true);
+        m_navHomeAction->setChecked(true);
+        m_navHomeAction->setActionGroup(navGroup);
+        connect(m_navHomeAction, &QAction::triggered, this, [this] { switchToPage(Page::Home); });
+
+        m_navInstancesAction = new QAction(this);
+        m_navInstancesAction->setObjectName(QStringLiteral("actionNavInstances"));
+        m_navInstancesAction->setCheckable(true);
+        m_navInstancesAction->setActionGroup(navGroup);
+        connect(m_navInstancesAction, &QAction::triggered, this, [this] { switchToPage(Page::Instances); });
+
+        ui->mainToolBar->insertAction(ui->actionAddInstance, m_navHomeAction);
+        ui->mainToolBar->insertAction(ui->actionAddInstance, m_navInstancesAction);
+        ui->mainToolBar->insertSeparator(ui->actionAddInstance);
+
+        if (auto homeButton = qobject_cast<QToolButton*>(ui->mainToolBar->widgetForAction(m_navHomeAction))) {
+            homeButton->setObjectName(QStringLiteral("navButton"));
+            homeButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
+        }
+        if (auto instancesButton = qobject_cast<QToolButton*>(ui->mainToolBar->widgetForAction(m_navInstancesAction))) {
+            instancesButton->setObjectName(QStringLiteral("navButton"));
+            instancesButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
+        }
+
+        // Remember whether the user wants the instance toolbar; it is only shown on the Instances page.
+        connect(ui->instanceToolBar->toggleViewAction(), &QAction::triggered, this, [this](bool checked) {
+            m_instanceToolBarWanted = checked;
+            applyPageChrome();
+        });
+    }
+
+    // "Add account" entry for the accounts menu
+    m_addAccountAction = new QAction(this);
+    m_addAccountAction->setIcon(QIcon::fromTheme(QStringLiteral("accounts")));
+    connect(m_addAccountAction, &QAction::triggered, this, &MainWindow::on_actionManageAccounts_triggered);
 
     // Use undocumented property... https://stackoverflow.com/questions/7121718/create-a-scrollbar-in-a-submenu-qt
     ui->accountsMenu->setStyleSheet("QMenu { menu-scrollable: 1; }");
@@ -374,28 +455,167 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
 
 void MainWindow::applyXylarBranding()
 {
-    // Scoped, theme-aware accent styling. Everything is expressed through
-    // palette() roles so it adapts to whatever widget/icon theme is active
-    // (Breeze dark, light, etc.) instead of hard-coding colours.
+    // Theme-aware styling for the main window chrome. Everything is expressed
+    // through palette() roles so it follows the active built-in or community theme.
     const QString style = QStringLiteral(
-        // Toolbars: a little breathing room and a subtle separator.
-        "QToolBar { padding: 3px; spacing: 3px; border: none; }"
-        "QToolBar::separator { background: palette(mid); width: 1px; height: 1px; margin: 4px 6px; }"
-        // Tool buttons: rounded with a highlight on hover/press.
-        "QToolBar QToolButton { border-radius: 6px; padding: 4px; }"
-        "QToolBar QToolButton:hover { background-color: palette(highlight); color: palette(highlighted-text); }"
-        "QToolBar QToolButton:pressed, QToolBar QToolButton:checked {"
-        " background-color: palette(highlight); color: palette(highlighted-text); }"
+        // Top navigation bar: roomy and flat.
+        "QToolBar#mainToolBar { padding: 6px 12px; spacing: 6px; border: none;"
+        " border-bottom: 1px solid palette(mid); background: palette(window); }"
+        "QToolBar::separator { background: palette(mid); width: 1px; height: 1px; margin: 6px 8px; }"
+        "QToolBar QToolButton { border-radius: 8px; padding: 6px 10px; }"
+        "QToolBar QToolButton:hover { background-color: palette(button); }"
+        "QToolBar QToolButton:pressed { background-color: palette(highlight); color: palette(highlighted-text); }"
+        // Navigation tabs: bold text with an accent underline when active.
+        "QToolButton#navButton { font-weight: 700; padding: 6px 14px; border-radius: 0;"
+        " border-bottom: 2px solid transparent; }"
+        "QToolButton#navButton:hover { background: transparent; border-bottom-color: palette(mid); }"
+        "QToolButton#navButton:checked { background: transparent; color: palette(highlight);"
+        " border-bottom-color: palette(highlight); }"
+        // Instance toolbar keeps regular rounded buttons.
+        "QToolBar#instanceToolBar { padding: 6px; spacing: 4px; border: none; border-left: 1px solid palette(mid); }"
+        "QToolBar#instanceToolBar QToolButton:checked { background-color: palette(highlight); color: palette(highlighted-text); }"
+        "QToolBar#newsToolBar { padding: 2px 12px; border: none; }"
         // Status bar sits a touch quieter than the main surface.
-        "QStatusBar QLabel { padding: 0 4px; }");
+        "QStatusBar QLabel { padding: 0 6px; }");
 
     // Apply only to the toolbars and status bar so the rest of the application
-    // (settings pages, dialogs and the custom instance view) keeps the plain
-    // theme look and its own painting.
+    // (settings pages, dialogs and the custom instance view) keeps its own look.
     ui->mainToolBar->setStyleSheet(style);
     ui->instanceToolBar->setStyleSheet(style);
     ui->newsToolBar->setStyleSheet(style);
     statusBar()->setStyleSheet(style);
+}
+
+void MainWindow::showEvent(QShowEvent* event)
+{
+    QMainWindow::showEvent(event);
+    if (!m_pageChromeReady) {
+        // The saved window state has been restored by now, so the instance
+        // toolbar's visibility is the user's own choice.
+        m_instanceToolBarWanted = !ui->instanceToolBar->isHidden();
+        m_pageChromeReady = true;
+        applyPageChrome();
+    }
+}
+
+void MainWindow::switchToPage(Page page)
+{
+    m_currentPage = page;
+    if (m_pages)
+        m_pages->setCurrentIndex(static_cast<int>(page));
+    if (m_navHomeAction)
+        m_navHomeAction->setChecked(page == Page::Home);
+    if (m_navInstancesAction)
+        m_navInstancesAction->setChecked(page == Page::Instances);
+    applyPageChrome();
+    if (page == Page::Instances && view)
+        view->setFocus();
+}
+
+void MainWindow::applyPageChrome()
+{
+    if (!m_pageChromeReady)
+        return;
+    ui->instanceToolBar->setVisible(m_currentPage == Page::Instances && m_instanceToolBarWanted);
+}
+
+QString MainWindow::serializedWindowState()
+{
+    if (!m_pageChromeReady)
+        return QString::fromUtf8(saveState().toBase64());
+
+    const bool shownNow = !ui->instanceToolBar->isHidden();
+    ui->instanceToolBar->setVisible(m_instanceToolBarWanted);
+    const QString state = QString::fromUtf8(saveState().toBase64());
+    ui->instanceToolBar->setVisible(shownNow);
+    return state;
+}
+
+namespace {
+QString describeInstance(BaseInstance* instance)
+{
+    if (auto minecraft = dynamic_cast<MinecraftInstance*>(instance)) {
+        if (auto profile = minecraft->getPackProfile()) {
+            const QString mcVersion = profile->getComponentVersion(QStringLiteral("net.minecraft"));
+            if (!mcVersion.isEmpty()) {
+                QStringList parts;
+                parts << QObject::tr("Minecraft %1").arg(mcVersion);
+
+                struct Loader {
+                    const char* uid;
+                    const char* name;
+                };
+                static const Loader loaders[] = {
+                    { "net.fabricmc.fabric-loader", "Fabric" }, { "org.quiltmc.quilt-loader", "Quilt" },
+                    { "net.neoforged", "NeoForge" },            { "net.minecraftforge", "Forge" },
+                    { "com.mumfrey.liteloader", "LiteLoader" },
+                };
+                for (const Loader& loader : loaders) {
+                    const QString version = profile->getComponentVersion(QString::fromLatin1(loader.uid));
+                    if (!version.isEmpty()) {
+                        parts << QStringLiteral("%1 %2").arg(QString::fromLatin1(loader.name), version);
+                        break;
+                    }
+                }
+                if (parts.size() == 1)
+                    parts << QObject::tr("Vanilla");
+
+                const QString separator = QStringLiteral("  ") + QChar(0x00B7) + QStringLiteral("  ");
+                return parts.join(separator);
+            }
+        }
+    }
+    return instance->getStatusbarDescription();
+}
+}  // namespace
+
+void MainWindow::updateHomePage()
+{
+    if (!m_homePage)
+        return;
+
+    if (!m_selectedInstance) {
+        m_homePage->showNoInstance(APPLICATION->instances()->count() > 0);
+        return;
+    }
+
+    m_homePage->showInstance(APPLICATION->icons()->getIcon(m_selectedInstance->iconKey()), m_selectedInstance->name(),
+                             describeInstance(m_selectedInstance), m_selectedInstance->canLaunch(), m_selectedInstance->isRunning());
+}
+
+void MainWindow::populateHomeInstanceMenu()
+{
+    m_homeInstanceMenu->clear();
+
+    auto instanceList = APPLICATION->instances();
+    QList<BaseInstance*> sorted;
+    sorted.reserve(instanceList->count());
+    for (int i = 0; i < instanceList->count(); i++) {
+        if (auto instance = instanceList->at(i))
+            sorted.append(instance);
+    }
+    std::sort(sorted.begin(), sorted.end(),
+              [](BaseInstance* a, BaseInstance* b) { return QString::localeAwareCompare(a->name(), b->name()) < 0; });
+
+    if (sorted.isEmpty()) {
+        QAction* empty = m_homeInstanceMenu->addAction(tr("No instances yet"));
+        empty->setEnabled(false);
+    }
+
+    for (BaseInstance* instance : sorted) {
+        QString label = instance->name();
+        label.replace(QLatin1Char('&'), QStringLiteral("&&"));
+        QAction* action = m_homeInstanceMenu->addAction(APPLICATION->icons()->getIcon(instance->iconKey()), label);
+        action->setCheckable(true);
+        action->setChecked(instance == m_selectedInstance);
+        const QString id = instance->id();
+        connect(action, &QAction::triggered, this, [this, id] { setSelectedInstanceById(id); });
+    }
+
+    m_homeInstanceMenu->addSeparator();
+    m_homeInstanceMenu->addAction(ui->actionAddInstance);
+    QAction* manage = m_homeInstanceMenu->addAction(tr("Manage instances"));
+    connect(manage, &QAction::triggered, this, [this] { switchToPage(Page::Instances); });
 }
 
 // macOS always has a native menu bar, so these fixes are not applicable
@@ -428,6 +648,14 @@ void MainWindow::retranslateUi()
 
     changeIconButton->setToolTip(ui->actionChangeInstIcon->toolTip());
     renameButton->setToolTip(ui->actionRenameInstance->toolTip());
+
+    if (m_navHomeAction)
+        m_navHomeAction->setText(tr("Home"));
+    if (m_navInstancesAction)
+        m_navInstancesAction->setText(tr("Instances"));
+    if (m_addAccountAction)
+        m_addAccountAction->setText(tr("Add Account..."));
+    updateHomePage();
 }
 
 MainWindow::~MainWindow() {}
@@ -534,6 +762,8 @@ void MainWindow::updateLaunchButton()
     if (m_selectedInstance)
         m_selectedInstance->populateLaunchMenu(launchMenu);
     ui->actionLaunchInstance->setMenu(launchMenu);
+    if (m_homePage)
+        m_homePage->setLaunchMenu(launchMenu);
 }
 
 void MainWindow::updateThemeMenu()
@@ -639,6 +869,8 @@ void MainWindow::repopulateAccountsMenu()
     connect(ui->actionNoDefaultAccount, &QAction::triggered, this, &MainWindow::changeActiveAccount);
 
     ui->accountsMenu->addSeparator();
+    if (m_addAccountAction)
+        ui->accountsMenu->addAction(m_addAccountAction);
     ui->accountsMenu->addAction(ui->actionManageAccounts);
 
     accountsButtonMenu->addActions(ui->accountsMenu->actions());
@@ -1275,7 +1507,7 @@ void MainWindow::globalSettingsClosed()
     updateStatusCenter();
     // This needs to be done to prevent UI elements disappearing in the event the config is changed
     // but PolyMC exits abnormally, causing the window state to never be saved:
-    APPLICATION->settings()->set("MainWindowState", QString::fromUtf8(saveState().toBase64()));
+    APPLICATION->settings()->set("MainWindowState", serializedWindowState());
     update();
 }
 
@@ -1458,7 +1690,7 @@ void MainWindow::on_actionViewSelectedInstFolder_triggered()
 void MainWindow::closeEvent(QCloseEvent* event)
 {
     // Save the window state and geometry.
-    APPLICATION->settings()->set("MainWindowState", QString::fromUtf8(saveState().toBase64()));
+    APPLICATION->settings()->set("MainWindowState", serializedWindowState());
     APPLICATION->settings()->set("MainWindowGeometry", QString::fromUtf8(saveGeometry().toBase64()));
     instanceToolbarSetting->set(QString::fromUtf8(ui->instanceToolBar->getVisibilityState().toBase64()));
     event->accept();
@@ -1562,6 +1794,8 @@ void MainWindow::instanceChanged(const QModelIndex& current, [[maybe_unused]] co
 
         connect(m_selectedInstance, &BaseInstance::runningStatusChanged, this, &MainWindow::refreshCurrentInstance);
         connect(m_selectedInstance, &BaseInstance::profilerChanged, this, &MainWindow::refreshCurrentInstance);
+
+        updateHomePage();
     } else {
         APPLICATION->settings()->set("SelectedInstance", QString());
         selectionBad();
@@ -1595,6 +1829,7 @@ void MainWindow::selectionBad()
     updateLaunchButton();
     renameButton->setText(tr("Rename Instance"));
     updateInstanceToolIcon("grass");
+    updateHomePage();
 
     // ...and then see if we can enable the previously selected instance
     setSelectedInstanceById(APPLICATION->settings()->get("SelectedInstance").toString());

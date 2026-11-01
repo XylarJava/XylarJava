@@ -19,6 +19,10 @@ class BaseProfilerFactory;
 class InstanceView;
 class InstanceTask;
 class LabeledToolButton;
+class HomePage;
+class QStackedWidget;
+class QAction;
+class QMenu;
 
 namespace Ui {
 class MainWindow;
@@ -44,6 +48,7 @@ class MainWindow : public QMainWindow {
 
    protected:
     QMenu* createPopupMenu() override;
+    void showEvent(QShowEvent* event) override;
 
    private slots:
     void on_actionAbout_triggered();
@@ -173,6 +178,18 @@ class MainWindow : public QMainWindow {
     /// Apply XylarJava's accent styling to the toolbars and instance view.
     void applyXylarBranding();
 
+    enum class Page { Home = 0, Instances = 1 };
+    /// Switch the central area between the Home screen and the instance list.
+    void switchToPage(Page page);
+    /// Show/hide page-specific chrome (the instance toolbar only belongs to the instance list).
+    void applyPageChrome();
+    /// Refresh the launch card on the Home screen from the selected instance.
+    void updateHomePage();
+    /// Fill the Home screen's instance picker menu.
+    void populateHomeInstanceMenu();
+    /// Window state with the instance toolbar's user-chosen visibility, regardless of the current page.
+    QString serializedWindowState();
+
     void addInstance(const QString& url = QString(), const QMap<QString, QString>& extra_info = {});
     void activateInstance(BaseInstance* instance);
     void updateInstanceToolIcon(QString new_icon);
@@ -194,6 +211,16 @@ class MainWindow : public QMainWindow {
     LabeledToolButton* changeIconButton = nullptr;
     LabeledToolButton* renameButton = nullptr;
     std::shared_ptr<Setting> instanceToolbarSetting = nullptr;
+
+    QStackedWidget* m_pages = nullptr;
+    HomePage* m_homePage = nullptr;
+    QMenu* m_homeInstanceMenu = nullptr;
+    QAction* m_navHomeAction = nullptr;
+    QAction* m_navInstancesAction = nullptr;
+    QAction* m_addAccountAction = nullptr;
+    Page m_currentPage = Page::Home;
+    bool m_instanceToolBarWanted = true;
+    bool m_pageChromeReady = false;
 
     BaseInstance* m_selectedInstance = nullptr;
     QString m_currentInstIcon;
