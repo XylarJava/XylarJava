@@ -179,6 +179,8 @@ set(LAUNCH_SOURCES
 # Old update system
 set(UPDATE_SOURCES
     updater/ExternalUpdater.h
+    updater/XylarUpdater.cpp
+    updater/XylarUpdater.h
 )
 
 set(MAC_UPDATE_SOURCES
@@ -389,6 +391,10 @@ set(MINECRAFT_SOURCES
     minecraft/skins/SkinList.cpp
     minecraft/skins/SkinList.h
     minecraft/skins/XylarSkinClient.cpp
+    minecraft/skins/DefaultSkin.cpp
+    minecraft/skins/DefaultSkin.h
+    discord/DiscordPresence.cpp
+    discord/DiscordPresence.h
     minecraft/skins/XylarSkinClient.h
 
     minecraft/Agent.h)

@@ -1,3 +1,9 @@
+#include <QBoxLayout>
+#include <QCheckBox>
+#include <QGroupBox>
+#include <QLabel>
+#include <QLineEdit>
+#include <QVBoxLayout>
 #include "LauncherPage.h"
 #include "ui_LauncherPage.h"
 
@@ -33,6 +39,42 @@ LauncherPage::LauncherPage(QWidget* parent) : QWidget(parent), ui(new Ui::Launch
 
     ui->sortingModeGroup->setId(ui->sortByNameBtn, Sort_Name);
     ui->sortingModeGroup->setId(ui->sortLastLaunchedBtn, Sort_LastLaunch);
+
+    // XylarJava: Discord Rich Presence and automatic updates.
+    {
+        auto discordBox = new QGroupBox(tr("Discord"), ui->scrollAreaWidgetContents);
+        auto discordLayout = new QVBoxLayout(discordBox);
+        m_discordEnabled = new QCheckBox(tr("Show what I'm playing on Discord"), discordBox);
+        m_discordClientId = new QLineEdit(discordBox);
+        m_discordClientId->setPlaceholderText(tr("Discord application ID"));
+        auto discordHelp = new QLabel(tr("Create an application at <a href=\"https://discord.com/developers/applications\">discord.com/developers</a> "
+                                         "and paste its Application ID here. Upload an image called \"logo\" under Rich Presence > Art Assets "
+                                         "if you want a picture next to your status."),
+                                      discordBox);
+        discordHelp->setWordWrap(true);
+        discordHelp->setOpenExternalLinks(true);
+        discordLayout->addWidget(m_discordEnabled);
+        discordLayout->addWidget(m_discordClientId);
+        discordLayout->addWidget(discordHelp);
+
+        auto updatesBox = new QGroupBox(tr("XylarJava updates"), ui->scrollAreaWidgetContents);
+        auto updatesLayout = new QVBoxLayout(updatesBox);
+        m_autoUpdate = new QCheckBox(tr("Check for new versions on start and install them"), updatesBox);
+        updatesLayout->addWidget(m_autoUpdate);
+
+        // Put both boxes above the trailing spacer, if there is one.
+        auto contentLayout = ui->scrollAreaWidgetContents->layout();
+        if (auto box = qobject_cast<QBoxLayout*>(contentLayout)) {
+            int at = box->count();
+            if (at > 0 && box->itemAt(at - 1)->spacerItem())
+                at--;
+            box->insertWidget(at, updatesBox);
+            box->insertWidget(at, discordBox);
+        } else if (contentLayout) {
+            contentLayout->addWidget(discordBox);
+            contentLayout->addWidget(updatesBox);
+        }
+    }
 
     loadSettings();
 
@@ -208,6 +250,10 @@ void LauncherPage::applySettings()
     s->set("ModDependenciesDisabled", !ui->dependenciesEnableBtn->isChecked());
     s->set("ShowModIncompat", ui->showModIncompatCheckBox->isChecked());
     s->set("SkipModpackUpdatePrompt", !ui->modpackUpdatePromptBtn->isChecked());
+
+    s->set("DiscordRichPresence", m_discordEnabled->isChecked());
+    s->set("DiscordClientId", m_discordClientId->text().trimmed());
+    s->set("XylarAutoUpdate", m_autoUpdate->isChecked());
 }
 void LauncherPage::loadSettings()
 {
@@ -258,6 +304,10 @@ void LauncherPage::loadSettings()
     ui->dependenciesEnableBtn->setChecked(!s->get("ModDependenciesDisabled").toBool());
     ui->showModIncompatCheckBox->setChecked(s->get("ShowModIncompat").toBool());
     ui->modpackUpdatePromptBtn->setChecked(!s->get("SkipModpackUpdatePrompt").toBool());
+
+    m_discordEnabled->setChecked(s->get("DiscordRichPresence").toBool());
+    m_discordClientId->setText(s->get("DiscordClientId").toString());
+    m_autoUpdate->setChecked(s->get("XylarAutoUpdate").toBool());
 }
 
 void LauncherPage::retranslate()

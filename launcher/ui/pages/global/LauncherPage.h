@@ -43,4 +43,7 @@ class LauncherPage : public QWidget, public BasePage {
 
    private:
     Ui::LauncherPage* ui;
+    class QCheckBox* m_discordEnabled = nullptr;
+    class QLineEdit* m_discordClientId = nullptr;
+    class QCheckBox* m_autoUpdate = nullptr;
 };

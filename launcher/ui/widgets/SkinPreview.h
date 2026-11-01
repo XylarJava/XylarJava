@@ -34,6 +34,7 @@ class SkinPreview : public QWidget {
     void paintEvent(QPaintEvent* event) override;
     void showEvent(QShowEvent* event) override;
     void hideEvent(QHideEvent* event) override;
+    void changeEvent(QEvent* event) override;
 
    private:
     void paintSkin(QPainter& painter, const QRectF& area, qreal phase);

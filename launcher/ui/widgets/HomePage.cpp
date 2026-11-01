@@ -408,6 +408,12 @@ void HomePage::changeEvent(QEvent* event)
         update();
     } else if (event->type() == QEvent::LanguageChange) {
         retranslate();
+    } else if (event->type() == QEvent::ActivationChange) {
+        // Only animate while the launcher is the active window: no CPU spent in the background.
+        if (isActiveWindow() && isVisible())
+            m_animTimer->start();
+        else
+            m_animTimer->stop();
     }
     QWidget::changeEvent(event);
 }

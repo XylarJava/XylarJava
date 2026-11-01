@@ -1,5 +1,6 @@
 #include "SkinPreview.h"
 
+#include <QEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QTimer>
@@ -55,6 +56,18 @@ void SkinPreview::hideEvent(QHideEvent* event)
 {
     m_timer->stop();
     QWidget::hideEvent(event);
+}
+
+void SkinPreview::changeEvent(QEvent* event)
+{
+    // Pause the idle animation while the launcher is in the background.
+    if (event->type() == QEvent::ActivationChange) {
+        if (isActiveWindow() && isVisible())
+            m_timer->start();
+        else
+            m_timer->stop();
+    }
+    QWidget::changeEvent(event);
 }
 
 void SkinPreview::paintEvent(QPaintEvent*)

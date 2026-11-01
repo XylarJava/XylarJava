@@ -606,6 +606,9 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
         m_settings->registerSetting("LastUsedGroupForNewInstance", QString());
 
         m_settings->registerSetting("MenuBarInsteadOfToolBar", false);
+        m_settings->registerSetting("DiscordRichPresence", true);
+        m_settings->registerSetting("DiscordClientId", QString());
+        m_settings->registerSetting("XylarAutoUpdate", true);
 
         // Higher defaults make instance downloads noticeably faster on modern
         // connections (more files fetched in parallel).

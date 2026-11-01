@@ -22,6 +22,8 @@ class LabeledToolButton;
 class HomePage;
 class SideBar;
 class FadingStackedWidget;
+class DiscordPresence;
+class XylarUpdater;
 class QAction;
 class QMenu;
 
@@ -173,6 +175,9 @@ class MainWindow : public QMainWindow {
 
     void refreshCurrentInstance();
 
+    /// Any instance started or stopped: keeps Discord Rich Presence in sync.
+    void onInstanceRunningChanged(bool running);
+
    private:
     void retranslateUi();
 
@@ -190,6 +195,10 @@ class MainWindow : public QMainWindow {
     void populateHomeInstanceMenu();
     /// Show the active account and the skin it will have in game on the Home screen.
     void updateHomePlayer();
+    /// Apply the Discord settings and show the right status.
+    void updateDiscordPresence();
+    /// Watch every instance so Discord knows when one is running.
+    void watchInstancesForPresence();
     /// Window state with the instance toolbar's user-chosen visibility, regardless of the current page.
     QString serializedWindowState();
 
@@ -220,6 +229,9 @@ class MainWindow : public QMainWindow {
     HomePage* m_homePage = nullptr;
     QMenu* m_homeInstanceMenu = nullptr;
     QAction* m_addAccountAction = nullptr;
+    DiscordPresence* m_discord = nullptr;
+    XylarUpdater* m_updater = nullptr;
+    BaseInstance* m_playingInstance = nullptr;
     Page m_currentPage = Page::Home;
     bool m_instanceToolBarWanted = true;
     bool m_pageChromeReady = false;

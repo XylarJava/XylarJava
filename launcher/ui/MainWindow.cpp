@@ -53,6 +53,7 @@
 #include <net/NetJob.h>
 #include <tools/BaseProfiler.h>
 #include <updater/ExternalUpdater.h>
+#include <updater/XylarUpdater.h>
 #include "InstanceWindow.h"
 
 #include "ui/GuiUtil.h"
@@ -73,6 +74,8 @@
 #include "ui/instanceview/InstanceView.h"
 #include "ui/themes/ITheme.h"
 #include "ui/themes/ThemeManager.h"
+#include "discord/DiscordPresence.h"
+#include "minecraft/skins/DefaultSkin.h"
 #include "ui/widgets/FadingStackedWidget.h"
 #include "ui/widgets/HomePage.h"
 #include "ui/widgets/SideBar.h"
@@ -304,7 +307,24 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         auto instancesLayout = new QVBoxLayout(instancesPage);
         instancesLayout->setContentsMargins(0, 0, 0, 0);
         instancesLayout->setSpacing(0);
-        instancesLayout->addWidget(view);
+
+        auto header = new QFrame(instancesPage);
+        header->setObjectName(QStringLiteral("instancesHeader"));
+        auto headerLayout = new QHBoxLayout(header);
+        headerLayout->setContentsMargins(24, 18, 24, 14);
+        headerLayout->setSpacing(12);
+        auto title = new QLabel(tr("Your instances"), header);
+        title->setObjectName(QStringLiteral("instancesTitle"));
+        auto addButton = new QPushButton(QIcon::fromTheme(QStringLiteral("new")), tr("Add instance"), header);
+        addButton->setObjectName(QStringLiteral("addInstanceButton"));
+        addButton->setCursor(Qt::PointingHandCursor);
+        connect(addButton, &QPushButton::clicked, ui->actionAddInstance, &QAction::trigger);
+        headerLayout->addWidget(title);
+        headerLayout->addStretch(1);
+        headerLayout->addWidget(addButton);
+
+        instancesLayout->addWidget(header);
+        instancesLayout->addWidget(view, 1);
         m_pages->addWidget(instancesPage);
 
         // Sidebar on the left: logo, pages, quick actions and the account switcher.
@@ -312,10 +332,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         m_sideBar->setLogo(APPLICATION->logo(), BuildConfig.LAUNCHER_DISPLAYNAME);
         m_sideBar->addPage(QIcon::fromTheme(QStringLiteral("launch")), QString());
         m_sideBar->addPage(QIcon::fromTheme(QStringLiteral("instance-settings")), QString());
-        m_sideBar->addActionButton(ui->actionAddInstance);
         m_sideBar->addActionButton(ui->actionFoldersButton);
         m_sideBar->addActionButton(ui->actionSettings);
-        m_sideBar->addActionButton(ui->actionCheckUpdate);
         if (qgetenv("XDG_CURRENT_DESKTOP") == "gamescope")
             m_sideBar->addActionButton(ui->actionCloseWindow);
         m_sideBar->setAccountAction(ui->actionAccountsButton);
@@ -400,6 +418,25 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     m_addAccountAction->setIcon(QIcon::fromTheme(QStringLiteral("accounts")));
     connect(m_addAccountAction, &QAction::triggered, this, &MainWindow::on_actionManageAccounts_triggered);
 
+    // Discord Rich Presence (off until an application ID is set in Settings)
+    m_discord = new DiscordPresence(this);
+    watchInstancesForPresence();
+    connect(APPLICATION->instances(), &InstanceList::rowsInserted, this, [this] { watchInstancesForPresence(); });
+    connect(APPLICATION->instances(), &InstanceList::modelReset, this, [this] { watchInstancesForPresence(); });
+    updateDiscordPresence();
+
+    // GitHub release updater
+    m_updater = new XylarUpdater(this, this);
+    if (!APPLICATION->updaterEnabled()) {
+        ui->actionCheckUpdate->setVisible(true);
+        ui->actionCheckUpdate->setEnabled(true);
+        connect(ui->actionCheckUpdate, &QAction::triggered, this, [this] { m_updater->checkForUpdates(true); });
+    }
+    if (APPLICATION->settings()->get("XylarAutoUpdate").toBool()) {
+        // Give the window a moment to settle before going online.
+        QTimer::singleShot(4000, this, [this] { m_updater->checkForUpdates(false); });
+    }
+
     // Use undocumented property... https://stackoverflow.com/questions/7121718/create-a-scrollbar-in-a-submenu-qt
     ui->accountsMenu->setStyleSheet("QMenu { menu-scrollable: 1; }");
 
@@ -461,8 +498,13 @@ void MainWindow::applyXylarBranding()
                               "QToolBar#instanceToolBar { padding: 6px; spacing: 4px; border: none; border-left: 1px solid palette(mid); }"
                               "QToolBar#instanceToolBar QToolButton:checked { background-color: %1; color: %2; }"
                               "QToolBar#newsToolBar { padding: 2px 12px; border: none; }"
-                              "QStatusBar QLabel { padding: 0 6px; }")
-                              .arg(accent.name(), accentText.name());
+                              "QStatusBar QLabel { padding: 0 6px; }"
+                              "#instancesHeader { background: transparent; border-bottom: 1px solid palette(mid); }"
+                              "#instancesTitle { font-size: 22px; font-weight: 800; }"
+                              "#addInstanceButton { background-color: %1; color: %2; border: none; border-radius: 10px;"
+                              " padding: 8px 16px; font-weight: 700; }"
+                              "#addInstanceButton:hover { background-color: %3; }")
+                              .arg(accent.name(), accentText.name(), accent.lighter(112).name());
 
     // Only re-apply when something changed, so palette notifications can never loop.
     if (style == m_appliedChromeStyle)
@@ -472,6 +514,8 @@ void MainWindow::applyXylarBranding()
     ui->instanceToolBar->setStyleSheet(style);
     ui->newsToolBar->setStyleSheet(style);
     statusBar()->setStyleSheet(style);
+    if (m_pages && m_pages->count() > 1)
+        m_pages->widget(1)->setStyleSheet(style);
 }
 
 void MainWindow::showEvent(QShowEvent* event)
@@ -657,12 +701,68 @@ void MainWindow::updateHomePlayer()
         }
     }
 
+    if (skin.isNull() && !uuid.isEmpty()) {
+        // No custom skin: the game picks one of its default skins from the UUID.
+        // The texture is read from a client jar the launcher already downloaded.
+        QString preferredVersion;
+        if (auto minecraft = dynamic_cast<MinecraftInstance*>(m_selectedInstance)) {
+            if (auto profile = minecraft->getPackProfile())
+                preferredVersion = profile->getComponentVersion(QStringLiteral("net.minecraft"));
+        }
+        const DefaultSkin::Result fallback = DefaultSkin::forUuid(uuid, preferredVersion);
+        if (!fallback.texture.isNull()) {
+            skin = fallback.texture;
+            slim = fallback.slim;
+            note = tr("No custom skin, so the game gives you this default one.");
+        }
+    }
+
     if (skin.isNull()) {
         note = isMsa ? tr("We couldn't load your skin yet. It will show up after the next sign-in.")
-                     : tr("No custom skin yet, so you'll get a default one in game.");
+                     : tr("No custom skin yet. Play once and your default game skin shows up here.");
     }
 
     m_homePage->showPlayer(name, note, skin, slim);
+}
+
+void MainWindow::watchInstancesForPresence()
+{
+    auto instanceList = APPLICATION->instances();
+    for (int i = 0; i < instanceList->count(); i++) {
+        if (auto instance = instanceList->at(i))
+            connect(instance, &BaseInstance::runningStatusChanged, this, &MainWindow::onInstanceRunningChanged, Qt::UniqueConnection);
+    }
+}
+
+void MainWindow::onInstanceRunningChanged(bool running)
+{
+    auto instance = qobject_cast<BaseInstance*>(sender());
+    if (!instance)
+        return;
+    if (running)
+        m_playingInstance = instance;
+    else if (instance == m_playingInstance)
+        m_playingInstance = nullptr;
+    updateDiscordPresence();
+    // The selected instance's skin source (default skin jar) may only exist after a first launch.
+    if (!running)
+        updateHomePlayer();
+}
+
+void MainWindow::updateDiscordPresence()
+{
+    if (!m_discord)
+        return;
+    auto settings = APPLICATION->settings();
+    m_discord->setClientId(settings->get("DiscordClientId").toString());
+    m_discord->setEnabled(settings->get("DiscordRichPresence").toBool());
+
+    if (m_playingInstance && m_playingInstance->isRunning()) {
+        m_discord->showPlaying(m_playingInstance->name(), describeInstance(m_playingInstance), QDateTime::currentSecsSinceEpoch());
+    } else {
+        m_playingInstance = nullptr;
+        m_discord->showIdle();
+    }
 }
 
 // macOS always has a native menu bar, so these fixes are not applicable
@@ -1556,6 +1656,7 @@ void MainWindow::globalSettingsClosed()
     updateThemeMenu();
     updateStatusCenter();
     updateHomePlayer();
+    updateDiscordPresence();
     // This needs to be done to prevent UI elements disappearing in the event the config is changed
     // but PolyMC exits abnormally, causing the window state to never be saved:
     APPLICATION->settings()->set("MainWindowState", serializedWindowState());
