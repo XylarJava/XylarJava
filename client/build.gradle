@@ -1,0 +1,83 @@
+// XylarJava Client for Minecraft 1.8.9.
+// A standalone client: vanilla 1.8.9 + LaunchWrapper + Mixin, no Forge.
+// Build with Java 8:  ./gradlew build   ->  build/libs/xylarjava-client-<version>.jar
+
+buildscript {
+    repositories {
+        mavenCentral()
+        maven { url = "https://maven.minecraftforge.net/" }
+        maven { url = "https://repo.spongepowered.org/repository/maven-public/" }
+    }
+    dependencies {
+        classpath "net.minecraftforge.gradle:ForgeGradle:2.1-SNAPSHOT"
+        classpath "org.spongepowered:mixingradle:0.6-SNAPSHOT"
+    }
+}
+
+// "tweaker-client" builds a vanilla client that launches through a LaunchWrapper tweaker.
+apply plugin: "net.minecraftforge.gradle.tweaker-client"
+apply plugin: "org.spongepowered.mixin"
+
+sourceCompatibility = targetCompatibility = 1.8
+compileJava.options.encoding = "UTF-8"
+
+group = "io.xylarjava"
+archivesBaseName = "xylarjava-client"
+
+minecraft {
+    version = "1.8.9"
+    mappings = "stable_22"
+    runDir = "run"
+    tweakClass = "io.xylarjava.client.XylarTweaker"
+    makeObfSourceJar = false
+}
+
+repositories {
+    mavenCentral()
+    maven { url = "https://repo.spongepowered.org/repository/maven-public/" }
+}
+
+configurations {
+    // Libraries bundled inside our jar, so the instance only needs LaunchWrapper + ASM.
+    embed
+    compile.extendsFrom(embed)
+}
+
+dependencies {
+    embed("org.spongepowered:mixin:0.7.11-SNAPSHOT") {
+        exclude module: "launchwrapper"
+        exclude module: "guava"
+        exclude module: "gson"
+        exclude module: "commons-io"
+        exclude module: "log4j-core"
+    }
+}
+
+mixin {
+    defaultObfuscationEnv notch
+    add sourceSets.main, "mixins.xylarjava.refmap.json"
+}
+
+jar {
+    from(configurations.embed.collect { it.isDirectory() ? it : zipTree(it) }) {
+        exclude "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA", "LICENSE.txt"
+    }
+    manifest.attributes(
+        "TweakClass": "io.xylarjava.client.XylarTweaker",
+        "MixinConfigs": "mixins.xylarjava.json",
+        "TweakOrder": 0,
+        "Implementation-Title": "XylarJava Client",
+        "Implementation-Version": project.version
+    )
+}
+
+processResources {
+    inputs.property "version", project.version
+    from(sourceSets.main.resources.srcDirs) {
+        include "xylarjava.properties"
+        expand "version": project.version
+    }
+    from(sourceSets.main.resources.srcDirs) {
+        exclude "xylarjava.properties"
+    }
+}

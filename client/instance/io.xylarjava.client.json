@@ -1,0 +1,28 @@
+{
+    "formatVersion": 1,
+    "name": "XylarJava Client",
+    "uid": "io.xylarjava.client",
+    "version": "0.1.0",
+    "requires": [
+        {
+            "equals": "1.8.9",
+            "uid": "net.minecraft"
+        }
+    ],
+    "mainClass": "net.minecraft.launchwrapper.Launch",
+    "+tweakers": [
+        "io.xylarjava.client.XylarTweaker"
+    ],
+    "libraries": [
+        {
+            "name": "net.minecraft:launchwrapper:1.12"
+        },
+        {
+            "name": "org.ow2.asm:asm-all:5.0.3"
+        },
+        {
+            "name": "io.xylarjava:xylarjava-client:0.1.0",
+            "MMC-hint": "local"
+        }
+    ]
+}

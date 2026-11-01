@@ -1,0 +1,41 @@
+name: Client (1.8.9)
+
+on:
+  push:
+    paths:
+      - "client/**"
+      - ".github/workflows/client.yml"
+  pull_request:
+    paths:
+      - "client/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v6
+
+      # ForgeGradle 2.1 only runs on Java 8.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "8"
+
+      - name: Build
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: xylarjava-client-1.8.9
+          path: |
+            client/build/libs/xylarjava-client-*.jar
+            client/instance/io.xylarjava.client.json
