@@ -20,7 +20,8 @@ class InstanceView;
 class InstanceTask;
 class LabeledToolButton;
 class HomePage;
-class QStackedWidget;
+class SideBar;
+class FadingStackedWidget;
 class QAction;
 class QMenu;
 
@@ -187,6 +188,8 @@ class MainWindow : public QMainWindow {
     void updateHomePage();
     /// Fill the Home screen's instance picker menu.
     void populateHomeInstanceMenu();
+    /// Show the active account and the skin it will have in game on the Home screen.
+    void updateHomePlayer();
     /// Window state with the instance toolbar's user-chosen visibility, regardless of the current page.
     QString serializedWindowState();
 
@@ -212,11 +215,10 @@ class MainWindow : public QMainWindow {
     LabeledToolButton* renameButton = nullptr;
     std::shared_ptr<Setting> instanceToolbarSetting = nullptr;
 
-    QStackedWidget* m_pages = nullptr;
+    SideBar* m_sideBar = nullptr;
+    FadingStackedWidget* m_pages = nullptr;
     HomePage* m_homePage = nullptr;
     QMenu* m_homeInstanceMenu = nullptr;
-    QAction* m_navHomeAction = nullptr;
-    QAction* m_navInstancesAction = nullptr;
     QAction* m_addAccountAction = nullptr;
     Page m_currentPage = Page::Home;
     bool m_instanceToolBarWanted = true;

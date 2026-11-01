@@ -1,6 +1,9 @@
 #pragma once
 
+#include <QElapsedTimer>
 #include <QIcon>
+#include <QImage>
+#include <QPixmap>
 #include <QPointF>
 #include <QWidget>
 
@@ -11,11 +14,13 @@ class QTimer;
 class QToolButton;
 class QFrame;
 class QPainter;
+class SkinPreview;
 
 /**
- * The launcher's Home screen: a full-bleed, procedurally painted pixel-art
- * landscape with a gentle mouse parallax, plus a launch card that holds the
- * selected instance and a large Play button.
+ * The launcher's Home screen: a full-bleed pixel-art landscape (twinkling
+ * stars, drifting clouds and a gentle mouse parallax), the player's skin as
+ * it appears in game, and a launch card with the selected instance and a big
+ * Play button.
  *
  * All colours are derived from the active palette, so the page follows
  * whichever built-in or community theme is selected.
@@ -26,11 +31,19 @@ class HomePage : public QWidget {
    public:
     explicit HomePage(QWidget* parent = nullptr);
 
+    void setLogo(const QIcon& logo);
+
     /// Show the selected instance in the launch card.
     void showInstance(const QIcon& icon, const QString& name, const QString& details, bool canLaunch, bool running);
 
     /// Show the empty state. If other instances exist the user is asked to pick one, otherwise to create one.
     void showNoInstance(bool instancesExist);
+
+    /// Show who will be playing and the skin they will have in game. A null skin shows a neutral silhouette.
+    void showPlayer(const QString& name, const QString& note, const QImage& skin, bool slim);
+
+    /// No account selected.
+    void showNoPlayer();
 
     /// Menu listing the instances; shown by the instance picker button.
     void setInstanceMenu(QMenu* menu);
@@ -49,6 +62,7 @@ class HomePage : public QWidget {
     void stopRequested();
     void manageInstancesRequested();
     void createInstanceRequested();
+    void manageAccountsRequested();
 
    protected:
     void paintEvent(QPaintEvent* event) override;
@@ -56,12 +70,15 @@ class HomePage : public QWidget {
     void leaveEvent(QEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
     void changeEvent(QEvent* event) override;
+    void showEvent(QShowEvent* event) override;
+    void hideEvent(QHideEvent* event) override;
 
    private:
-    void stepParallax();
+    void tick();
     void updateCardStyle();
     void retranslate();
-    void paintScenery(QPainter& painter);
+    void paintBackdrop(QPainter& painter);
+    void paintLiveLayer(QPainter& painter);
 
     QFrame* m_card = nullptr;
     QLabel* m_iconLabel = nullptr;
@@ -71,12 +88,26 @@ class HomePage : public QWidget {
     QPushButton* m_manageButton = nullptr;
     QPushButton* m_playButton = nullptr;
     QToolButton* m_playMenuButton = nullptr;
+    QLabel* m_logoLabel = nullptr;
     QLabel* m_titleLabel = nullptr;
     QLabel* m_subtitleLabel = nullptr;
 
+    QFrame* m_playerPanel = nullptr;
+    SkinPreview* m_skin = nullptr;
+    QLabel* m_playerName = nullptr;
+    QLabel* m_playerNote = nullptr;
+    QPushButton* m_skinButton = nullptr;
+    bool m_hasPlayer = false;
+
     QTimer* m_animTimer = nullptr;
+    QElapsedTimer m_clock;
     QPointF m_parallax;        // current offset, -1..1 on both axes
     QPointF m_parallaxTarget;  // where the mouse wants it
+
+    // The sky, sun and hills only change with size, palette and parallax: cache them.
+    QPixmap m_backdrop;
+    QPointF m_backdropParallax;
+    bool m_backdropDirty = true;
 
     bool m_hasInstance = false;
     bool m_instancesExist = false;

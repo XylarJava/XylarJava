@@ -17,6 +17,7 @@
 #include <cmath>
 
 #include "BuildConfig.h"
+#include "SkinPreview.h"
 
 namespace {
 
@@ -69,10 +70,16 @@ HomePage::HomePage(QWidget* parent) : QWidget(parent)
     setAttribute(Qt::WA_OpaquePaintEvent, true);
 
     m_animTimer = new QTimer(this);
-    m_animTimer->setInterval(16);
-    connect(m_animTimer, &QTimer::timeout, this, &HomePage::stepParallax);
+    m_animTimer->setInterval(33);
+    connect(m_animTimer, &QTimer::timeout, this, &HomePage::tick);
+    m_clock.start();
 
     // --- Hero text -------------------------------------------------------
+    m_logoLabel = new QLabel(this);
+    m_logoLabel->setObjectName(QStringLiteral("homeLogo"));
+    m_logoLabel->setFixedSize(52, 52);
+    m_logoLabel->setVisible(false);
+
     m_titleLabel = new QLabel(this);
     m_titleLabel->setObjectName(QStringLiteral("homeTitle"));
     m_titleLabel->setText(BuildConfig.LAUNCHER_DISPLAYNAME);
@@ -80,6 +87,61 @@ HomePage::HomePage(QWidget* parent) : QWidget(parent)
     m_subtitleLabel = new QLabel(this);
     m_subtitleLabel->setObjectName(QStringLiteral("homeSubtitle"));
     m_subtitleLabel->setWordWrap(true);
+
+    auto titleRow = new QHBoxLayout();
+    titleRow->setContentsMargins(0, 0, 0, 0);
+    titleRow->setSpacing(14);
+    titleRow->addWidget(m_logoLabel);
+    titleRow->addWidget(m_titleLabel);
+    titleRow->addStretch(1);
+
+    auto heroText = new QVBoxLayout();
+    heroText->setContentsMargins(0, 0, 0, 0);
+    heroText->setSpacing(6);
+    heroText->addStretch(1);
+    heroText->addLayout(titleRow);
+    heroText->addWidget(m_subtitleLabel);
+    heroText->addSpacing(18);
+
+    // --- Player / skin ---------------------------------------------------
+    m_playerPanel = new QFrame(this);
+    m_playerPanel->setObjectName(QStringLiteral("playerPanel"));
+    m_playerPanel->setFixedWidth(220);
+
+    m_skin = new SkinPreview(m_playerPanel);
+    m_skin->setMaximumHeight(290);
+
+    m_playerName = new QLabel(m_playerPanel);
+    m_playerName->setObjectName(QStringLiteral("playerName"));
+    m_playerName->setAlignment(Qt::AlignCenter);
+    m_playerName->setTextFormat(Qt::PlainText);
+
+    m_playerNote = new QLabel(m_playerPanel);
+    m_playerNote->setObjectName(QStringLiteral("playerNote"));
+    m_playerNote->setAlignment(Qt::AlignCenter);
+    m_playerNote->setWordWrap(true);
+    m_playerNote->setTextFormat(Qt::PlainText);
+
+    m_skinButton = new QPushButton(m_playerPanel);
+    m_skinButton->setObjectName(QStringLiteral("playerSkinButton"));
+    m_skinButton->setFlat(true);
+    m_skinButton->setCursor(Qt::PointingHandCursor);
+    connect(m_skinButton, &QPushButton::clicked, this, &HomePage::manageAccountsRequested);
+
+    auto playerLayout = new QVBoxLayout(m_playerPanel);
+    playerLayout->setContentsMargins(0, 0, 0, 0);
+    playerLayout->setSpacing(2);
+    playerLayout->addWidget(m_skin, 1);
+    playerLayout->addSpacing(6);
+    playerLayout->addWidget(m_playerName);
+    playerLayout->addWidget(m_playerNote);
+    playerLayout->addWidget(m_skinButton, 0, Qt::AlignHCenter);
+
+    auto heroRow = new QHBoxLayout();
+    heroRow->setContentsMargins(0, 0, 0, 0);
+    heroRow->setSpacing(24);
+    heroRow->addLayout(heroText, 1);
+    heroRow->addWidget(m_playerPanel, 0, Qt::AlignBottom);
 
     // --- Launch card -----------------------------------------------------
     m_card = new QFrame(this);
@@ -162,26 +224,31 @@ HomePage::HomePage(QWidget* parent) : QWidget(parent)
 
     // --- Page layout -----------------------------------------------------
     auto pageLayout = new QVBoxLayout(this);
-    pageLayout->setContentsMargins(36, 32, 36, 28);
-    pageLayout->setSpacing(6);
-    pageLayout->addStretch(3);
-    pageLayout->addWidget(m_titleLabel);
-    pageLayout->addWidget(m_subtitleLabel);
-    pageLayout->addStretch(2);
+    pageLayout->setContentsMargins(40, 28, 40, 28);
+    pageLayout->setSpacing(18);
+    pageLayout->addLayout(heroRow, 1);
     pageLayout->addWidget(m_card);
 
     retranslate();
     updateCardStyle();
     showNoInstance(false);
+    showNoPlayer();
 }
 
 void HomePage::retranslate()
 {
-    m_subtitleLabel->setText(tr("Pick an instance and jump straight into the game."));
+    m_subtitleLabel->setText(tr("Ready when you are."));
     m_manageButton->setText(tr("Manage instances"));
     m_pickerButton->setText(tr("Switch"));
-    m_pickerButton->setToolTip(tr("Choose which instance to play"));
-    m_playMenuButton->setToolTip(tr("More launch options"));
+    m_pickerButton->setToolTip(tr("Choose what to play"));
+    m_playMenuButton->setToolTip(tr("More ways to launch"));
+    m_skinButton->setText(m_hasPlayer ? tr("Change skin") : tr("Add an account"));
+}
+
+void HomePage::setLogo(const QIcon& logo)
+{
+    m_logoLabel->setPixmap(logo.pixmap(52, 52));
+    m_logoLabel->setVisible(!logo.isNull());
 }
 
 void HomePage::showInstance(const QIcon& icon, const QString& name, const QString& details, bool canLaunch, bool running)
@@ -216,16 +283,34 @@ void HomePage::showNoInstance(bool instancesExist)
     m_manageButton->setVisible(instancesExist);
     m_playMenuButton->setEnabled(false);
     if (instancesExist) {
-        m_nameLabel->setText(tr("No instance selected"));
-        m_detailsLabel->setText(tr("Use \"Switch\" to choose what to play."));
+        m_nameLabel->setText(tr("Nothing picked yet"));
+        m_detailsLabel->setText(tr("Hit Switch and choose what you feel like playing."));
         m_playButton->setText(tr("PLAY"));
         m_playButton->setEnabled(false);
     } else {
         m_nameLabel->setText(tr("No instances yet"));
-        m_detailsLabel->setText(tr("Create your first instance to start playing."));
+        m_detailsLabel->setText(tr("Make your first one and you're good to go."));
         m_playButton->setText(tr("CREATE"));
         m_playButton->setEnabled(true);
     }
+}
+
+void HomePage::showPlayer(const QString& name, const QString& note, const QImage& skin, bool slim)
+{
+    m_hasPlayer = true;
+    m_skin->setSkin(skin, slim);
+    m_playerName->setText(name);
+    m_playerNote->setText(note);
+    m_skinButton->setText(tr("Change skin"));
+}
+
+void HomePage::showNoPlayer()
+{
+    m_hasPlayer = false;
+    m_skin->setSkin(QImage(), false);
+    m_playerName->setText(tr("No account yet"));
+    m_playerNote->setText(tr("Sign in and your skin shows up right here."));
+    m_skinButton->setText(tr("Add an account"));
 }
 
 void HomePage::setInstanceMenu(QMenu* menu)
@@ -277,8 +362,8 @@ void HomePage::updateCardStyle()
 
     const QString qss =
         QStringLiteral(
-            "#homeTitle { color: %1; font-size: 34px; font-weight: 800; background: transparent; }"
-            "#homeSubtitle { color: %2; font-size: 15px; background: transparent; }"
+            "#homeTitle { color: %1; font-size: 36px; font-weight: 800; background: transparent; }"
+            "#homeSubtitle { color: %2; font-size: 16px; background: transparent; }"
             "#launchCard { background-color: %3; border: 1px solid %4; border-radius: 14px; }"
             "#launchCardIcon { background-color: %5; border-radius: 10px; }"
             "#launchCardName { color: %1; font-size: 17px; font-weight: 700; background: transparent; }"
@@ -286,8 +371,12 @@ void HomePage::updateCardStyle()
             "#launchCardPicker { color: %2; border: 1px solid %4; border-radius: 6px; padding: 1px 8px; background: transparent; }"
             "#launchCardPicker:hover { color: %1; border-color: %6; }"
             "#launchCardPicker::menu-indicator { image: none; width: 0; }"
-            "#launchCardManage { color: %6; border: none; padding: 2px 0; text-align: left; background: transparent; }"
-            "#launchCardManage:hover { text-decoration: underline; }"
+            "#launchCardManage, #playerSkinButton { color: %6; border: none; padding: 2px 0; background: transparent; }"
+            "#launchCardManage { text-align: left; }"
+            "#launchCardManage:hover, #playerSkinButton:hover { text-decoration: underline; }"
+            "#playerPanel { background: transparent; }"
+            "#playerName { color: %1; font-size: 16px; font-weight: 700; background: transparent; }"
+            "#playerNote { color: %2; background: transparent; }"
             "#playButton { background-color: %6; color: %7; border: none; border-radius: %8;"
             " font-size: 18px; font-weight: 800; letter-spacing: 1px; padding: 10px 40px; }"
             "#playButton:hover { background-color: %9; }"
@@ -314,6 +403,7 @@ void HomePage::updateCardStyle()
 void HomePage::changeEvent(QEvent* event)
 {
     if (event->type() == QEvent::PaletteChange) {
+        m_backdropDirty = true;
         updateCardStyle();
         update();
     } else if (event->type() == QEvent::LanguageChange) {
@@ -322,13 +412,23 @@ void HomePage::changeEvent(QEvent* event)
     QWidget::changeEvent(event);
 }
 
+void HomePage::showEvent(QShowEvent* event)
+{
+    QWidget::showEvent(event);
+    m_animTimer->start();
+}
+
+void HomePage::hideEvent(QHideEvent* event)
+{
+    m_animTimer->stop();
+    QWidget::hideEvent(event);
+}
+
 void HomePage::mouseMoveEvent(QMouseEvent* event)
 {
     if (width() > 0 && height() > 0) {
         const QPointF pos = event->position();
         m_parallaxTarget = QPointF(pos.x() / width() * 2.0 - 1.0, pos.y() / height() * 2.0 - 1.0);
-        if (!m_animTimer->isActive())
-            m_animTimer->start();
     }
     QWidget::mouseMoveEvent(event);
 }
@@ -336,37 +436,47 @@ void HomePage::mouseMoveEvent(QMouseEvent* event)
 void HomePage::leaveEvent(QEvent* event)
 {
     m_parallaxTarget = QPointF(0, 0);
-    if (!m_animTimer->isActive())
-        m_animTimer->start();
     QWidget::leaveEvent(event);
 }
 
 void HomePage::resizeEvent(QResizeEvent* event)
 {
     QWidget::resizeEvent(event);
+    m_backdropDirty = true;
     update();
 }
 
-void HomePage::stepParallax()
+void HomePage::tick()
 {
     const QPointF delta = m_parallaxTarget - m_parallax;
-    if (qAbs(delta.x()) < 0.002 && qAbs(delta.y()) < 0.002) {
+    if (qAbs(delta.x()) < 0.002 && qAbs(delta.y()) < 0.002)
         m_parallax = m_parallaxTarget;
-        m_animTimer->stop();
-    } else {
+    else
         m_parallax += delta * 0.12;
-    }
     update();
 }
 
 void HomePage::paintEvent(QPaintEvent*)
 {
+    const qreal dpr = devicePixelRatioF();
+    const QSize pixelSize = size() * dpr;
+    if (m_backdropDirty || m_backdrop.size() != pixelSize || m_backdropParallax != m_parallax) {
+        m_backdrop = QPixmap(pixelSize);
+        m_backdrop.setDevicePixelRatio(dpr);
+        QPainter backdropPainter(&m_backdrop);
+        backdropPainter.setRenderHint(QPainter::Antialiasing, false);
+        paintBackdrop(backdropPainter);
+        m_backdropParallax = m_parallax;
+        m_backdropDirty = false;
+    }
+
     QPainter painter(this);
+    painter.drawPixmap(0, 0, m_backdrop);
     painter.setRenderHint(QPainter::Antialiasing, false);
-    paintScenery(painter);
+    paintLiveLayer(painter);
 }
 
-void HomePage::paintScenery(QPainter& painter)
+void HomePage::paintBackdrop(QPainter& painter)
 {
     const int w = width();
     const int h = height();
@@ -393,25 +503,9 @@ void HomePage::paintScenery(QPainter& painter)
         painter.fillRect(0, y, w, px, mix(skyTop, skyHorizon, stepped * stepped));
     }
 
-    // Stars (only on dark themes, where they read well).
-    if (darkTheme) {
-        quint32 rng = m_seed;
-        const int starCount = (w * h) / 9000;
-        const qreal shiftX = -m_parallax.x() * 6.0;
-        const qreal shiftY = -m_parallax.y() * 3.0;
-        for (int i = 0; i < starCount; ++i) {
-            const int sx = int(randomUnit(rng) * (w + 40) - 20 + shiftX);
-            const int sy = int(randomUnit(rng) * horizon * 0.75 + shiftY);
-            const qreal bright = 0.35 + randomUnit(rng) * 0.65;
-            const QColor star = mix(skyTop, QColor(255, 255, 255), bright);
-            const int size = (randomUnit(rng) > 0.9) ? px : qMax(2, px / 2);
-            painter.fillRect((sx / px) * px, (sy / px) * px, size, size, star);
-        }
-    }
-
     // Sun: a chunky pixel disc sitting on the horizon.
     {
-        const qreal cx = w * 0.70 - m_parallax.x() * 12.0;
+        const qreal cx = w * 0.56 - m_parallax.x() * 12.0;
         const qreal cy = horizon - h * 0.06 - m_parallax.y() * 6.0;
         const qreal radius = qMax<qreal>(px * 6.0, h * 0.11);
         const QColor sunCore = mix(accent, QColor(255, 255, 255), 0.35);
@@ -473,4 +567,62 @@ void HomePage::paintScenery(QPainter& painter)
     fade.setColorAt(0.0, clear);
     fade.setColorAt(1.0, solid);
     painter.fillRect(rect(), QBrush(fade));
+}
+
+void HomePage::paintLiveLayer(QPainter& painter)
+{
+    const int w = width();
+    const int h = height();
+    if (w <= 0 || h <= 0)
+        return;
+
+    const QPalette pal = palette();
+    const QColor bg = pal.color(QPalette::Window);
+    const QColor fg = pal.color(QPalette::WindowText);
+    const bool darkTheme = bg.lightnessF() < 0.5f;
+    const int px = qMax(4, h / 110);
+    const int horizon = qMax(1, int(h * 0.62));
+    const qreal seconds = m_clock.elapsed() / 1000.0;
+    const QColor skyTop = darkTheme ? bg.darker(160) : mix(bg, fg, 0.08);
+
+    // Twinkling stars (dark themes only, where they read well).
+    if (darkTheme) {
+        quint32 rng = m_seed;
+        const int starCount = (w * h) / 9000;
+        const qreal shiftX = -m_parallax.x() * 6.0;
+        const qreal shiftY = -m_parallax.y() * 3.0;
+        for (int i = 0; i < starCount; ++i) {
+            const int sx = int(randomUnit(rng) * (w + 40) - 20 + shiftX);
+            const int sy = int(randomUnit(rng) * horizon * 0.58 + shiftY);
+            const qreal base = 0.35 + randomUnit(rng) * 0.65;
+            const qreal speed = 0.6 + randomUnit(rng) * 1.8;
+            const qreal offset = randomUnit(rng) * 6.2831;
+            const int size = (randomUnit(rng) > 0.9) ? px : qMax(2, px / 2);
+            const qreal twinkle = 0.65 + 0.35 * qSin(seconds * speed + offset);
+            const QColor star = mix(skyTop, QColor(255, 255, 255), base * twinkle);
+            painter.fillRect((sx / px) * px, (sy / px) * px, size, size, star);
+        }
+    }
+
+    // A few blocky clouds drifting slowly across the sky.
+    quint32 rng = m_seed ^ 0x0C10D5u;
+    const QColor cloudColor = darkTheme ? mix(skyTop, fg, 0.16) : mix(bg, QColor(255, 255, 255), 0.7);
+    for (int i = 0; i < 4; ++i) {
+        const qreal cloudW = (10 + randomUnit(rng) * 12) * px;
+        const qreal speed = (4 + randomUnit(rng) * 6) * px / 10.0;  // px per second
+        const qreal y = h * (0.10 + randomUnit(rng) * 0.22) - m_parallax.y() * 4.0;
+        const qreal start = randomUnit(rng) * (w + cloudW);
+        const qreal travel = std::fmod(start + seconds * speed, w + cloudW * 2.0);
+        const qreal x = travel - cloudW - m_parallax.x() * 8.0;
+        const int left = int(x / px) * px;
+        const int top = int(y / px) * px;
+        const int cw = int(cloudW / px) * px;
+
+        QColor fill = cloudColor;
+        fill.setAlpha(darkTheme ? 120 : 170);
+        // Stacked strips make a chunky cloud shape.
+        painter.fillRect(left, top + px, cw, px * 2, fill);
+        painter.fillRect(left + px * 2, top, cw - px * 5, px, fill);
+        painter.fillRect(left + px * 4, top - px, cw / 3, px, fill);
+    }
 }

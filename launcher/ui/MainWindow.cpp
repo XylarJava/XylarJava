@@ -29,7 +29,6 @@
 #include <QProgressDialog>
 #include <QShortcut>
 #include <QShowEvent>
-#include <QStackedWidget>
 #include <QStatusBar>
 #include <QToolBar>
 #include <QToolButton>
@@ -49,6 +48,7 @@
 #include <launch/LaunchTask.h>
 #include <minecraft/MinecraftInstance.h>
 #include <minecraft/auth/AccountList.h>
+#include <minecraft/skins/XylarSkinClient.h>
 #include <net/ApiDownload.h>
 #include <net/NetJob.h>
 #include <tools/BaseProfiler.h>
@@ -73,7 +73,10 @@
 #include "ui/instanceview/InstanceView.h"
 #include "ui/themes/ITheme.h"
 #include "ui/themes/ThemeManager.h"
+#include "ui/widgets/FadingStackedWidget.h"
 #include "ui/widgets/HomePage.h"
+#include "ui/widgets/SideBar.h"
+#include "ui/widgets/SkinPreview.h"
 #include "ui/widgets/LabeledToolButton.h"
 
 #include "minecraft/PackProfile.h"
@@ -289,10 +292,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     // Central pages: the Home screen and the instance list
     {
-        m_pages = new QStackedWidget(ui->centralWidget);
+        m_pages = new FadingStackedWidget(ui->centralWidget);
         m_pages->setObjectName(QStringLiteral("mainPages"));
 
         m_homePage = new HomePage(m_pages);
+        m_homePage->setLogo(APPLICATION->logo());
         m_pages->addWidget(m_homePage);
 
         auto instancesPage = new QWidget(m_pages);
@@ -303,7 +307,22 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         instancesLayout->addWidget(view);
         m_pages->addWidget(instancesPage);
 
-        ui->horizontalLayout->addWidget(m_pages);
+        // Sidebar on the left: logo, pages, quick actions and the account switcher.
+        m_sideBar = new SideBar(ui->centralWidget);
+        m_sideBar->setLogo(APPLICATION->logo(), BuildConfig.LAUNCHER_DISPLAYNAME);
+        m_sideBar->addPage(QIcon::fromTheme(QStringLiteral("launch")), QString());
+        m_sideBar->addPage(QIcon::fromTheme(QStringLiteral("instance-settings")), QString());
+        m_sideBar->addActionButton(ui->actionAddInstance);
+        m_sideBar->addActionButton(ui->actionFoldersButton);
+        m_sideBar->addActionButton(ui->actionSettings);
+        m_sideBar->addActionButton(ui->actionCheckUpdate);
+        if (qgetenv("XDG_CURRENT_DESKTOP") == "gamescope")
+            m_sideBar->addActionButton(ui->actionCloseWindow);
+        m_sideBar->setAccountAction(ui->actionAccountsButton);
+        connect(m_sideBar, &SideBar::pageRequested, this, [this](int index) { switchToPage(static_cast<Page>(index)); });
+
+        ui->horizontalLayout->addWidget(m_sideBar);
+        ui->horizontalLayout->addWidget(m_pages, 1);
 
         m_homeInstanceMenu = new QMenu(this);
         m_homeInstanceMenu->setStyleSheet(QStringLiteral("QMenu { menu-scrollable: 1; }"));
@@ -314,6 +333,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         connect(m_homePage, &HomePage::stopRequested, this, &MainWindow::on_actionKillInstance_triggered);
         connect(m_homePage, &HomePage::createInstanceRequested, this, &MainWindow::on_actionAddInstance_triggered);
         connect(m_homePage, &HomePage::manageInstancesRequested, this, [this] { switchToPage(Page::Instances); });
+        connect(m_homePage, &HomePage::manageAccountsRequested, this, &MainWindow::on_actionManageAccounts_triggered);
 
         // Keep the Home screen in sync when instances are added, removed or reloaded.
         connect(APPLICATION->instances(), &InstanceList::rowsInserted, this, [this] { updateHomePage(); });
@@ -364,43 +384,16 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     ui->mainToolBar->insertWidget(ui->actionAccountsButton, spacer);
 
-    // Top navigation: Home / Instances, in front of the existing toolbar actions
-    {
-        auto navGroup = new QActionGroup(this);
-        navGroup->setExclusive(true);
+    // The sidebar replaces the old main toolbar; keep the toolbar object (its actions
+    // live on in the sidebar and the menu bar) but take it out of the window.
+    removeToolBar(ui->mainToolBar);
+    ui->mainToolBar->hide();
 
-        m_navHomeAction = new QAction(this);
-        m_navHomeAction->setObjectName(QStringLiteral("actionNavHome"));
-        m_navHomeAction->setCheckable(true);
-        m_navHomeAction->setChecked(true);
-        m_navHomeAction->setActionGroup(navGroup);
-        connect(m_navHomeAction, &QAction::triggered, this, [this] { switchToPage(Page::Home); });
-
-        m_navInstancesAction = new QAction(this);
-        m_navInstancesAction->setObjectName(QStringLiteral("actionNavInstances"));
-        m_navInstancesAction->setCheckable(true);
-        m_navInstancesAction->setActionGroup(navGroup);
-        connect(m_navInstancesAction, &QAction::triggered, this, [this] { switchToPage(Page::Instances); });
-
-        ui->mainToolBar->insertAction(ui->actionAddInstance, m_navHomeAction);
-        ui->mainToolBar->insertAction(ui->actionAddInstance, m_navInstancesAction);
-        ui->mainToolBar->insertSeparator(ui->actionAddInstance);
-
-        if (auto homeButton = qobject_cast<QToolButton*>(ui->mainToolBar->widgetForAction(m_navHomeAction))) {
-            homeButton->setObjectName(QStringLiteral("navButton"));
-            homeButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
-        }
-        if (auto instancesButton = qobject_cast<QToolButton*>(ui->mainToolBar->widgetForAction(m_navInstancesAction))) {
-            instancesButton->setObjectName(QStringLiteral("navButton"));
-            instancesButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
-        }
-
-        // Remember whether the user wants the instance toolbar; it is only shown on the Instances page.
-        connect(ui->instanceToolBar->toggleViewAction(), &QAction::triggered, this, [this](bool checked) {
-            m_instanceToolBarWanted = checked;
-            applyPageChrome();
-        });
-    }
+    // Remember whether the user wants the instance toolbar; it is only shown on the Instances page.
+    connect(ui->instanceToolBar->toggleViewAction(), &QAction::triggered, this, [this](bool checked) {
+        m_instanceToolBarWanted = checked;
+        applyPageChrome();
+    });
 
     // "Add account" entry for the accounts menu
     m_addAccountAction = new QAction(this);
@@ -455,31 +448,20 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
 
 void MainWindow::applyXylarBranding()
 {
-    // Theme-aware styling for the main window chrome. Colours come from the active
-    // palette so it follows the built-in or community theme in use. The accent is
-    // picked for readability, since some themes use a highlight close to the background.
+    // Theme-aware styling for the remaining window chrome. Colours come from the
+    // active palette; the accent is picked for readability, since some themes use
+    // a highlight colour close to the background.
     const QColor accent = HomePage::accentFor(palette());
     const QColor accentText = HomePage::textOn(accent);
     const QString style = QStringLiteral(
-        // Top navigation bar: roomy and flat.
-        "QToolBar#mainToolBar { padding: 6px 12px; spacing: 6px; border: none;"
-        " border-bottom: 1px solid palette(mid); background: palette(window); }"
-        "QToolBar::separator { background: palette(mid); width: 1px; height: 1px; margin: 6px 8px; }"
-        "QToolBar QToolButton { border-radius: 8px; padding: 6px 10px; }"
-        "QToolBar QToolButton:hover { background-color: palette(button); }"
-        "QToolBar QToolButton:pressed { background-color: %1; color: %2; }"
-        // Navigation tabs: bold text with an accent underline when active.
-        "QToolButton#navButton { font-weight: 700; padding: 6px 14px; border-radius: 0;"
-        " border-bottom: 2px solid transparent; }"
-        "QToolButton#navButton:hover { background: transparent; border-bottom-color: palette(mid); }"
-        "QToolButton#navButton:checked { background: transparent; color: %1;"
-        " border-bottom-color: %1; }"
-        // Instance toolbar keeps regular rounded buttons.
-        "QToolBar#instanceToolBar { padding: 6px; spacing: 4px; border: none; border-left: 1px solid palette(mid); }"
-        "QToolBar#instanceToolBar QToolButton:checked { background-color: %1; color: %2; }"
-        "QToolBar#newsToolBar { padding: 2px 12px; border: none; }"
-        // Status bar sits a touch quieter than the main surface.
-        "QStatusBar QLabel { padding: 0 6px; }")
+                              "QToolBar::separator { background: palette(mid); width: 1px; height: 1px; margin: 6px 8px; }"
+                              "QToolBar QToolButton { border-radius: 8px; padding: 6px 10px; }"
+                              "QToolBar QToolButton:hover { background-color: palette(button); }"
+                              "QToolBar QToolButton:pressed { background-color: %1; color: %2; }"
+                              "QToolBar#instanceToolBar { padding: 6px; spacing: 4px; border: none; border-left: 1px solid palette(mid); }"
+                              "QToolBar#instanceToolBar QToolButton:checked { background-color: %1; color: %2; }"
+                              "QToolBar#newsToolBar { padding: 2px 12px; border: none; }"
+                              "QStatusBar QLabel { padding: 0 6px; }")
                               .arg(accent.name(), accentText.name());
 
     // Only re-apply when something changed, so palette notifications can never loop.
@@ -487,9 +469,6 @@ void MainWindow::applyXylarBranding()
         return;
     m_appliedChromeStyle = style;
 
-    // Apply only to the toolbars and status bar so the rest of the application
-    // (settings pages, dialogs and the custom instance view) keeps its own look.
-    ui->mainToolBar->setStyleSheet(style);
     ui->instanceToolBar->setStyleSheet(style);
     ui->newsToolBar->setStyleSheet(style);
     statusBar()->setStyleSheet(style);
@@ -511,11 +490,9 @@ void MainWindow::switchToPage(Page page)
 {
     m_currentPage = page;
     if (m_pages)
-        m_pages->setCurrentIndex(static_cast<int>(page));
-    if (m_navHomeAction)
-        m_navHomeAction->setChecked(page == Page::Home);
-    if (m_navInstancesAction)
-        m_navInstancesAction->setChecked(page == Page::Instances);
+        m_pages->setCurrentIndexAnimated(static_cast<int>(page));
+    if (m_sideBar)
+        m_sideBar->setCurrentPage(static_cast<int>(page));
     applyPageChrome();
     if (page == Page::Instances && view)
         view->setFocus();
@@ -627,6 +604,67 @@ void MainWindow::populateHomeInstanceMenu()
     connect(manage, &QAction::triggered, this, [this] { switchToPage(Page::Instances); });
 }
 
+void MainWindow::updateHomePlayer()
+{
+    if (!m_homePage)
+        return;
+
+    MinecraftAccountPtr account = APPLICATION->accounts()->defaultAccount();
+    if (!account) {
+        m_homePage->showNoPlayer();
+        return;
+    }
+
+    const QString name = account->profileName().isEmpty() ? account->displayName() : account->profileName();
+    const bool isMsa = account->accountType() == AccountType::MSA;
+
+    // XylarSkins stores skins by UUID: the Mojang profile id for Microsoft accounts,
+    // the standard offline UUID (derived from the username) otherwise.
+    QString uuid;
+    if (isMsa) {
+        uuid = account->profileId();
+        if (!uuid.contains(QLatin1Char('-')) && uuid.length() == 32) {
+            uuid.insert(8, QLatin1Char('-'));
+            uuid.insert(13, QLatin1Char('-'));
+            uuid.insert(18, QLatin1Char('-'));
+            uuid.insert(23, QLatin1Char('-'));
+        }
+    } else if (!name.isEmpty()) {
+        uuid = XylarSkinClient::computeOfflineUUID(name);
+    }
+
+    QImage skin;
+    bool slim = false;
+    QString note;
+
+    if (!uuid.isEmpty()) {
+        QFile cached(QDir(XylarSkinClient::defaultCacheDir()).filePath(uuid + QStringLiteral(".png")));
+        if (cached.open(QIODevice::ReadOnly) && skin.loadFromData(cached.readAll(), "PNG")) {
+            slim = SkinPreview::looksSlim(skin);
+            note = tr("Your XylarSkins skin. This is what other players see.");
+        } else {
+            skin = QImage();
+        }
+    }
+
+    if (skin.isNull() && account->accountData()) {
+        const auto& profileSkin = account->accountData()->minecraftProfile.skin;
+        if (!profileSkin.data.isEmpty() && skin.loadFromData(profileSkin.data, "PNG")) {
+            slim = profileSkin.variant.compare(QStringLiteral("slim"), Qt::CaseInsensitive) == 0 || SkinPreview::looksSlim(skin);
+            note = tr("Skin from your Minecraft account. This is what other players see.");
+        } else {
+            skin = QImage();
+        }
+    }
+
+    if (skin.isNull()) {
+        note = isMsa ? tr("We couldn't load your skin yet. It will show up after the next sign-in.")
+                     : tr("No custom skin yet, so you'll get a default one in game.");
+    }
+
+    m_homePage->showPlayer(name, note, skin, slim);
+}
+
 // macOS always has a native menu bar, so these fixes are not applicable
 // Other systems may or may not have a native menu bar (most do not - it seems like only Ubuntu Unity does)
 #ifndef Q_OS_MAC
@@ -658,13 +696,14 @@ void MainWindow::retranslateUi()
     changeIconButton->setToolTip(ui->actionChangeInstIcon->toolTip());
     renameButton->setToolTip(ui->actionRenameInstance->toolTip());
 
-    if (m_navHomeAction)
-        m_navHomeAction->setText(tr("Home"));
-    if (m_navInstancesAction)
-        m_navInstancesAction->setText(tr("Instances"));
+    if (m_sideBar) {
+        m_sideBar->setPageText(static_cast<int>(Page::Home), tr("Home"));
+        m_sideBar->setPageText(static_cast<int>(Page::Instances), tr("Instances"));
+    }
     if (m_addAccountAction)
-        m_addAccountAction->setText(tr("Add Account..."));
+        m_addAccountAction->setText(tr("Add an account..."));
     updateHomePage();
+    updateHomePlayer();
 }
 
 MainWindow::~MainWindow() {}
@@ -758,7 +797,8 @@ void MainWindow::showInstanceContextMenu(const QPoint& pos)
 void MainWindow::updateMainToolBar()
 {
     ui->menuBar->setVisible(APPLICATION->settings()->get("MenuBarInsteadOfToolBar").toBool());
-    ui->mainToolBar->setVisible(ui->menuBar->isNativeMenuBar() || !APPLICATION->settings()->get("MenuBarInsteadOfToolBar").toBool());
+    // The sidebar replaces the main toolbar.
+    ui->mainToolBar->setVisible(false);
 }
 
 void MainWindow::updateLaunchButton()
@@ -918,6 +958,7 @@ void MainWindow::changeActiveAccount()
 void MainWindow::defaultAccountChanged()
 {
     repopulateAccountsMenu();
+    updateHomePlayer();
 
     MinecraftAccountPtr account = APPLICATION->accounts()->defaultAccount();
 
@@ -1514,6 +1555,7 @@ void MainWindow::globalSettingsClosed()
     updateLaunchButton();
     updateThemeMenu();
     updateStatusCenter();
+    updateHomePlayer();
     // This needs to be done to prevent UI elements disappearing in the event the config is changed
     // but PolyMC exits abnormally, causing the window state to never be saved:
     APPLICATION->settings()->set("MainWindowState", serializedWindowState());

@@ -1134,8 +1134,14 @@ SET(LAUNCHER_SOURCES
     ui/widgets/IconLabel.h
     ui/widgets/JavaWizardWidget.cpp
     ui/widgets/JavaWizardWidget.h
+    ui/widgets/FadingStackedWidget.cpp
+    ui/widgets/FadingStackedWidget.h
     ui/widgets/HomePage.cpp
     ui/widgets/HomePage.h
+    ui/widgets/SideBar.cpp
+    ui/widgets/SideBar.h
+    ui/widgets/SkinPreview.cpp
+    ui/widgets/SkinPreview.h
     ui/widgets/LabeledToolButton.cpp
     ui/widgets/LabeledToolButton.h
     ui/widgets/LanguageSelectionWidget.cpp
