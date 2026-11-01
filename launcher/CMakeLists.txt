@@ -1493,19 +1493,34 @@ if(CMAKE_CXX_LINKER_SUPPORTS_PDB)
     install(FILES $<TARGET_PDB_FILE:${Launcher_Name}> DESTINATION ${BINARY_DEST_DIR} OPTIONAL)
 endif()
 
-# Generate/copy Windows .exe and auth-settings.ini alongside Linux build
-add_custom_command(TARGET ${Launcher_Name} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_SOURCE_DIR}/auth-settings.ini"
-            "${PROJECT_BINARY_DIR}/auth-settings.ini"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_SOURCE_DIR}/dist-windows/XylarJava.exe"
-            "${PROJECT_BINARY_DIR}/XylarJava.exe"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_SOURCE_DIR}/auth-settings.ini"
-            "${CMAKE_SOURCE_DIR}/dist-windows/auth-settings.ini"
-    COMMENT "Generating Windows .exe and auth-settings.ini alongside Linux build"
-)
+# Generate/copy Windows .exe and auth-settings.ini alongside Linux build.
+# Both files are optional: auth-settings.ini is git-ignored (it holds your own client ID),
+# so CI checkouts and fresh clones don't have it.
+set(_xylar_post_build_commands "")
+if(EXISTS "${CMAKE_SOURCE_DIR}/auth-settings.ini")
+    list(APPEND _xylar_post_build_commands
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CMAKE_SOURCE_DIR}/auth-settings.ini"
+                "${PROJECT_BINARY_DIR}/auth-settings.ini")
+    if(EXISTS "${CMAKE_SOURCE_DIR}/dist-windows")
+        list(APPEND _xylar_post_build_commands
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${CMAKE_SOURCE_DIR}/auth-settings.ini"
+                    "${CMAKE_SOURCE_DIR}/dist-windows/auth-settings.ini")
+    endif()
+endif()
+if(EXISTS "${CMAKE_SOURCE_DIR}/dist-windows/XylarJava.exe")
+    list(APPEND _xylar_post_build_commands
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CMAKE_SOURCE_DIR}/dist-windows/XylarJava.exe"
+                "${PROJECT_BINARY_DIR}/XylarJava.exe")
+endif()
+if(_xylar_post_build_commands)
+    add_custom_command(TARGET ${Launcher_Name} POST_BUILD
+        ${_xylar_post_build_commands}
+        COMMENT "Copying auth-settings.ini and the Windows .exe next to the build"
+    )
+endif()
 
 if(Launcher_BUILD_UPDATER)
     # Updater
