@@ -393,6 +393,8 @@ set(MINECRAFT_SOURCES
     minecraft/skins/XylarSkinClient.cpp
     minecraft/skins/DefaultSkin.cpp
     minecraft/skins/DefaultSkin.h
+    minecraft/skins/MojangSkinFetcher.cpp
+    minecraft/skins/MojangSkinFetcher.h
     discord/DiscordPresence.cpp
     discord/DiscordPresence.h
     minecraft/skins/XylarSkinClient.h

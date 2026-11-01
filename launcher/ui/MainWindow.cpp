@@ -76,6 +76,7 @@
 #include "ui/themes/ThemeManager.h"
 #include "discord/DiscordPresence.h"
 #include "minecraft/skins/DefaultSkin.h"
+#include "minecraft/skins/MojangSkinFetcher.h"
 #include "ui/widgets/FadingStackedWidget.h"
 #include "ui/widgets/HomePage.h"
 #include "ui/widgets/SideBar.h"
@@ -418,6 +419,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     m_addAccountAction->setIcon(QIcon::fromTheme(QStringLiteral("accounts")));
     connect(m_addAccountAction, &QAction::triggered, this, &MainWindow::on_actionManageAccounts_triggered);
 
+    // Real skins from Mojang for the Home screen
+    m_skinFetcher = new MojangSkinFetcher(APPLICATION->network(), this);
+    connect(m_skinFetcher, &MojangSkinFetcher::finished, this, [this](const QString& key, const QImage&, bool) {
+        if (key == m_homeSkinKey)
+            updateHomePlayer();
+    });
+
     // Discord Rich Presence (off until an application ID is set in Settings)
     m_discord = new DiscordPresence(this);
     watchInstancesForPresence();
@@ -695,10 +703,29 @@ void MainWindow::updateHomePlayer()
         const auto& profileSkin = account->accountData()->minecraftProfile.skin;
         if (!profileSkin.data.isEmpty() && skin.loadFromData(profileSkin.data, "PNG")) {
             slim = profileSkin.variant.compare(QStringLiteral("slim"), Qt::CaseInsensitive) == 0 || SkinPreview::looksSlim(skin);
-            note = tr("Skin from your Minecraft account. This is what other players see.");
+            note = tr("Your Minecraft skin, straight from Mojang.");
         } else {
             skin = QImage();
         }
+    }
+
+    // Ask Mojang: by profile UUID for Microsoft accounts, by username for offline ones.
+    m_homeSkinKey.clear();
+    if (skin.isNull() && m_skinFetcher) {
+        const QString key = isMsa ? MojangSkinFetcher::keyForUuid(uuid) : MojangSkinFetcher::keyForName(name);
+        MojangSkinFetcher::Skin fetched;
+        if (m_skinFetcher->cached(key, &fetched) && !fetched.texture.isNull()) {
+            skin = fetched.texture;
+            slim = fetched.slim || SkinPreview::looksSlim(skin);
+            note = isMsa ? tr("Your Minecraft skin, straight from Mojang.")
+                         : tr("Skin of the Minecraft profile \"%1\", from Mojang.").arg(name);
+        }
+        // Refresh in the background (cached results come back immediately).
+        m_homeSkinKey = key;
+        if (isMsa && !uuid.isEmpty())
+            m_skinFetcher->fetchByUuid(uuid);
+        else if (!isMsa && !name.isEmpty())
+            m_skinFetcher->fetchByName(name);
     }
 
     if (skin.isNull() && !uuid.isEmpty()) {

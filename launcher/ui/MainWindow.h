@@ -24,6 +24,7 @@ class SideBar;
 class FadingStackedWidget;
 class DiscordPresence;
 class XylarUpdater;
+class MojangSkinFetcher;
 class QAction;
 class QMenu;
 
@@ -231,6 +232,8 @@ class MainWindow : public QMainWindow {
     QAction* m_addAccountAction = nullptr;
     DiscordPresence* m_discord = nullptr;
     XylarUpdater* m_updater = nullptr;
+    MojangSkinFetcher* m_skinFetcher = nullptr;
+    QString m_homeSkinKey;  // Mojang lookup the Home screen is waiting for
     BaseInstance* m_playingInstance = nullptr;
     Page m_currentPage = Page::Home;
     bool m_instanceToolBarWanted = true;
