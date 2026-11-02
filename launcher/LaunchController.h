@@ -1,4 +1,5 @@
 #pragma once
+#include <QElapsedTimer>
 #include <BaseInstance.h>
 #include <tools/BaseProfiler.h>
 
@@ -34,6 +35,11 @@ class LaunchController : public Task {
     void setAccountToUse(MinecraftAccountPtr accountToUse) { m_accountToUse = std::move(accountToUse); }
 
     QString id() const { return m_instance->id(); }
+    LaunchMode launchMode() const { return m_wantedLaunchMode; }
+
+    /// True when the launch itself failed (downloads, Java, or the game quitting while still
+    /// starting up), as opposed to the user cancelling or playing for a while before a crash.
+    bool failedWhileStarting() const;
 
     bool abort() override;
 
@@ -55,6 +61,8 @@ class LaunchController : public Task {
 
    private:
     LaunchMode m_wantedLaunchMode = LaunchMode::Normal;
+    bool m_reachedLaunch = false;
+    QElapsedTimer m_startedAt;
     LaunchMode m_actualLaunchMode = LaunchMode::Normal;
     BaseProfilerFactory* m_profiler = nullptr;
     QString m_offlineName;

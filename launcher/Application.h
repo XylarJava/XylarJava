@@ -3,6 +3,7 @@
 #include <memory>
 
 #include <QApplication>
+#include <QSet>
 #include <QDateTime>
 #include <QDebug>
 #include <QFlag>
@@ -196,6 +197,7 @@ class Application : public QApplication {
     void on_windowClose();
     void messageReceived(const QByteArray& message);
     void controllerFinished();
+    void offerAutoRepair(const QString& instanceId, LaunchMode mode, const QString& reason);
     void setupWizardFinished(int status);
 
    private:
@@ -256,6 +258,8 @@ class Application : public QApplication {
     };
     std::map<QString, InstanceXtras> m_instanceExtras;
     mutable QMutex m_instanceExtrasMutex;
+    /// Instances repaired after a failed start, so a second failure isn't offered another repair.
+    QSet<QString> m_repairedInstances;
 
     // main state variables
     size_t m_openWindows = 0;

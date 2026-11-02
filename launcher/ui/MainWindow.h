@@ -187,7 +187,7 @@ class MainWindow : public QMainWindow {
     /// Apply XylarJava's accent styling to the toolbars and instance view.
     void applyXylarBranding();
 
-    enum class Page { Home = 0, Instances = 1, Settings = 2 };
+    enum class Page { Home = 0, Instances = 1, Servers = 2, Settings = 3 };
     /// Show the global settings inside the window, on the given settings page.
     void openSettings(const QString& pageId);
     /// Save and close the embedded settings. Returns false if a page refused to close.
@@ -244,6 +244,8 @@ class MainWindow : public QMainWindow {
     MojangSkinFetcher* m_skinFetcher = nullptr;
     QString m_homeSkinKey;  // Mojang lookup the Home screen is waiting for
     QWidget* m_settingsPage = nullptr;
+    class LocalServerList* m_localServers = nullptr;
+    class ServersPage* m_serversPage = nullptr;
     PageContainer* m_settingsContainer = nullptr;
     std::unique_ptr<SettingsObjectLockHolder> m_settingsLock;
     BaseInstance* m_playingInstance = nullptr;

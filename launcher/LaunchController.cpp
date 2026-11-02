@@ -27,6 +27,7 @@ LaunchController::LaunchController() = default;
 
 void LaunchController::executeTask()
 {
+    m_startedAt.start();
     if (!m_instance) {
         emitFailed(tr("No instance specified!"));
         return;
@@ -266,6 +267,7 @@ void LaunchController::launchInstance()
         emitFailed(tr("Couldn't instantiate a launcher."));
         return;
     }
+    m_reachedLaunch = true;
 
     const auto* console = qobject_cast<InstanceWindow*>(m_parentWidget);
     const auto showConsole = m_instance->settings()->get("ShowConsole").toBool();
@@ -341,6 +343,12 @@ void LaunchController::readyForLaunch()
         emitFailed("Profiler startup failed!");
     });
     profilerInstance->beginProfiling(m_launcher);
+}
+
+bool LaunchController::failedWhileStarting() const
+{
+    // Two minutes covers downloads and the game's own loading screen.
+    return m_reachedLaunch && getState() == State::Failed && m_startedAt.isValid() && m_startedAt.elapsed() < 120000;
 }
 
 void LaunchController::onSucceeded()

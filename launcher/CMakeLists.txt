@@ -47,6 +47,18 @@ set(CORE_SOURCES
     InstanceCopyPrefs.cpp
     InstanceCopyTask.h
     InstanceCopyTask.cpp
+    InstanceRepair.cpp
+    InstanceRepair.h
+
+    # Servers hosted on this computer
+    servers/LocalServer.cpp
+    servers/LocalServer.h
+    servers/LocalServerList.cpp
+    servers/LocalServerList.h
+    servers/ServerSoftware.cpp
+    servers/ServerSoftware.h
+    servers/UpnpPortMapper.cpp
+    servers/UpnpPortMapper.h
     InstanceImportTask.h
     InstanceImportTask.cpp
 
@@ -882,6 +894,10 @@ SET(LAUNCHER_SOURCES
     ui/setupwizard/XylarWelcomeWizardPage.h
     ui/setupwizard/XylarDoneWizardPage.cpp
     ui/setupwizard/XylarDoneWizardPage.h
+    ui/pages/servers/ServersPage.cpp
+    ui/pages/servers/ServersPage.h
+    ui/pages/servers/ServerSettingsDialog.cpp
+    ui/pages/servers/ServerSettingsDialog.h
 
     # GUI - themes
     ui/themes/FusionTheme.cpp

@@ -89,6 +89,8 @@
 
 #include "minecraft/PackProfile.h"
 #include "minecraft/XylarClient.h"
+#include "servers/LocalServerList.h"
+#include "ui/pages/servers/ServersPage.h"
 #include "minecraft/VersionFile.h"
 #include "minecraft/WorldList.h"
 #include "minecraft/mod/ModFolderModel.h"
@@ -344,6 +346,25 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         instancesLayout->addWidget(view, 1);
         m_pages->addWidget(instancesPage);
 
+        // Servers hosted on this computer
+        m_localServers = new LocalServerList(FS::PathCombine(APPLICATION->dataRoot(), QStringLiteral("servers")), APPLICATION->network(), this);
+        m_serversPage = new ServersPage(m_localServers, APPLICATION->network(), m_pages);
+        m_serversPage->setFolderOpener([](const QString& path) { DesktopServices::openPath(path, true); });
+        m_serversPage->setModSources([] {
+            QList<QPair<QString, QString>> sources;
+            auto instances = APPLICATION->instances();
+            for (int i = 0; i < instances->count(); i++) {
+                auto minecraft = dynamic_cast<MinecraftInstance*>(instances->at(i));
+                if (!minecraft || !minecraft->getPackProfile())
+                    continue;
+                if (minecraft->getPackProfile()->getComponentVersion(QStringLiteral("net.fabricmc.fabric-loader")).isEmpty())
+                    continue;
+                sources << qMakePair(minecraft->name(), minecraft->modsRoot());
+            }
+            return sources;
+        });
+        m_pages->addWidget(m_serversPage);
+
         // Settings live inside the window too, so the sidebar never goes away.
         m_settingsPage = new QWidget(m_pages);
         m_settingsPage->setObjectName(QStringLiteral("settingsPage"));
@@ -369,6 +390,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         m_sideBar->setLogo(APPLICATION->logo(), BuildConfig.LAUNCHER_DISPLAYNAME);
         m_sideBar->addPage(QIcon::fromTheme(QStringLiteral("launch")), QString());
         m_sideBar->addPage(QIcon::fromTheme(QStringLiteral("minecraft")), QString());
+        m_sideBar->addPage(QIcon::fromTheme(QStringLiteral("server")), QString());
         m_sideBar->addPage(QIcon::fromTheme(QStringLiteral("settings")), QString());
         m_sideBar->addActionButton(ui->actionFoldersButton);
         if (qgetenv("XDG_CURRENT_DESKTOP") == "gamescope")
@@ -582,6 +604,10 @@ void MainWindow::applyXylarBranding()
     statusBar()->setStyleSheet(style);
     if (m_pages && m_pages->count() > 1)
         m_pages->widget(1)->setStyleSheet(style);
+    if (m_serversPage) {
+        for (auto header : m_serversPage->findChildren<QFrame*>(QStringLiteral("pageHeader"), Qt::FindDirectChildrenOnly))
+            header->setStyleSheet(style);
+    }
     if (m_settingsPage) {
         // Only style the header: the settings pages keep the theme's own look.
         for (auto header : m_settingsPage->findChildren<QFrame*>(QStringLiteral("pageHeader"), Qt::FindDirectChildrenOnly))
@@ -1084,6 +1110,7 @@ void MainWindow::retranslateUi()
     if (m_sideBar) {
         m_sideBar->setPageText(static_cast<int>(Page::Home), tr("Home"));
         m_sideBar->setPageText(static_cast<int>(Page::Instances), tr("Instances"));
+        m_sideBar->setPageText(static_cast<int>(Page::Servers), tr("Servers"));
         m_sideBar->setPageText(static_cast<int>(Page::Settings), tr("Settings"));
     }
     if (m_addAccountAction)
@@ -2127,6 +2154,17 @@ void MainWindow::on_actionViewSelectedInstFolder_triggered()
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
+    if (m_localServers && m_localServers->anyRunning()) {
+        const auto answer = QMessageBox::question(this, tr("Servers are running"),
+                                                  tr("Your servers stop when %1 closes. Players will be disconnected and the worlds "
+                                                     "are saved first. Close anyway?")
+                                                      .arg(BuildConfig.LAUNCHER_DISPLAYNAME),
+                                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if (answer != QMessageBox::Yes) {
+            event->ignore();
+            return;
+        }
+    }
     if (m_settingsContainer && !closeSettings()) {
         event->ignore();
         return;

@@ -27,6 +27,9 @@
 #include "ui/setupwizard/LanguageWizardPage.h"
 #include "ui/setupwizard/LoginWizardPage.h"
 #include "ui/setupwizard/PasteWizardPage.h"
+#include <QMessageBox>
+#include <QPushButton>
+#include "InstanceRepair.h"
 #include "ui/setupwizard/SetupWizard.h"
 #include "ui/setupwizard/XylarDoneWizardPage.h"
 #include "ui/setupwizard/XylarWelcomeWizardPage.h"
@@ -1605,6 +1608,10 @@ void Application::controllerFinished()
     auto& extras = m_instanceExtras.at(id);
 
     const bool wasSuccessful = controller->wasSuccessful();
+    const bool offerRepair = controller->failedWhileStarting();
+    BaseInstance* failedInstance = controller->instance();
+    const LaunchMode failedMode = controller->launchMode();
+    const QString failReason = controller->failReason();
     // on success, do...
     if (wasSuccessful && controller->instance()->settings()->get("AutoCloseConsole").toBool()) {
         if (extras.window) {
@@ -1613,12 +1620,54 @@ void Application::controllerFinished()
     }
     extras.controller.reset();
     subRunningInstance();
+    locker.unlock();
+
+    if (wasSuccessful) {
+        m_repairedInstances.remove(id);
+    } else if (offerRepair && failedInstance && m_mainWindow) {
+        // Ask once; if it still fails after a repair, just say so.
+        if (!m_repairedInstances.contains(id)) {
+            QMetaObject::invokeMethod(this, [this, id, failedMode, failReason] { offerAutoRepair(id, failedMode, failReason); },
+                                      Qt::QueuedConnection);
+        } else {
+            m_repairedInstances.remove(id);
+            QMessageBox::warning(m_mainWindow, tr("Still not starting"),
+                                 tr("%1 still couldn't start after the repair.\n\n%2\n\nOpen the instance's log for the details.")
+                                     .arg(failedInstance->name(), failReason));
+        }
+    }
 
     // quit when there are no more windows.
     if (shouldExitNow()) {
         m_status = wasSuccessful ? Succeeded : Failed;
         exit(wasSuccessful ? 0 : 1);
     }
+}
+
+void Application::offerAutoRepair(const QString& instanceId, LaunchMode mode, const QString& reason)
+{
+    auto instance = m_instances->getInstanceById(instanceId);
+    if (!instance || instance->isRunning())
+        return;
+    QMessageBox box(m_mainWindow);
+    box.setIcon(QMessageBox::Question);
+    box.setWindowTitle(tr("Couldn't start %1").arg(instance->name()));
+    box.setText(tr("<b>%1 couldn't start.</b>").arg(instance->name().toHtmlEscaped()));
+    box.setInformativeText(tr("%1 can try to fix it: download the game files and libraries again, refresh the version info "
+                              "and check Java. Your worlds, mods and settings stay as they are.\n\nRepair and start again?")
+                               .arg(BuildConfig.LAUNCHER_DISPLAYNAME));
+    if (!reason.isEmpty())
+        box.setDetailedText(reason);
+    auto repairButton = box.addButton(tr("Repair and start"), QMessageBox::AcceptRole);
+    box.addButton(tr("Not now"), QMessageBox::RejectRole);
+    box.setDefaultButton(repairButton);
+    box.exec();
+    if (box.clickedButton() != repairButton)
+        return;
+
+    InstanceRepair::repair(instance);
+    m_repairedInstances.insert(instanceId);
+    launch(instance, mode);
 }
 
 BasePageProvider* Application::globalSettingsProvider()
