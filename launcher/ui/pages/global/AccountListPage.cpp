@@ -22,6 +22,8 @@
 AccountListPage::AccountListPage(QWidget* parent) : QMainWindow(parent), ui(new Ui::AccountListPage)
 {
     ui->setupUi(this);
+    // The only page that keeps Prism's button bar: adding, removing and picking accounts at a glance.
+    ui->toolBar->showAgain();
     ui->listView->setEmptyString(
         tr("Welcome!\n"
            "If you're new here, you can select the \"Add Microsoft\" button to link your Microsoft account."));

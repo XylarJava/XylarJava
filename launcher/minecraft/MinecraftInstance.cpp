@@ -561,8 +561,11 @@ QStringList MinecraftInstance::javaArguments(const AuthSession* session)
             args << "-Dhttp.agent=XylarJava";
         } else {
             args << "-Dminecraft.api.session.host=https://nope.invalid";
+            args << "-Dminecraft.api.services.host=https://nope.invalid";
         }
-        args << "-Dminecraft.api.services.host=https://nope.invalid";
+        // With authlib-injector the services host must stay Mojang's: authlib-injector answers its
+        // "/publickeys" itself and adds the skin backend's key, which lets the game trust the
+        // backend's signed skins. Since 1.20.2 other players' unsigned skins show as Steve/Alex.
     }
 
     // custom args go first. we want to override them if we have our own here.

@@ -76,9 +76,15 @@ void WideBar::hideForGood()
     toggleViewAction()->setVisible(false);
 }
 
-void WideBar::setVisible(bool)
+void WideBar::setVisible(bool visible)
 {
-    QToolBar::setVisible(false);
+    QToolBar::setVisible(m_shown && visible);
+}
+
+void WideBar::showAgain()
+{
+    m_shown = true;
+    QToolBar::setVisible(true);
 }
 
 void WideBar::keepShortcut(QAction* action)

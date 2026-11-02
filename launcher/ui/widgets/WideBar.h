@@ -41,6 +41,8 @@ class WideBar : public QToolBar {
     void removeAction(QAction* action);
 
     void setVisible(bool visible) override;
+    /// The one exception to the hidden bars: this bar shows (Settings > Accounts keeps Prism's buttons).
+    void showAgain();
 
    private:
     void hideForGood();
@@ -64,6 +66,7 @@ class WideBar : public QToolBar {
     QList<QAction*> m_context_menu_actions;
 
     bool m_use_default_action = false;
+    bool m_shown = false;  // showAgain() was called
 
     // Menu to toggle visibility from buttons in the bar
     std::unique_ptr<QMenu> m_bar_menu = nullptr;
