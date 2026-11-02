@@ -4,7 +4,7 @@
 #include <QSysInfo>
 
 namespace {
-constexpr auto kPrefix = "enc1:";
+constexpr char kPrefix[] = "enc1:";
 
 QByteArray deriveKey()
 {
@@ -47,7 +47,14 @@ QString decrypt(const QString& stored)
         return stored;
     }
     const QByteArray payload = QByteArray::fromBase64(stored.mid(int(sizeof(kPrefix) - 1)).toLatin1());
-    return QString::fromUtf8(transform(payload));
+    const QByteArray plain = transform(payload);
+    // Tokens are plain ASCII. Anything else (another machine's key, or a value saved by the old
+    // decrypt that skipped two characters) is unusable: drop it so the account asks to sign in again.
+    for (const char c : plain) {
+        if (c < 0x20 || c > 0x7e)
+            return {};
+    }
+    return QString::fromLatin1(plain);
 }
 
 }  // namespace AccountTokenCipher
