@@ -33,6 +33,7 @@
 #include "DesktopServices.h"
 #include "HardwareInfo.h"
 #include "ServerSettingsDialog.h"
+#include "minecraft/auth/AccountList.h"
 #include "servers/PlayitTunnel.h"
 #include "servers/LocalServerList.h"
 #include "servers/ServerSoftware.h"
@@ -180,6 +181,10 @@ LocalServersPage::LocalServersPage(LocalServerList* servers, QNetworkAccessManag
         else
             m_current->start();
     });
+    m_playersButton = new QPushButton(QIcon::fromTheme(QStringLiteral("accounts")), QStringLiteral(" ") + tr("Players"), top);
+    m_playersButton->setObjectName(QStringLiteral("serverSecondary"));
+    m_playersButton->setToolTip(tr("Who can join this server"));
+    connect(m_playersButton, &QPushButton::clicked, this, &LocalServersPage::managePlayers);
     m_folderButton = new QPushButton(QIcon::fromTheme(QStringLiteral("viewfolder")), QStringLiteral(" ") + tr("Folder"), top);
     m_folderButton->setObjectName(QStringLiteral("serverSecondary"));
     connect(m_folderButton, &QPushButton::clicked, this, [this] {
@@ -221,6 +226,7 @@ LocalServersPage::LocalServersPage(LocalServerList* servers, QNetworkAccessManag
     connect(m_deleteButton, &QPushButton::clicked, this, &LocalServersPage::deleteServer);
     actions->addWidget(m_startButton);
     actions->addWidget(m_folderButton);
+    actions->addWidget(m_playersButton);
     actions->addWidget(m_addonsButton);
     actions->addWidget(m_settingsButton);
     actions->addStretch(1);
@@ -658,6 +664,9 @@ void LocalServersPage::proposeServer(bool usePlayit)
         config.port = m_servers->freePort();
         config.playit = usePlayit;
         config.openPort = !usePlayit;
+        config.onlineMode = false;
+        config.whitelist = true;
+        const QString owner = ownerName();
         // A quarter of this computer's memory, between 2 and 6 GB: plenty for a few friends, and the game still runs next to it.
         // Under 6 GB in all, 1 GB keeps the computer usable.
         const qint64 totalMb = qint64(HardwareInfo::totalRamMiB());
@@ -684,6 +693,10 @@ void LocalServersPage::proposeServer(bool usePlayit)
             lines << tr("<b>playit.gg:</b> a free tunnel on your account, so friends join without seeing your IP");
         else
             lines << tr("<b>Network:</b> friends on your Wi-Fi join right away; XylarJava opens your router for the rest when it can");
+        lines << (owner.isEmpty() ? tr("<b>Players:</b> Microsoft and offline accounts, only the ones you add under Players")
+                                  : tr("<b>Players:</b> Microsoft and offline accounts, only the ones you add under Players "
+                                       "(%1 is already in)")
+                                        .arg(owner.toHtmlEscaped()));
         lines << tr("<b>Then:</b> it downloads and starts by itself");
         auto summary = new QLabel(QStringLiteral("<p style='line-height:140%'>") + lines.join(QStringLiteral("<br>")) + QStringLiteral("</p>"), &dialog);
         summary->setWordWrap(true);
@@ -726,12 +739,99 @@ void LocalServersPage::proposeServer(bool usePlayit)
     });
 }
 
+QString LocalServersPage::ownerName() const
+{
+    const auto account = APPLICATION->accounts()->defaultAccount();
+    return account && LocalServer::validPlayerName(account->profileName()) ? account->profileName() : QString();
+}
+
+void LocalServersPage::managePlayers()
+{
+    if (!m_current)
+        return;
+    QPointer<LocalServer> server(m_current.data());
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Players - %1").arg(server->config().name));
+    dialog.setMinimumWidth(440);
+    auto layout = new QVBoxLayout(&dialog);
+    auto lead = new QLabel(&dialog);
+    lead->setWordWrap(true);
+    layout->addWidget(lead);
+    auto list = new QListWidget(&dialog);
+    list->setMinimumHeight(180);
+    layout->addWidget(list);
+    auto addRow = new QHBoxLayout();
+    auto nameEdit = new QLineEdit(&dialog);
+    nameEdit->setPlaceholderText(tr("Minecraft name, e.g. Steve"));
+    nameEdit->setMaxLength(16);
+    auto add = new QPushButton(tr("Add"), &dialog);
+    auto remove = new QPushButton(tr("Remove"), &dialog);
+    addRow->addWidget(nameEdit, 1);
+    addRow->addWidget(add);
+    addRow->addWidget(remove);
+    layout->addLayout(addRow);
+    auto status = new QLabel(&dialog);
+    status->setWordWrap(true);
+    status->setEnabled(false);
+    layout->addWidget(status);
+    auto buttons = new QDialogButtonBox(QDialogButtonBox::Close, &dialog);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    layout->addWidget(buttons);
+
+    auto refresh = [server, list, lead, remove] {
+        if (!server)
+            return;
+        list->clear();
+        const QStringList names = server->allowedPlayers();
+        list->addItems(names);
+        if (!server->config().whitelist)
+            lead->setText(tr("The whitelist is off: anyone with the address can join. Turn it on in the server's settings."));
+        else if (!server->config().onlineMode)
+            lead->setText(tr("Only these players can join, with a Microsoft or an offline account. The server can't check "
+                             "who's who, so only add people you trust and don't share the list."));
+        else
+            lead->setText(tr("Only these players can join (Microsoft accounts only, the server is in online mode)."));
+        remove->setEnabled(false);
+    };
+    connect(list, &QListWidget::currentRowChanged, remove, [remove](int row) { remove->setEnabled(row >= 0); });
+    auto addPlayer = [server, nameEdit, add, status, refresh] {
+        const QString name = nameEdit->text().trimmed();
+        if (!server || name.isEmpty())
+            return;
+        add->setEnabled(false);
+        status->setText(tr("Adding %1...").arg(name));
+        server->allowPlayer(name, [nameEdit, add, status, refresh, name](const QString& error) {
+            add->setEnabled(true);
+            status->setText(error.isEmpty() ? tr("%1 can join now.").arg(name) : error);
+            if (error.isEmpty())
+                nameEdit->clear();
+            refresh();
+        });
+    };
+    connect(add, &QPushButton::clicked, &dialog, addPlayer);
+    connect(nameEdit, &QLineEdit::returnPressed, &dialog, addPlayer);
+    connect(remove, &QPushButton::clicked, &dialog, [server, list, status, refresh] {
+        if (!server || !list->currentItem())
+            return;
+        const QString name = list->currentItem()->text();
+        server->disallowPlayer(name);
+        status->setText(tr("%1 can't join any more.").arg(name));
+        // A running server rewrites whitelist.json itself a moment later.
+        QTimer::singleShot(server->state() == LocalServer::State::Running ? 800 : 0, list, refresh);
+    });
+    refresh();
+    dialog.exec();
+}
+
 void LocalServersPage::makeServer(const LocalServerConfig& config)
 {
     LocalServer* server = m_servers->create(config);
     if (!server)
         return;
     select(server);
+    // The one who makes it can join it.
+    if (config.whitelist && !ownerName().isEmpty())
+        server->allowPlayer(ownerName(), [](const QString&) {});
     server->start();  // downloads the server (and Java when missing), then starts it
     if (!config.playit)
         return;

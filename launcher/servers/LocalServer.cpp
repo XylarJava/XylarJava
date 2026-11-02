@@ -1,8 +1,10 @@
 #include "LocalServer.h"
 
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
@@ -12,6 +14,7 @@
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QTimer>
+#include <QUuid>
 #include <utility>
 
 #ifdef Q_OS_LINUX
@@ -77,6 +80,7 @@ bool LocalServer::load()
     m_config.difficulty = o.value("difficulty").toString(QStringLiteral("normal"));
     m_config.motd = o.value("motd").toString();
     m_config.onlineMode = o.value("onlineMode").toBool(true);
+    m_config.whitelist = o.value("whitelist").toBool(false);  // servers made before the whitelist existed had none
     m_config.pvp = o.value("pvp").toBool(true);
     m_config.openPort = o.value("openPort").toBool(true);
     m_config.playit = o.value("playit").toBool(false);
@@ -100,6 +104,7 @@ bool LocalServer::save() const
     o["difficulty"] = m_config.difficulty;
     o["motd"] = m_config.motd;
     o["onlineMode"] = m_config.onlineMode;
+    o["whitelist"] = m_config.whitelist;
     o["pvp"] = m_config.pvp;
     o["openPort"] = m_config.openPort;
     o["playit"] = m_config.playit;
@@ -165,6 +170,94 @@ void LocalServer::setPlayit(PlayitTunnel* playit)
 {
     m_playit = playit;
     connect(m_playit, &PlayitTunnel::changed, this, &LocalServer::addressesChanged);
+}
+
+bool LocalServer::validPlayerName(const QString& name)
+{
+    static const QRegularExpression valid(QStringLiteral("^[A-Za-z0-9_]{1,16}$"));
+    return valid.match(name).hasMatch();
+}
+
+QString LocalServer::offlineUuid(const QString& name)
+{
+    // Java's UUID.nameUUIDFromBytes: MD5 of the bytes, then version 3 and the IETF variant.
+    QByteArray hash = QCryptographicHash::hash(QStringLiteral("OfflinePlayer:%1").arg(name).toUtf8(), QCryptographicHash::Md5);
+    hash[6] = char((hash[6] & 0x0f) | 0x30);
+    hash[8] = char((hash[8] & 0x3f) | 0x80);
+    return QUuid::fromRfc4122(hash).toString(QUuid::WithoutBraces);
+}
+
+namespace {
+QJsonArray readWhitelist(const QString& folder)
+{
+    QFile file(QDir(folder).filePath(QStringLiteral("whitelist.json")));
+    if (!file.open(QIODevice::ReadOnly))
+        return {};
+    return QJsonDocument::fromJson(file.readAll()).array();
+}
+
+bool writeWhitelist(const QString& folder, const QJsonArray& entries)
+{
+    QDir().mkpath(folder);
+    QSaveFile file(QDir(folder).filePath(QStringLiteral("whitelist.json")));
+    return file.open(QIODevice::WriteOnly) && file.write(QJsonDocument(entries).toJson()) >= 0 && file.commit();
+}
+}  // namespace
+
+QStringList LocalServer::allowedPlayers() const
+{
+    QStringList names;
+    for (const QJsonValue& entry : readWhitelist(m_folder))
+        names << entry.toObject().value("name").toString();
+    names.removeAll(QString());
+    return names;
+}
+
+void LocalServer::allowPlayer(const QString& name, std::function<void(const QString& error)> done)
+{
+    if (!validPlayerName(name))
+        return done(tr("\"%1\" isn't a Minecraft name: 1 to 16 letters, digits or _.").arg(name));
+    if (allowedPlayers().contains(name, Qt::CaseInsensitive))
+        return done(QString());
+    if (m_state == State::Running) {
+        // The running server keeps its own list: let it add the player (it writes whitelist.json).
+        sendCommand(QStringLiteral("whitelist add %1").arg(name));
+        QTimer::singleShot(800, this, [done] { done(QString()); });
+        return;
+    }
+    auto write = [this, name, done](const QString& uuid) {
+        QJsonArray entries = readWhitelist(m_folder);
+        entries.append(QJsonObject{ { "uuid", uuid }, { "name", name } });
+        done(writeWhitelist(m_folder, entries) ? QString() : tr("Couldn't write the whitelist in %1.").arg(m_folder));
+    };
+    if (!m_config.onlineMode)
+        return write(offlineUuid(name));
+    // Online mode knows players by their Mojang UUID.
+    QNetworkRequest request(QUrl(QStringLiteral("https://api.mojang.com/users/profiles/minecraft/%1").arg(name)));
+    request.setHeader(QNetworkRequest::UserAgentHeader, BuildConfig.USER_AGENT);
+    QNetworkReply* reply = m_network->get(request);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, name, write, done] {
+        reply->deleteLater();
+        const QString id = QJsonDocument::fromJson(reply->readAll()).object().value("id").toString();
+        if (id.size() != 32)
+            return done(tr("There's no Microsoft account called %1. On a server in online mode only those can join.").arg(name));
+        write(QUuid::fromString(QStringLiteral("%1-%2-%3-%4-%5").arg(id.mid(0, 8), id.mid(8, 4), id.mid(12, 4), id.mid(16, 4), id.mid(20)))
+                  .toString(QUuid::WithoutBraces));
+    });
+}
+
+void LocalServer::disallowPlayer(const QString& name)
+{
+    if (m_state == State::Running) {
+        sendCommand(QStringLiteral("whitelist remove %1").arg(name));
+        return;
+    }
+    QJsonArray kept;
+    for (const QJsonValue& entry : readWhitelist(m_folder)) {
+        if (entry.toObject().value("name").toString().compare(name, Qt::CaseInsensitive) != 0)
+            kept.append(entry);
+    }
+    writeWhitelist(m_folder, kept);
 }
 
 QString LocalServer::addonsPath() const
@@ -271,6 +364,9 @@ void LocalServer::writeServerFiles()
         { QStringLiteral("difficulty"), m_config.difficulty },
         { QStringLiteral("online-mode"), m_config.onlineMode ? QStringLiteral("true") : QStringLiteral("false") },
         { QStringLiteral("pvp"), m_config.pvp ? QStringLiteral("true") : QStringLiteral("false") },
+        { QStringLiteral("white-list"), m_config.whitelist ? QStringLiteral("true") : QStringLiteral("false") },
+        // Taking someone off the list while they play kicks them out too.
+        { QStringLiteral("enforce-whitelist"), m_config.whitelist ? QStringLiteral("true") : QStringLiteral("false") },
         { QStringLiteral("motd"), motd },
     };
     for (const auto& kv : values) {

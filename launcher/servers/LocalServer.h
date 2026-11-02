@@ -2,6 +2,7 @@
 
 #include <QDateTime>
 #include <QObject>
+#include <functional>
 #include <QProcess>
 #include <QString>
 #include <QStringList>
@@ -25,7 +26,9 @@ struct LocalServerConfig {
     QString gamemode = QStringLiteral("survival");
     QString difficulty = QStringLiteral("normal");
     QString motd;
-    bool onlineMode = true;
+    // Offline mode lets in both Microsoft and offline accounts; the whitelist keeps strangers out.
+    bool onlineMode = false;
+    bool whitelist = true;  // only the players in whitelist.json can join
     bool pvp = true;
     bool openPort = true;  // UPnP
     bool playit = false;   // friends join through a playit.gg tunnel: IP hidden, attacks filtered
@@ -65,6 +68,15 @@ class LocalServer : public QObject {
     void setPlayit(PlayitTunnel* playit);
     QString networkMessage() const { return m_networkMessage; }
     bool portOpen() const { return m_portOpen; }
+    /// Names of the players on the whitelist.
+    QStringList allowedPlayers() const;
+    /// Puts a player on the whitelist (works while the server runs too). done gets an empty string on success.
+    void allowPlayer(const QString& name, std::function<void(const QString& error)> done);
+    /// Takes a player off the whitelist.
+    void disallowPlayer(const QString& name);
+    /// The UUID an offline-mode server gives this name ("OfflinePlayer:<name>", like the game).
+    static QString offlineUuid(const QString& name);
+    static bool validPlayerName(const QString& name);
     /// Folder for mods (Fabric) or plugins (Paper); empty for Vanilla.
     QString addonsPath() const;
 

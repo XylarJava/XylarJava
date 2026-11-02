@@ -98,9 +98,14 @@ ServerSettingsDialog::ServerSettingsDialog(QNetworkAccessManager* network,
     m_pvp = new QCheckBox(tr("Players can hurt each other (PvP)"), game);
     m_pvp->setChecked(m_original.pvp);
     gameForm->addRow(QString(), m_pvp);
-    m_offline = new QCheckBox(tr("Allow players without a Microsoft account (offline mode)"), game);
+    m_offline = new QCheckBox(tr("Allow players without a Microsoft account too (offline mode)"), game);
     m_offline->setChecked(!m_original.onlineMode);
+    m_offline->setToolTip(tr("Microsoft and offline accounts can both join. The server can't check who's who then, "
+                             "so keep the whitelist on."));
     gameForm->addRow(QString(), m_offline);
+    m_whitelist = new QCheckBox(tr("Only players I add can join (whitelist)"), game);
+    m_whitelist->setChecked(m_original.whitelist);
+    gameForm->addRow(QString(), m_whitelist);
     layout->addWidget(game);
 
     // Computer and network
@@ -230,6 +235,7 @@ LocalServerConfig ServerSettingsDialog::config() const
     c.difficulty = m_difficulty->currentData().toString();
     c.motd = m_motd->text().trimmed();
     c.onlineMode = !m_offline->isChecked();
+    c.whitelist = m_whitelist->isChecked();
     c.pvp = m_pvp->isChecked();
     c.playit = m_playit->isChecked();
     c.openPort = m_openPort->isChecked() && !c.playit;

@@ -44,6 +44,7 @@ class ServerSettingsDialog : public QDialog {
     QComboBox* m_difficulty = nullptr;
     QLineEdit* m_motd = nullptr;
     QCheckBox* m_offline = nullptr;
+    QCheckBox* m_whitelist = nullptr;
     QCheckBox* m_pvp = nullptr;
     QCheckBox* m_openPort = nullptr;
     QCheckBox* m_playit = nullptr;

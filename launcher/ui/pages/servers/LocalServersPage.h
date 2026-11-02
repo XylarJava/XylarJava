@@ -52,6 +52,10 @@ class LocalServersPage : public QWidget {
     void proposeServer(bool usePlayit);
     /// Makes the server, starts it and makes its playit.gg tunnel.
     void makeServer(const LocalServerConfig& config);
+    /// The whitelist: add and remove players by name.
+    void managePlayers();
+    /// The Minecraft name of the launcher's active account, empty when there's none.
+    QString ownerName() const;
     void editServer();
     void deleteServer();
     void rebuildList();
@@ -80,6 +84,7 @@ class LocalServersPage : public QWidget {
     QPushButton* m_createButton = nullptr;
     QPushButton* m_startButton = nullptr;
     QPushButton* m_folderButton = nullptr;
+    QPushButton* m_playersButton = nullptr;
     QToolButton* m_addonsButton = nullptr;
     QPushButton* m_settingsButton = nullptr;
     QPushButton* m_deleteButton = nullptr;
