@@ -123,6 +123,34 @@ class GradientLabel : public QLabel {
     }
 };
 
+/// The pin next to the XylarJava Client, tinted with the client's gold.
+class PinIcon : public QWidget {
+   public:
+    explicit PinIcon(QWidget* parent) : QWidget(parent)
+    {
+        setFixedSize(16, 16);
+        setAttribute(Qt::WA_TranslucentBackground, true);
+    }
+
+   protected:
+    void paintEvent(QPaintEvent*) override
+    {
+        const qreal dpr = devicePixelRatioF();
+        QPixmap pin = QIcon(QStringLiteral(":/xylar/pin.png")).pixmap(size(), dpr);
+        if (pin.isNull())
+            return;
+        {
+            QPainter tint(&pin);
+            tint.setCompositionMode(QPainter::CompositionMode_SourceIn);
+            tint.fillRect(QRect(QPoint(0, 0), pin.size()),
+                          featureColors(QApplication::palette(this).color(QPalette::Window).lightnessF() < 0.5f).gold);
+        }
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
+        painter.drawPixmap(rect(), pin);
+    }
+};
+
 }  // namespace
 
 // ---------------------------------------------------------------------------
@@ -804,9 +832,9 @@ void HomePage::rebuildRecent()
         nameRow->setSpacing(8);
         nameRow->addWidget(name);
         if (entry.featured) {
-            auto badge = new QLabel(tr("PINNED"), row);
-            badge->setObjectName(QStringLiteral("pinnedBadge"));
-            nameRow->addWidget(badge, 0, Qt::AlignVCenter);
+            auto pin = new PinIcon(row);
+            pin->setToolTip(tr("Pinned"));
+            nameRow->addWidget(pin, 0, Qt::AlignVCenter);
         }
         nameRow->addStretch(1);
         auto details = new QLabel(entry.details, row);
@@ -1014,9 +1042,6 @@ void HomePage::updateStyle()
                "QFrame#featuredRow:hover { border-color: %5; }")
                .arg(rgba(flame, 150), rgba(gold, dark ? 38 : 46), rgba(card, 235), rgba(magenta, dark ? 30 : 26), rgba(gold, 220));
     qss += QStringLiteral("#featuredName { color: %1; font-size: 16px; font-weight: 900; background: transparent; }").arg(flame.name());
-    qss += QStringLiteral("#pinnedBadge { color: %1; background-color: %2; border-radius: 6px; padding: 1px 7px;"
-                          " font-size: 10px; font-weight: 800; letter-spacing: 1px; }")
-               .arg(textOn(gold).name(), gold.name());
     qss += QStringLiteral(
                "#featuredPlayButton { border-image: none; margin: 0; background-color: %1; color: %2; border: none; border-radius: 10px;"
                " font-weight: 800; padding: 6px 16px; }"

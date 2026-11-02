@@ -10,5 +10,7 @@
         <file>arrow-up.png</file>
         <file>arrow-up@2x.png</file>
         <file>io.xylarjava.client.json</file>
+        <file>pin.png</file>
+        <file>pin@2x.png</file>
     </qresource>
 </RCC>
