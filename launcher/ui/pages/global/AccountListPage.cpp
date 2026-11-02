@@ -7,6 +7,7 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QUrl>
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -16,6 +17,7 @@
 #include "ui/dialogs/MSALoginDialog.h"
 
 #include "Application.h"
+#include "DesktopServices.h"
 
 AccountListPage::AccountListPage(QWidget* parent) : QMainWindow(parent), ui(new Ui::AccountListPage)
 {
@@ -25,6 +27,15 @@ AccountListPage::AccountListPage(QWidget* parent) : QMainWindow(parent), ui(new 
            "If you're new here, you can select the \"Add Microsoft\" button to link your Microsoft account."));
     ui->listView->setEmptyMode(VersionListView::String);
     ui->listView->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    {
+        auto freeMinecraft = new QAction(QIcon::fromTheme(QStringLiteral("minecraft")), QStringLiteral("Free Minecraft 100% not fake"), this);
+        freeMinecraft->setToolTip(QStringLiteral("Free Minecraft 100% not fake"));
+        connect(freeMinecraft, &QAction::triggered, this,
+                [] { DesktopServices::openUrl(QUrl(QStringLiteral("https://www.youtube.com/watch?v=dQw4w9WgXcQ"))); });
+        ui->toolBar->addSeparator();
+        ui->toolBar->addAction(freeMinecraft);
+    }
 
     m_accounts = APPLICATION->accounts();
 
