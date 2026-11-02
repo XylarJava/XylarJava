@@ -55,6 +55,7 @@ class PageContainer : public QWidget, public BasePageContainer {
     void changeEvent(QEvent*) override;
 
     void hidePageList() { m_pageList->hide(); }
+    void setPageListVisible(bool visible) { m_pageList->setVisible(visible); }
 
    private:
     void createUI();

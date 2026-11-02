@@ -164,6 +164,13 @@ bool InstanceWindow::saveAll()
     return m_container->saveAll();
 }
 
+void InstanceWindow::setConsoleOnly(bool consoleOnly)
+{
+    m_consoleOnly = consoleOnly;
+    m_container->setPageListVisible(!consoleOnly);
+    setWindowTitle(consoleOnly ? tr("Game log - %1").arg(m_instance->name()) : tr("Console window for ") + m_instance->name());
+}
+
 QString InstanceWindow::instanceId()
 {
     return m_instance->id();

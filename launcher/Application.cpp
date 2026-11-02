@@ -31,6 +31,8 @@
 #include <QScreen>
 #include <QPushButton>
 #include "InstanceRepair.h"
+#include "launch/LaunchTask.h"
+#include "launch/LogModel.h"
 #include "ui/setupwizard/SetupWizard.h"
 #include "ui/setupwizard/XylarDoneWizardPage.h"
 #include "ui/setupwizard/XylarWelcomeWizardPage.h"
@@ -1650,13 +1652,27 @@ void Application::offerAutoRepair(const QString& instanceId, LaunchMode mode, co
     auto instance = m_instances->getInstanceById(instanceId);
     if (!instance || instance->isRunning())
         return;
+    QString gameLog;
+    if (auto task = instance->getLaunchTask()) {
+        if (auto log = task->getLogModel())
+            gameLog = log->toPlainText();
+    }
+    const bool graphics = InstanceRepair::looksLikeGraphicsFailure(gameLog);
+
     QMessageBox box(m_mainWindow);
     box.setIcon(QMessageBox::Question);
     box.setWindowTitle(tr("Couldn't start %1").arg(instance->name()));
     box.setText(tr("<b>%1 couldn't start.</b>").arg(instance->name().toHtmlEscaped()));
-    box.setInformativeText(tr("%1 can try to fix it: download the game files and libraries again, refresh the version info "
-                              "and check Java. Your worlds, mods and settings stay as they are.\n\nRepair and start again?")
-                               .arg(BuildConfig.LAUNCHER_DISPLAYNAME));
+    if (graphics) {
+        box.setInformativeText(tr("The game couldn't open its window: OpenGL didn't start. %1 can undo the graphics tweaks "
+                                  "that cause this (like Zink or a forced GPU), download the game files again and check Java. "
+                                  "Your worlds, mods and settings stay as they are.\n\nRepair and start again?")
+                                   .arg(BuildConfig.LAUNCHER_DISPLAYNAME));
+    } else {
+        box.setInformativeText(tr("%1 can try to fix it: download the game files and libraries again, refresh the version info "
+                                  "and check Java. Your worlds, mods and settings stay as they are.\n\nRepair and start again?")
+                                   .arg(BuildConfig.LAUNCHER_DISPLAYNAME));
+    }
     if (!reason.isEmpty())
         box.setDetailedText(reason);
     auto repairButton = box.addButton(tr("Repair and start"), QMessageBox::AcceptRole);
@@ -1666,7 +1682,7 @@ void Application::offerAutoRepair(const QString& instanceId, LaunchMode mode, co
     if (box.clickedButton() != repairButton)
         return;
 
-    InstanceRepair::repair(instance);
+    InstanceRepair::repair(instance, gameLog);
     m_repairedInstances.insert(instanceId);
     launch(instance, mode);
 }
@@ -1765,11 +1781,16 @@ InstanceWindow* Application::showInstanceWindow(BaseInstance* instance, QString 
 
         window->raise();
         window->activateWindow();
-    } else {
+    }
+    const bool created = !window;
+    if (created) {
         window = new InstanceWindow(instance);
         m_openWindows++;
         connect(window, &InstanceWindow::isClosing, this, &Application::on_windowClose);
     }
+    // Opened for a running or crashed game: show only its log. Opened to edit the instance: show
+    // every page. A log window that's already open stays as it is when the game logs again.
+    window->setConsoleOnly(page == QStringLiteral("console") && (created || window->isConsoleOnly()));
 
     if (!page.isEmpty()) {
         window->selectPage(page);

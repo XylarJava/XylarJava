@@ -272,7 +272,7 @@ void LaunchController::launchInstance()
     const auto* console = qobject_cast<InstanceWindow*>(m_parentWidget);
     const auto showConsole = m_instance->settings()->get("ShowConsole").toBool();
     if (!console && showConsole) {
-        APPLICATION->showInstanceWindow(m_instance);
+        APPLICATION->showInstanceWindow(m_instance, "console");
     }
     connect(m_launcher, &LaunchTask::readyForLaunch, this, &LaunchController::readyForLaunch);
     connect(m_launcher, &LaunchTask::succeeded, this, &LaunchController::onSucceeded);

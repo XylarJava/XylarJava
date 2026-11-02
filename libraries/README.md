@@ -104,3 +104,13 @@ A quick and dirty css parser, used by NilLoader to store mod metadata.
 Translated (and heavily trimmed down) from [the original Java code](https://github.com/unascribed/NilLoader/blob/trunk/src/main/java/nilloader/api/lib/qdcss/QDCSS.java) from NilLoader
 
 Licensed under LGPL version 3.
+
+## authlib-injector
+
+`authlib-injector.jar` (version 1.2.8), a Java agent that points the game's skin and session lookups at
+another Yggdrasil-compatible server. XylarJava uses it to show XylarSkins skins to offline players; it is
+not added for Microsoft accounts playing online.
+
+See [github repo](https://github.com/yushijinhun/authlib-injector).
+
+Licensed under AGPL version 3. It runs as its own agent jar, unmodified.

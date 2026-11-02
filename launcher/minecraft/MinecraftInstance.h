@@ -94,7 +94,9 @@ class MinecraftInstance : public BaseInstance {
     QList<Mod*> getJarMods() const;
     QString createLaunchScript(AuthSessionPtr session, MinecraftTarget::Ptr targetToJoin);
     /// get arguments passed to java
-    QStringList javaArguments();
+    /// JVM arguments for a launch. With the session, Microsoft accounts playing online keep the real
+    /// Mojang services and everyone else gets XylarSkins.
+    QStringList javaArguments(const AuthSession* session = nullptr);
     QString getLauncher();
     bool shouldApplyOnlineFixes();
 

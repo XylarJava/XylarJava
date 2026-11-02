@@ -493,11 +493,12 @@ else()
     message(FATAL_ERROR "Platform not supported")
 endif()
 
-# Bundle the authlib-injector agent so offline skin injection works in packaged
-# builds (not just when running from the build tree). getJarPath() looks for
-# "authlib-injector.jar" under the jars/ directory next to the executable.
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/jars/authlib-injector.jar")
-    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/jars/authlib-injector.jar" DESTINATION ${JARS_DEST_DIR})
+# Bundle the authlib-injector agent: offline accounts get their XylarSkins skin in game through it.
+# It ships next to NewLaunch.jar, where Application::getJarPath() finds it.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/libraries/authlib-injector.jar")
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/libraries/authlib-injector.jar" DESTINATION ${JARS_DEST_DIR})
+else()
+    message(WARNING "libraries/authlib-injector.jar is missing: offline accounts won't get XylarSkins skins in game")
 endif()
 
 # Bundle all community themes next to the executable so they ship with the

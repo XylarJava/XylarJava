@@ -37,7 +37,26 @@ bool dropCacheEntry(const QString& base, const QString& path)
 
 namespace InstanceRepair {
 
-QStringList repair(BaseInstance* instance)
+bool looksLikeGraphicsFailure(const QString& gameLog)
+{
+    static const QStringList signs = { QStringLiteral("Could not choose GLX13 config"),
+                                       QStringLiteral("Couldn't set pixel format"),
+                                       QStringLiteral("Pixel format not accelerated"),
+                                       QStringLiteral("failed to load driver: zink"),
+                                       QStringLiteral("glx: failed to create"),
+                                       QStringLiteral("GLXBadFBConfig"),
+                                       QStringLiteral("WGL: The driver does not appear to support OpenGL"),
+                                       QStringLiteral("GLFW error 65542"),
+                                       QStringLiteral("GLFW error 65543"),
+                                       QStringLiteral("No OpenGL context found in the current thread") };
+    for (const QString& sign : signs) {
+        if (gameLog.contains(sign, Qt::CaseInsensitive))
+            return true;
+    }
+    return false;
+}
+
+QStringList repair(BaseInstance* instance, const QString& gameLog)
 {
     QStringList done;
     if (!instance)
@@ -110,6 +129,27 @@ QStringList repair(BaseInstance* instance)
         global->set("AutomaticJavaSwitch", true);
         global->set("AutomaticJavaDownload", true);
         done << QObject::tr("Turned on automatic Java, so the right Java is picked or downloaded");
+    }
+
+    // 5. Graphics tweaks that stop OpenGL from starting. They're undone where they were set: on
+    //    the instance if it overrides them, otherwise in the global settings.
+    if (looksLikeGraphicsFailure(gameLog)) {
+        auto turnOff = [&](const QString& key, const QString& overrideKey) {
+            if (!settings->get(key).toBool())
+                return false;
+            if (settings->get(overrideKey).toBool())
+                settings->set(key, false);
+            else
+                global->set(key, false);
+            return true;
+        };
+        if (turnOff(QStringLiteral("UseZink"), QStringLiteral("OverridePerformance")))
+            done << QObject::tr("Turned off Zink (OpenGL over Vulkan): the game uses your normal graphics driver again");
+        if (turnOff(QStringLiteral("UseDiscreteGpu"), QStringLiteral("OverridePerformance")))
+            done << QObject::tr("Stopped forcing the discrete GPU");
+        if (gameLog.contains(QStringLiteral("GLFW"), Qt::CaseInsensitive) &&
+            turnOff(QStringLiteral("UseNativeGLFW"), QStringLiteral("OverrideNativeWorkarounds")))
+            done << QObject::tr("Went back to the GLFW that comes with the game");
     }
 
     APPLICATION->metacache()->SaveNow();

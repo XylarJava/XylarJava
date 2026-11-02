@@ -12,7 +12,11 @@ class BaseInstance;
  */
 namespace InstanceRepair {
 
-/// Runs the repair and returns what was done, one line per step, for the log.
-QStringList repair(BaseInstance* instance);
+/// True when the game log shows it couldn't open its window / OpenGL context.
+bool looksLikeGraphicsFailure(const QString& gameLog);
+
+/// Runs the repair and returns what was done, one line per step, for the log. With the log of the
+/// failed launch, graphics tweaks that keep OpenGL from starting (Zink, forced GPU) are undone too.
+QStringList repair(BaseInstance* instance, const QString& gameLog = QString());
 
 }  // namespace InstanceRepair

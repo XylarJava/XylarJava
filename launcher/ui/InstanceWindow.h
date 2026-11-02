@@ -26,6 +26,10 @@ class InstanceWindow : public QMainWindow, public BasePageContainer {
 
     QString instanceId();
 
+    /// Just the game log, without the list of instance pages (used when a game starts or crashes).
+    void setConsoleOnly(bool consoleOnly);
+    bool isConsoleOnly() const { return m_consoleOnly; }
+
     // save all settings and changes (prepare for launch)
     bool saveAll();
 
@@ -50,6 +54,7 @@ class InstanceWindow : public QMainWindow, public BasePageContainer {
     LaunchTask* m_proc;
     BaseInstance* m_instance;
     bool m_doNotSave = false;
+    bool m_consoleOnly = false;
     PageContainer* m_container = nullptr;
     QPushButton* m_closeButton = nullptr;
     QToolButton* m_launchButton = nullptr;

@@ -530,25 +530,36 @@ QStringList MinecraftInstance::extraArguments()
     return list;
 }
 
-QStringList MinecraftInstance::javaArguments()
+QStringList MinecraftInstance::javaArguments(const AuthSession* session)
 {
     QStringList args;
 
     args << "-Duser.language=en";
-    args << "-Dminecraft.api.auth.host=https://nope.invalid";
-    args << "-Dminecraft.api.account.host=https://nope.invalid";
 
-    QString skinBackendUrl = APPLICATION->settings()->get("XylarSkinBackendUrl").toString().trimmed();
-    QString injectorJar = APPLICATION->getJarPath("authlib-injector.jar");
-    if (!skinBackendUrl.isEmpty() && !injectorJar.isEmpty() && QFile::exists(injectorJar)) {
+    // A Microsoft account playing online talks to the real Mojang services: that's what lets it join
+    // online-mode servers, and everyone sees its real skin. Offline players get their skin from
+    // XylarSkins instead: authlib-injector points the game's session server at the skin backend.
+    const bool onlineMicrosoft = session && session->user_type == QStringLiteral("msa") && session->launchMode == LaunchMode::Normal;
+    if (!onlineMicrosoft) {
+        args << "-Dminecraft.api.auth.host=https://nope.invalid";
+        args << "-Dminecraft.api.account.host=https://nope.invalid";
+
+        QString skinBackendUrl = APPLICATION->settings()->get("XylarSkinBackendUrl").toString().trimmed();
+        while (skinBackendUrl.endsWith('/'))
+            skinBackendUrl.chop(1);
+        QString injectorJar = APPLICATION->getJarPath("authlib-injector.jar");
+        if (!skinBackendUrl.isEmpty() && !injectorJar.isEmpty() && QFile::exists(injectorJar)) {
 #ifdef Q_OS_WIN
-        injectorJar = FS::getPathNameInLocal8bit(injectorJar);
+            injectorJar = FS::getPathNameInLocal8bit(injectorJar);
 #endif
-        args << QString("-javaagent:%1=%2").arg(injectorJar, skinBackendUrl);
-    } else {
-        args << "-Dminecraft.api.session.host=https://nope.invalid";
+            args << QString("-javaagent:%1=%2").arg(injectorJar, skinBackendUrl);
+            // Keep the game window title as it is (authlib-injector would add the server name).
+            args << "-Dauthlibinjector.noShowServerName";
+        } else {
+            args << "-Dminecraft.api.session.host=https://nope.invalid";
+        }
+        args << "-Dminecraft.api.services.host=https://nope.invalid";
     }
-    args << "-Dminecraft.api.services.host=https://nope.invalid";
 
     // custom args go first. we want to override them if we have our own here.
     args.append(extraArguments());
@@ -945,6 +956,21 @@ QStringList MinecraftInstance::verboseDescription(AuthSessionPtr session, Minecr
             out << "Using system GLFW.";
         out << emptyLine;
     }
+
+#ifdef Q_OS_LINUX
+    // Graphics tweaks change how OpenGL is created: say so, they're the first suspect on a crash.
+    {
+        const bool zink = settings->get("UseZink").toBool();
+        const bool discreteGpu = settings->get("UseDiscreteGpu").toBool();
+        if (zink || discreteGpu) {
+            if (zink)
+                out << "Using Zink (OpenGL over Vulkan).";
+            if (discreteGpu)
+                out << "Forcing the discrete GPU.";
+            out << emptyLine;
+        }
+    }
+#endif
 
     // libraries and class path.
     {

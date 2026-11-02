@@ -929,26 +929,29 @@ void MainWindow::updateHomePlayer()
     const QString name = account->profileName().isEmpty() ? account->displayName() : account->profileName();
     const bool isMsa = account->accountType() == AccountType::MSA;
 
-    // XylarSkins stores skins by UUID: the Mojang profile id for Microsoft accounts,
-    // the standard offline UUID (derived from the username) otherwise.
+    // XylarSkins stores every skin under the offline UUID of the player name, Microsoft accounts
+    // included (their Mojang id is only linked to it), so the cache uses that UUID too.
     QString uuid;
-    if (isMsa) {
-        uuid = account->profileId();
-        if (!uuid.contains(QLatin1Char('-')) && uuid.length() == 32) {
-            uuid.insert(8, QLatin1Char('-'));
-            uuid.insert(13, QLatin1Char('-'));
-            uuid.insert(18, QLatin1Char('-'));
-            uuid.insert(23, QLatin1Char('-'));
-        }
-    } else if (!name.isEmpty()) {
+    if (!name.isEmpty())
         uuid = XylarSkinClient::computeOfflineUUID(name);
+    // The id the game itself plays with: the Mojang profile id online, the offline UUID otherwise.
+    QString gameUuid = uuid;
+    if (isMsa) {
+        gameUuid = account->profileId();
+        if (!gameUuid.contains(QLatin1Char('-')) && gameUuid.length() == 32) {
+            gameUuid.insert(8, QLatin1Char('-'));
+            gameUuid.insert(13, QLatin1Char('-'));
+            gameUuid.insert(18, QLatin1Char('-'));
+            gameUuid.insert(23, QLatin1Char('-'));
+        }
     }
 
     QImage skin;
     bool slim = false;
     QString note;
 
-    if (!uuid.isEmpty()) {
+    // Online, a Microsoft account shows its Mojang skin to everyone; XylarSkins is for offline play.
+    if (!isMsa && !uuid.isEmpty()) {
         QFile cached(QDir(XylarSkinClient::defaultCacheDir()).filePath(uuid + QStringLiteral(".png")));
         if (cached.open(QIODevice::ReadOnly) && skin.loadFromData(cached.readAll(), "PNG")) {
             slim = SkinPreview::looksSlim(skin);
@@ -971,7 +974,7 @@ void MainWindow::updateHomePlayer()
     // Ask Mojang: by profile UUID for Microsoft accounts, by username for offline ones.
     m_homeSkinKey.clear();
     if (skin.isNull() && m_skinFetcher) {
-        const QString key = isMsa ? MojangSkinFetcher::keyForUuid(uuid) : MojangSkinFetcher::keyForName(name);
+        const QString key = isMsa ? MojangSkinFetcher::keyForUuid(gameUuid) : MojangSkinFetcher::keyForName(name);
         MojangSkinFetcher::Skin fetched;
         if (m_skinFetcher->cached(key, &fetched) && !fetched.texture.isNull()) {
             skin = fetched.texture;
@@ -981,13 +984,13 @@ void MainWindow::updateHomePlayer()
         }
         // Refresh in the background (cached results come back immediately).
         m_homeSkinKey = key;
-        if (isMsa && !uuid.isEmpty())
-            m_skinFetcher->fetchByUuid(uuid);
+        if (isMsa && !gameUuid.isEmpty())
+            m_skinFetcher->fetchByUuid(gameUuid);
         else if (!isMsa && !name.isEmpty())
             m_skinFetcher->fetchByName(name);
     }
 
-    if (skin.isNull() && !uuid.isEmpty()) {
+    if (skin.isNull() && !gameUuid.isEmpty()) {
         // No custom skin: the game picks one of its default skins from the UUID.
         // The texture is read from a client jar the launcher already downloaded.
         QString preferredVersion;
@@ -995,7 +998,7 @@ void MainWindow::updateHomePlayer()
             if (auto profile = minecraft->getPackProfile())
                 preferredVersion = profile->getComponentVersion(QStringLiteral("net.minecraft"));
         }
-        const DefaultSkin::Result fallback = DefaultSkin::forUuid(uuid, preferredVersion);
+        const DefaultSkin::Result fallback = DefaultSkin::forUuid(gameUuid, preferredVersion);
         if (!fallback.texture.isNull()) {
             skin = fallback.texture;
             slim = fallback.slim;
