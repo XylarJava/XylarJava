@@ -6,6 +6,7 @@
 #include <QString>
 #include <QStringList>
 
+#include "tasks/Task.h"
 #include "ServerSoftware.h"
 
 class QNetworkAccessManager;
@@ -68,6 +69,7 @@ class LocalServer : public QObject {
     QString addonsPath() const;
 
     void install();
+    /// Starts the server; downloads it first (then starts) when it isn't installed yet.
     void start();
     void stop();
     void kill();
@@ -95,6 +97,8 @@ class LocalServer : public QObject {
     void onOutput();
     void onFinished(int exitCode, QProcess::ExitStatus status);
     void openPort();
+    /// Downloads the Java this Minecraft version needs into the launcher's Java folder, then starts.
+    void downloadJava(int major);
 
     QString m_folder;
     QNetworkAccessManager* m_network;
@@ -109,4 +113,6 @@ class LocalServer : public QObject {
     QString m_publicIp;
     QString m_networkMessage;
     bool m_portOpen = false;
+    bool m_startWhenInstalled = false;
+    Task::Ptr m_javaTask;
 };

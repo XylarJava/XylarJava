@@ -16,14 +16,16 @@
 #include <QSysInfo>
 #include <QTimer>
 
+#include <utility>
+
 #include "BuildConfig.h"
-#include "DesktopServices.h"
+#include "PrivateBrowser.h"
 #include "java/JavaUtils.h"
 
 namespace {
 // Pinned so an agent update can't change the command line under us.
 const char* AGENT_RELEASE = "https://github.com/playit-cloud/playit-agent/releases/download/v1.2.0/";
-const char* API_RUNDATA = "https://api.playit.gg/agents/rundata";
+const char* API = "https://api.playit.gg";
 const char* DAEMON = "playit";
 const char* CLI = "playit-cli";
 const char* SECRET_FILE = "secret.txt";
@@ -182,8 +184,8 @@ void PlayitTunnel::link()
             static const QRegularExpression validCode(QStringLiteral("^[0-9a-f]{6,64}$"));
             if (!ok || !validCode.match(code).hasMatch())
                 return setState(State::NotLinked, tr("playit.gg didn't give a link code. Try again in a moment."));
-            DesktopServices::openUrl(QUrl(QStringLiteral("https://playit.gg/claim/%1").arg(code)));
-            setState(State::Linking, tr("Log in to playit.gg in your browser (free account) and approve the agent."));
+            openPage(QUrl(QStringLiteral("https://playit.gg/claim/%1").arg(code)));
+            setState(State::Linking, tr("Sign up or log in to playit.gg in the Firefox window (free account), then approve this computer."));
             // "claim exchange" prints progress lines while it waits, then the secret on the last line.
             runCli({ QStringLiteral("claim"), QStringLiteral("exchange"), code, QStringLiteral("--wait"), QStringLiteral("600") }, 620,
                    [this](bool ok, const QString& output) {
@@ -273,47 +275,120 @@ void PlayitTunnel::release()
 
 void PlayitTunnel::refresh()
 {
-    const QString key = secret();
-    if (key.isEmpty() || m_refreshing)
-        return;
     if (m_lastRefresh.isValid() && m_lastRefresh.secsTo(QDateTime::currentDateTimeUtc()) < 5)
         return;
-    m_refreshing = true;
-    m_lastRefresh = QDateTime::currentDateTimeUtc();
-    QNetworkRequest request(QUrl(QString::fromLatin1(API_RUNDATA)));
+    fetch({});
+}
+
+void PlayitTunnel::call(const QString& endpoint, const QJsonObject& body, std::function<void(bool ok, const QJsonValue& data)> done)
+{
+    QNetworkRequest request(QUrl(QString::fromLatin1(API) + endpoint));
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     request.setHeader(QNetworkRequest::UserAgentHeader, BuildConfig.USER_AGENT);
-    request.setRawHeader("Authorization", "Agent-Key " + key.toLatin1());
-    QNetworkReply* reply = m_network->post(request, QByteArrayLiteral("{}"));
-    connect(reply, &QNetworkReply::finished, this, [this, reply] {
+    request.setRawHeader("Authorization", "Agent-Key " + secret().toLatin1());
+    QNetworkReply* reply = m_network->post(request, QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [reply, done] {
         reply->deleteLater();
-        m_refreshing = false;
         const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
-        if (root.value("status").toString() != QLatin1String("success")) {
-            const QString error = root.value("data").toVariant().toString();
+        done(root.value("status").toString() == QLatin1String("success"), root.value("data"));
+    });
+}
+
+void PlayitTunnel::fetch(std::function<void()> then)
+{
+    if (then)
+        m_afterFetch << then;
+    if (secret().isEmpty()) {
+        const auto callbacks = std::exchange(m_afterFetch, {});
+        for (const auto& callback : callbacks)
+            callback();
+        return;
+    }
+    if (m_refreshing)
+        return;  // the callbacks run when the request in flight comes back
+    m_refreshing = true;
+    m_lastRefresh = QDateTime::currentDateTimeUtc();
+    call(QStringLiteral("/agents/rundata"), QJsonObject(), [this](bool ok, const QJsonValue& value) {
+        m_refreshing = false;
+        if (!ok) {
+            const QString error = value.toVariant().toString();
             m_message = error.contains(QLatin1String("Invalid"), Qt::CaseInsensitive)
                             ? tr("playit.gg doesn't accept this computer's key any more. Link playit.gg again.")
                             : tr("Couldn't reach playit.gg right now.");
-            emit changed();
+        } else {
+            const QJsonObject data = value.toObject();
+            m_agentId = data.value("agent_id").toString();
+            QList<Tunnel> tunnels;
+            for (const QJsonValue& entry : data.value("tunnels").toArray()) {
+                const QJsonObject t = entry.toObject();
+                Tunnel tunnel;
+                tunnel.id = t.value("id").toString();
+                const QString custom = t.value("custom_domain").toString();
+                tunnel.address = custom.isEmpty() ? t.value("assigned_domain").toString() : custom;
+                tunnel.localPort = t.value("local_port").toInt();
+                tunnel.minecraftJava = t.value("tunnel_type").toString() == QLatin1String("minecraft-java");
+                tunnel.disabled = !t.value("disabled").isNull() && !t.value("disabled").isUndefined();
+                tunnels << tunnel;
+            }
+            m_tunnels = tunnels;
+            const QString account = data.value("account_status").toString();
+            m_message = account == QLatin1String("email_not_verified") || account == QLatin1String("email-not-verified")
+                            ? tr("Verify your email on playit.gg to use tunnels.")
+                            : QString();
+        }
+        emit changed();
+        const auto callbacks = std::exchange(m_afterFetch, {});
+        for (const auto& callback : callbacks)
+            callback();
+    });
+}
+
+void PlayitTunnel::createTunnel(const QString& name, int localPort, std::function<void(const QString& error)> done)
+{
+    if (m_state != State::Ready)
+        return done(tr("Link playit.gg first."));
+    fetch([this, name, localPort, done] {
+        if (!addressFor(localPort).isEmpty())
+            return done(QString());
+        if (m_agentId.isEmpty())
+            return done(m_message.isEmpty() ? tr("Couldn't reach playit.gg right now.") : m_message);
+        const QJsonObject origin{ { "type", "agent" },
+                                  { "data", QJsonObject{ { "agent_id", m_agentId }, { "local_ip", "127.0.0.1" }, { "local_port", localPort } } } };
+        const QJsonObject body{ { "name", name.left(60) }, { "tunnel_type", "minecraft-java" }, { "port_type", "tcp" }, { "port_count", 1 },
+                                { "origin", origin }, { "enabled", true }, { "alloc", QJsonValue::Null }, { "firewall_id", QJsonValue::Null } };
+        call(QStringLiteral("/tunnels/create"), body, [this, localPort, done](bool ok, const QJsonValue& data) {
+            if (!ok) {
+                const QString reason = data.isObject() ? data.toObject().value("message").toString() : data.toVariant().toString();
+                return done(tr("playit.gg didn't make the tunnel (%1). Free accounts can only have a few: delete one you don't use "
+                               "on playit.gg and try again.")
+                                .arg(reason.isEmpty() ? tr("no reason given") : reason));
+            }
+            waitForAddress(localPort, 10, done);
+        });
+    });
+}
+
+void PlayitTunnel::waitForAddress(int localPort, int triesLeft, std::function<void(const QString& error)> done)
+{
+    fetch([this, localPort, triesLeft, done] {
+        // The tunnel works either way; its address also shows up later through the regular refresh.
+        if (!addressFor(localPort).isEmpty() || triesLeft <= 1)
+            return done(QString());
+        QTimer::singleShot(2000, this, [this, localPort, triesLeft, done] { waitForAddress(localPort, triesLeft - 1, done); });
+    });
+}
+
+void PlayitTunnel::deleteTunnel(int localPort)
+{
+    for (const Tunnel& tunnel : m_tunnels) {
+        if (tunnel.minecraftJava && tunnel.localPort == localPort && !tunnel.id.isEmpty()) {
+            call(QStringLiteral("/tunnels/delete"), QJsonObject{ { "tunnel_id", tunnel.id } }, [this](bool, const QJsonValue&) { fetch({}); });
             return;
         }
-        const QJsonObject data = root.value("data").toObject();
-        QList<Tunnel> tunnels;
-        for (const QJsonValue& value : data.value("tunnels").toArray()) {
-            const QJsonObject t = value.toObject();
-            Tunnel tunnel;
-            const QString custom = t.value("custom_domain").toString();
-            tunnel.address = custom.isEmpty() ? t.value("assigned_domain").toString() : custom;
-            tunnel.localPort = t.value("local_port").toInt();
-            tunnel.minecraftJava = t.value("tunnel_type").toString() == QLatin1String("minecraft-java");
-            tunnel.disabled = !t.value("disabled").isNull() && !t.value("disabled").isUndefined();
-            tunnels << tunnel;
-        }
-        m_tunnels = tunnels;
-        const QString account = data.value("account_status").toString();
-        m_message = account == QLatin1String("email_not_verified") || account == QLatin1String("email-not-verified")
-                        ? tr("Verify your email on playit.gg to use tunnels.")
-                        : QString();
-        emit changed();
-    });
+    }
+}
+
+void PlayitTunnel::openPage(const QUrl& url)
+{
+    PrivateBrowser::open(url, QFileInfo(m_folder).absolutePath(), m_network);
 }

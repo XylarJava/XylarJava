@@ -1,7 +1,10 @@
 #include "LocalServersPage.h"
 
 #include <QApplication>
+#include <QCheckBox>
 #include <QClipboard>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QDesktopServices>
 #include <QDir>
 #include <QEvent>
@@ -19,15 +22,21 @@
 #include <QProgressBar>
 #include <QPushButton>
 #include <QScrollBar>
+#include <QShowEvent>
 #include <QStackedWidget>
+#include <QTimer>
 #include <QToolButton>
 #include <QUrl>
 #include <QVBoxLayout>
 
+#include "Application.h"
 #include "DesktopServices.h"
+#include "HardwareInfo.h"
 #include "ServerSettingsDialog.h"
 #include "servers/PlayitTunnel.h"
 #include "servers/LocalServerList.h"
+#include "servers/ServerSoftware.h"
+#include "settings/SettingsObject.h"
 #include "ui/widgets/HomePage.h"
 
 namespace {
@@ -73,6 +82,7 @@ LocalServersPage::LocalServersPage(LocalServerList* servers, QNetworkAccessManag
     createButton->setObjectName(QStringLiteral("addInstanceButton"));
     createButton->setCursor(Qt::PointingHandCursor);
     connect(createButton, &QPushButton::clicked, this, &LocalServersPage::createServer);
+    m_createButton = createButton;
     headerLayout->addWidget(title);
     headerLayout->addSpacing(12);
     headerLayout->addWidget(hint);
@@ -110,8 +120,9 @@ LocalServersPage::LocalServersPage(LocalServerList* servers, QNetworkAccessManag
     auto emptyTitle = new QLabel(tr("Host a server for your friends"), empty);
     emptyTitle->setObjectName(QStringLiteral("serverEmptyTitle"));
     emptyTitle->setAlignment(Qt::AlignCenter);
-    auto emptyText = new QLabel(tr("Pick Vanilla, Fabric or Paper and any Minecraft version. It runs on this computer, "
-                                   "friends on your Wi-Fi join right away and XylarJava opens your router for the rest."),
+    auto emptyText = new QLabel(tr("XylarJava makes it, picks the memory and starts it. It runs on this computer and friends "
+                                   "join from anywhere through playit.gg, without seeing your IP. Up to %1 servers.")
+                                    .arg(LocalServerList::MAX_SERVERS),
                                 empty);
     emptyText->setObjectName(QStringLiteral("serverMuted"));
     emptyText->setWordWrap(true);
@@ -245,7 +256,7 @@ LocalServersPage::LocalServersPage(LocalServerList* servers, QNetworkAccessManag
         port->setTextInteractionFlags(Qt::TextSelectableByMouse);
         copy = new QPushButton(tr("Copy"), join);
         copy->setObjectName(QStringLiteral("serverSecondary"));
-        connect(copy, &QPushButton::clicked, this, [copy] { QApplication::clipboard()->setText(copy->property("address").toString()); });
+        connect(copy, &QPushButton::clicked, this, [this, copy] { copyAddress(copy); });
         row->addWidget(name);
         row->addWidget(value);
         row->addWidget(port);
@@ -263,7 +274,7 @@ LocalServersPage::LocalServersPage(LocalServerList* servers, QNetworkAccessManag
     connect(m_playitButton, &QPushButton::clicked, this, [this] {
         PlayitTunnel* playit = m_servers->playit();
         if (playit->state() == PlayitTunnel::State::Ready)
-            DesktopServices::openUrl(PlayitTunnel::tunnelsPage());
+            playit->openPage(PlayitTunnel::tunnelsPage());
         else
             playit->link();
     });
@@ -272,6 +283,7 @@ LocalServersPage::LocalServersPage(LocalServerList* servers, QNetworkAccessManag
     playitRow->addStretch(1);
     joinLayout->addLayout(playitRow);
     connect(m_servers->playit(), &PlayitTunnel::changed, this, &LocalServersPage::updateAddresses);
+    connect(m_servers->playit(), &PlayitTunnel::changed, this, &LocalServersPage::continuePlayitSetup);
     m_networkMessage = new QLabel(join);
     m_networkMessage->setObjectName(QStringLiteral("serverMuted"));
     m_networkMessage->setWordWrap(true);
@@ -334,6 +346,10 @@ void LocalServersPage::select(LocalServer* server)
 
 void LocalServersPage::rebuildList()
 {
+    const bool full = m_servers->isFull();
+    m_createButton->setEnabled(!full);
+    m_createButton->setToolTip(full ? tr("%1 servers is the most XylarJava hosts: delete one to make another.").arg(LocalServerList::MAX_SERVERS)
+                                    : QString());
     LocalServer* keep = m_current;
     m_list->blockSignals(true);
     m_list->clear();
@@ -430,6 +446,20 @@ void LocalServersPage::updateDetails()
     m_command->setEnabled(m_current->isRunning());
 }
 
+void LocalServersPage::copyAddress(QPushButton* button)
+{
+    const QString address = button->property("address").toString();
+    if (address.isEmpty())
+        return;
+    QClipboard* clipboard = QApplication::clipboard();
+    clipboard->setText(address);
+    // On X11 the middle click pastes the selection, so fill that one too.
+    if (clipboard->supportsSelection())
+        clipboard->setText(address, QClipboard::Selection);
+    button->setText(tr("Copied!"));
+    QTimer::singleShot(1500, button, [button] { button->setText(tr("Copy")); });
+}
+
 void LocalServersPage::updateAddresses()
 {
     if (!m_current)
@@ -464,6 +494,7 @@ void LocalServersPage::updateAddresses()
     m_playitValue->setText(playitAddress.isEmpty() ? tr("-") : playitAddress);
     m_copyPlayit->setEnabled(!playitAddress.isEmpty());
     m_copyPlayit->setProperty("address", playitAddress);
+    m_copyPlayit->setToolTip(playitAddress.isEmpty() ? tr("No playit.gg address yet") : tr("Copies %1").arg(playitAddress));
 
     QString message;
     m_playitButton->hide();
@@ -521,14 +552,195 @@ void LocalServersPage::appendConsole(const QString& line)
         bar->setValue(bar->maximum());
 }
 
+void LocalServersPage::showEvent(QShowEvent* event)
+{
+    QWidget::showEvent(event);
+    // The first time ever the page opens: offer playit.gg (once the window is on screen).
+    if (!APPLICATION->settings()->get("PlayitSetupOffered").toBool())
+        QTimer::singleShot(0, this, [this] {
+            if (APPLICATION->settings()->get("PlayitSetupOffered").toBool())
+                return;
+            APPLICATION->settings()->set("PlayitSetupOffered", true);
+            if (m_servers->playit()->state() == PlayitTunnel::State::NotLinked)
+                offerPlayitSetup();
+        });
+}
+
+bool LocalServersPage::offerPlayitSetup()
+{
+    QMessageBox box(QMessageBox::Question, tr("Set up playit.gg"),
+                    tr("<b>Let friends join from anywhere, safely</b><br><br>"
+                       "With a free playit.gg account friends join your servers through playit.gg: they never see your "
+                       "home IP, attacks are filtered and your router needs no setup.<br><br>"
+                       "XylarJava opens playit.gg in a private Firefox window with the uBlock Origin ad blocker. "
+                       "Create an account (or log in), accept playit.gg's terms and approve this computer.<br><br>"
+                       "Then, if you agree, XylarJava makes your server and starts it for you."),
+                    QMessageBox::NoButton, this);
+    QPushButton* setUp = box.addButton(tr("Set up playit.gg"), QMessageBox::AcceptRole);
+    box.addButton(tr("Not now"), QMessageBox::RejectRole);
+    box.setDefaultButton(setUp);
+    box.exec();
+    if (box.clickedButton() != setUp)
+        return false;
+    m_playitSetupPending = true;
+    m_servers->playit()->link();
+    return true;
+}
+
+void LocalServersPage::continuePlayitSetup()
+{
+    if (!m_playitSetupPending)
+        return;
+    PlayitTunnel* playit = m_servers->playit();
+    if (playit->state() == PlayitTunnel::State::NotLinked) {
+        m_playitSetupPending = false;
+        if (isVisible() && !playit->message().isEmpty())
+            QMessageBox::warning(this, tr("playit.gg"), playit->message());
+    } else if (playit->state() == PlayitTunnel::State::Ready) {
+        m_playitSetupPending = false;
+        // Out of this signal first: making the server opens a dialog.
+        QTimer::singleShot(0, this, [this] {
+            window()->raise();
+            window()->activateWindow();
+            proposeServer(true);
+        });
+    }
+}
+
 void LocalServersPage::createServer()
 {
-    ServerSettingsDialog dialog(m_network, nullptr, this);
-    if (dialog.exec() != QDialog::Accepted)
+    if (m_servers->isFull()) {
+        QMessageBox::information(this, tr("Create server"),
+                                 tr("You have %1 servers, the most XylarJava hosts. Delete one to make another.").arg(LocalServerList::MAX_SERVERS));
         return;
-    LocalServer* server = m_servers->create(dialog.config());
+    }
+    PlayitTunnel* playit = m_servers->playit();
+    switch (playit->state()) {
+        case PlayitTunnel::State::NotLinked:
+            // Linking ends with the same proposal; without playit.gg the server still works on the Wi-Fi and through the router.
+            if (!offerPlayitSetup())
+                proposeServer(false);
+            return;
+        case PlayitTunnel::State::Linking:
+            m_playitSetupPending = true;
+            QMessageBox::information(this, tr("playit.gg"),
+                                     tr("Finish in the playit.gg window first (log in and approve this computer). "
+                                        "Your server is made right after."));
+            return;
+        case PlayitTunnel::State::Ready:
+            proposeServer(true);
+            return;
+        case PlayitTunnel::State::Unsupported:
+            proposeServer(false);
+            return;
+    }
+}
+
+void LocalServersPage::proposeServer(bool usePlayit)
+{
+    if (m_servers->isFull() || m_proposing)
+        return;
+    m_proposing = true;
+    setCursor(Qt::BusyCursor);
+    ServerSoftware::fetchVersions(m_network, ServerSoftware::Kind::Vanilla, this, [this, usePlayit](const QStringList& versions, const QString& error) {
+        unsetCursor();
+        m_proposing = false;
+        if (versions.isEmpty()) {
+            QMessageBox::warning(this, tr("Create server"),
+                                 tr("Couldn't get the list of Minecraft versions (%1). Check your connection and try again.")
+                                     .arg(error.isEmpty() ? tr("empty list") : error));
+            return;
+        }
+        LocalServerConfig config;
+        config.name = m_servers->freeName(tr("My server"));
+        config.software = ServerSoftware::Kind::Vanilla;
+        config.minecraftVersion = versions.first();
+        config.port = m_servers->freePort();
+        config.playit = usePlayit;
+        config.openPort = !usePlayit;
+        // A quarter of this computer's memory, between 2 and 6 GB: plenty for a few friends, and the game still runs next to it.
+        // Under 6 GB in all, 1 GB keeps the computer usable.
+        const qint64 totalMb = qint64(HardwareInfo::totalRamMiB());
+        const qint64 memoryMb = totalMb <= 0 ? 2048 : totalMb < 6144 ? 1024 : qBound(qint64(2048), totalMb / 4, qint64(6144));
+        config.memoryMb = int(memoryMb / 1024 * 1024);
+
+        QDialog dialog(this);
+        dialog.setWindowTitle(tr("Create server"));
+        dialog.setMinimumWidth(520);
+        auto layout = new QVBoxLayout(&dialog);
+        layout->setSpacing(10);
+        auto heading = new QLabel(tr("XylarJava sets everything up for you"), &dialog);
+        QFont headingFont = heading->font();
+        headingFont.setPointSizeF(headingFont.pointSizeF() + 4);
+        headingFont.setBold(true);
+        heading->setFont(headingFont);
+        layout->addWidget(heading);
+        QStringList lines;
+        lines << tr("<b>Name:</b> %1").arg(config.name.toHtmlEscaped())
+              << tr("<b>Minecraft:</b> %1, Vanilla (the newest version)").arg(config.minecraftVersion)
+              << tr("<b>Memory:</b> %1 GB (this computer has %2 GB)").arg(config.memoryMb / 1024).arg(qMax(qint64(1), (totalMb + 512) / 1024))
+              << tr("<b>Java:</b> the one this version needs, downloaded if it's missing");
+        if (usePlayit)
+            lines << tr("<b>playit.gg:</b> a free tunnel on your account, so friends join without seeing your IP");
+        else
+            lines << tr("<b>Network:</b> friends on your Wi-Fi join right away; XylarJava opens your router for the rest when it can");
+        lines << tr("<b>Then:</b> it downloads and starts by itself");
+        auto summary = new QLabel(QStringLiteral("<p style='line-height:140%'>") + lines.join(QStringLiteral("<br>")) + QStringLiteral("</p>"), &dialog);
+        summary->setWordWrap(true);
+        layout->addWidget(summary);
+        auto eula = new QCheckBox(&dialog);
+        auto eulaText = new QLabel(tr("I accept the <a href=\"https://aka.ms/MinecraftEULA\">Minecraft EULA</a>"), &dialog);
+        eulaText->setOpenExternalLinks(true);
+        auto eulaRow = new QHBoxLayout();
+        eulaRow->addWidget(eula);
+        eulaRow->addWidget(eulaText, 1);
+        layout->addLayout(eulaRow);
+        auto buttons = new QDialogButtonBox(&dialog);
+        QPushButton* create = buttons->addButton(tr("Create and start"), QDialogButtonBox::AcceptRole);
+        QPushButton* customize = buttons->addButton(tr("Change settings..."), QDialogButtonBox::ActionRole);
+        buttons->addButton(QDialogButtonBox::Cancel);
+        create->setEnabled(false);
+        create->setDefault(true);
+        connect(eula, &QCheckBox::toggled, create, &QPushButton::setEnabled);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        bool customizing = false;
+        connect(customize, &QPushButton::clicked, &dialog, [&dialog, &customizing] {
+            customizing = true;
+            dialog.reject();
+        });
+        layout->addWidget(buttons);
+        const int result = dialog.exec();
+
+        if (customizing) {
+            config.eulaAccepted = eula->isChecked();
+            ServerSettingsDialog settings(m_network, nullptr, this, &config);
+            if (settings.exec() == QDialog::Accepted)
+                makeServer(settings.config());
+            return;
+        }
+        if (result != QDialog::Accepted || !eula->isChecked())
+            return;
+        config.eulaAccepted = true;
+        makeServer(config);
+    });
+}
+
+void LocalServersPage::makeServer(const LocalServerConfig& config)
+{
+    LocalServer* server = m_servers->create(config);
+    if (!server)
+        return;
     select(server);
-    server->install();
+    server->start();  // downloads the server (and Java when missing), then starts it
+    if (!config.playit)
+        return;
+    QPointer<LocalServer> guard(server);
+    m_servers->playit()->createTunnel(config.name, config.port, [this, guard](const QString& error) {
+        if (!error.isEmpty() && guard && isVisible())
+            QMessageBox::warning(this, guard->config().name, error);
+        updateAddresses();
+    });
 }
 
 void LocalServersPage::editServer()
@@ -539,9 +751,18 @@ void LocalServersPage::editServer()
     ServerSettingsDialog dialog(m_network, &before, this);
     if (dialog.exec() != QDialog::Accepted)
         return;
-    m_current->setConfig(dialog.config());
+    const LocalServerConfig after = dialog.config();
+    m_current->setConfig(after);
     if (m_current->state() == LocalServer::State::NotInstalled)
         m_current->install();
+    if (after.playit && (!before.playit || before.port != after.port) && m_servers->playit()->state() == PlayitTunnel::State::Ready) {
+        QPointer<LocalServer> guard(m_current.data());
+        m_servers->playit()->createTunnel(after.name, after.port, [this, guard](const QString& error) {
+            if (!error.isEmpty() && guard && isVisible())
+                QMessageBox::warning(this, guard->config().name, error);
+            updateAddresses();
+        });
+    }
     updateDetails();
 }
 
@@ -551,7 +772,9 @@ void LocalServersPage::deleteServer()
         return;
     const auto answer = QMessageBox::question(
         this, tr("Delete %1?").arg(m_current->config().name),
-        tr("This deletes the server and its world for good:\n%1").arg(QDir::toNativeSeparators(m_current->folder())),
+        m_current->config().playit
+            ? tr("This deletes the server, its world and its playit.gg tunnel for good:\n%1").arg(QDir::toNativeSeparators(m_current->folder()))
+            : tr("This deletes the server and its world for good:\n%1").arg(QDir::toNativeSeparators(m_current->folder())),
         QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
     if (answer == QMessageBox::Yes)
         m_servers->remove(m_current);

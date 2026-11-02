@@ -26,6 +26,8 @@ LocalServerList::LocalServerList(const QString& root, QNetworkAccessManager* net
 
 LocalServer* LocalServerList::create(const LocalServerConfig& config)
 {
+    if (isFull())
+        return nullptr;
     QString slug = config.name.toLower();
     slug.replace(QRegularExpression(QStringLiteral("[^a-z0-9]+")), QStringLiteral("-"));
     slug = slug.mid(0, 40);
@@ -52,6 +54,8 @@ bool LocalServerList::remove(LocalServer* server)
     if (!server || server->isRunning() || !m_servers.contains(server))
         return false;
     const QString folder = server->folder();
+    if (server->config().playit)
+        m_playit->deleteTunnel(server->config().port);
     m_servers.removeAll(server);
     server->deleteLater();
     FS::deletePath(folder);
@@ -72,4 +76,30 @@ void LocalServerList::stopAll()
 {
     for (LocalServer* server : m_servers)
         server->stop();
+}
+
+int LocalServerList::freePort() const
+{
+    for (int port = 25565;; port++) {
+        bool used = false;
+        for (LocalServer* server : m_servers)
+            used = used || server->config().port == port;
+        if (!used)
+            return port;
+    }
+}
+
+QString LocalServerList::freeName(const QString& base) const
+{
+    auto taken = [this](const QString& name) {
+        for (LocalServer* server : m_servers) {
+            if (server->config().name.compare(name, Qt::CaseInsensitive) == 0)
+                return true;
+        }
+        return false;
+    };
+    QString name = base;
+    for (int i = 2; taken(name); i++)
+        name = QStringLiteral("%1 %2").arg(base).arg(i);
+    return name;
 }

@@ -15,11 +15,16 @@
 
 #include "servers/PlayitTunnel.h"
 
-ServerSettingsDialog::ServerSettingsDialog(QNetworkAccessManager* network, const LocalServerConfig* existing, QWidget* parent)
+ServerSettingsDialog::ServerSettingsDialog(QNetworkAccessManager* network,
+                                           const LocalServerConfig* existing,
+                                           QWidget* parent,
+                                           const LocalServerConfig* defaults)
     : QDialog(parent), m_network(network), m_editing(existing != nullptr)
 {
     if (existing)
         m_original = *existing;
+    else if (defaults)
+        m_original = *defaults;
     setWindowTitle(m_editing ? tr("Server settings") : tr("Create a server"));
     setMinimumWidth(640);
 
@@ -43,7 +48,7 @@ ServerSettingsDialog::ServerSettingsDialog(QNetworkAccessManager* network, const
     // Game
     auto game = new QGroupBox(tr("Game"), this);
     auto gameForm = new QFormLayout(game);
-    m_name = new QLineEdit(m_editing ? m_original.name : tr("My server"), game);
+    m_name = new QLineEdit(m_editing || defaults ? m_original.name : tr("My server"), game);
     m_name->setMaxLength(48);
     gameForm->addRow(tr("Name"), m_name);
 

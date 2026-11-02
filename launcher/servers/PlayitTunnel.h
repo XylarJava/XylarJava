@@ -8,6 +8,8 @@
 
 #include <functional>
 
+class QJsonObject;
+class QJsonValue;
 class QNetworkAccessManager;
 class QProcess;
 class QTimer;
@@ -48,12 +50,20 @@ class PlayitTunnel : public QObject {
     void release();
     /// Asks playit.gg for this agent's tunnels (at most every few seconds).
     void refresh();
+    /// Makes a Minecraft Java tunnel to this local port on the user's playit.gg account, unless there's one already.
+    /// done gets an empty string on success, else what went wrong.
+    void createTunnel(const QString& name, int localPort, std::function<void(const QString& error)> done);
+    /// Deletes this local port's tunnel from the playit.gg account, if there's one.
+    void deleteTunnel(int localPort);
+    /// Opens a playit.gg page in the private browser (Firefox with uBlock Origin).
+    void openPage(const QUrl& url);
 
    signals:
     void changed();
 
    private:
     struct Tunnel {
+        QString id;
         QString address;
         int localPort = 0;
         bool minecraftJava = false;
@@ -65,6 +75,12 @@ class PlayitTunnel : public QObject {
     void setState(State state, const QString& message);
     void ensureAgent(std::function<void(bool)> done);
     void download(const QString& asset, const QString& target, std::function<void(bool)> done);
+    /// POST to playit.gg's API with this agent's key; ok when playit answers "success".
+    void call(const QString& endpoint, const QJsonObject& body, std::function<void(bool ok, const QJsonValue& data)> done);
+    /// Reads the tunnels now (no throttling), then runs then.
+    void fetch(std::function<void()> then);
+    /// After making a tunnel: waits a little for playit.gg to list its address.
+    void waitForAddress(int localPort, int triesLeft, std::function<void(const QString& error)> done);
     void runCli(const QStringList& args, int timeoutSecs, std::function<void(bool ok, const QString& output)> done);
     void startAgent();
     void stopAgent();
@@ -75,6 +91,8 @@ class PlayitTunnel : public QObject {
     State m_state = State::NotLinked;
     QString m_message;
     QList<Tunnel> m_tunnels;
+    QString m_agentId;
+    QList<std::function<void()>> m_afterFetch;
     QProcess* m_agent = nullptr;
     QTimer* m_refreshTimer = nullptr;
     QDateTime m_lastRefresh;

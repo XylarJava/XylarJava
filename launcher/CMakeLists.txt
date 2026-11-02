@@ -57,6 +57,8 @@ set(CORE_SOURCES
     servers/LocalServerList.h
     servers/PlayitTunnel.cpp
     servers/PlayitTunnel.h
+    servers/PrivateBrowser.cpp
+    servers/PrivateBrowser.h
     servers/ServerSoftware.cpp
     servers/ServerSoftware.h
     servers/UpnpPortMapper.cpp

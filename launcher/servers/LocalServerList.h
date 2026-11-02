@@ -13,11 +13,20 @@ class PlayitTunnel;
 class LocalServerList : public QObject {
     Q_OBJECT
    public:
+    /// How many servers XylarJava hosts at most.
+    static constexpr int MAX_SERVERS = 5;
+
     LocalServerList(const QString& root, QNetworkAccessManager* network, QObject* parent = nullptr);
 
     QList<LocalServer*> servers() const { return m_servers; }
+    /// Makes a new server; nullptr when there are MAX_SERVERS already.
     LocalServer* create(const LocalServerConfig& config);
-    /// Deletes the server and its folder (worlds included). Refuses while it's running.
+    bool isFull() const { return m_servers.size() >= MAX_SERVERS; }
+    /// The first port from 25565 up that no other server uses.
+    int freePort() const;
+    /// A name no other server has: "My server", "My server 2"...
+    QString freeName(const QString& base) const;
+    /// Deletes the server, its folder (worlds included) and its playit.gg tunnel. Refuses while it's running.
     bool remove(LocalServer* server);
     bool anyRunning() const;
     void stopAll();

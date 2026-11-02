@@ -17,7 +17,11 @@ class ServerSettingsDialog : public QDialog {
     Q_OBJECT
    public:
     /// existing == nullptr: a new server.
-    ServerSettingsDialog(QNetworkAccessManager* network, const LocalServerConfig* existing, QWidget* parent = nullptr);
+    /// existing: the server being edited, nullptr for a new one; defaults: what a new one starts with.
+    ServerSettingsDialog(QNetworkAccessManager* network,
+                         const LocalServerConfig* existing,
+                         QWidget* parent = nullptr,
+                         const LocalServerConfig* defaults = nullptr);
 
     LocalServerConfig config() const;
 

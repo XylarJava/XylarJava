@@ -8,6 +8,7 @@
 #include <functional>
 
 class LocalServer;
+struct LocalServerConfig;
 class LocalServerList;
 class QFrame;
 class QLabel;
@@ -38,9 +39,19 @@ class LocalServersPage : public QWidget {
 
    protected:
     void changeEvent(QEvent* event) override;
+    void showEvent(QShowEvent* event) override;
 
    private:
+    /// "Create server": links playit.gg first when it isn't, then proposes a ready-made server.
     void createServer();
+    /// Explains playit.gg and starts linking it in the private browser. False when the user said not now.
+    bool offerPlayitSetup();
+    /// playit.gg changed: once linking is done, go on to the server.
+    void continuePlayitSetup();
+    /// Shows what XylarJava will make (newest Vanilla, memory for this computer, playit.gg) and asks for consent.
+    void proposeServer(bool usePlayit);
+    /// Makes the server, starts it and makes its playit.gg tunnel.
+    void makeServer(const LocalServerConfig& config);
     void editServer();
     void deleteServer();
     void rebuildList();
@@ -48,6 +59,8 @@ class LocalServersPage : public QWidget {
     void showServer();
     void updateDetails();
     void updateAddresses();
+    /// Puts the button's address on the clipboard and says so on the button for a moment.
+    void copyAddress(QPushButton* button);
     void appendConsole(const QString& line);
     void copyModsFrom(const QString& folder);
     void updateStyle();
@@ -64,6 +77,7 @@ class LocalServersPage : public QWidget {
     QLabel* m_name = nullptr;
     QLabel* m_subtitle = nullptr;
     QLabel* m_status = nullptr;
+    QPushButton* m_createButton = nullptr;
     QPushButton* m_startButton = nullptr;
     QPushButton* m_folderButton = nullptr;
     QToolButton* m_addonsButton = nullptr;
@@ -91,4 +105,6 @@ class LocalServersPage : public QWidget {
     QSet<QObject*> m_watched;
     QString m_appliedStyleSheet;
     bool m_updatingStyle = false;
+    bool m_playitSetupPending = false;  // linking playit.gg from the setup: propose a server once it's done
+    bool m_proposing = false;
 };

@@ -12,10 +12,25 @@
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QTimer>
+#include <utility>
+
+#ifdef Q_OS_LINUX
+#include <sys/prctl.h>
+#include <csignal>
+#endif
 
 #include "Application.h"
 #include "BuildConfig.h"
 #include "java/JavaUtils.h"
+#include "FileSystem.h"
+#include "SysInfo.h"
+#include "java/download/ArchiveDownloadTask.h"
+#include "java/download/ManifestDownloadTask.h"
+#include "meta/Index.h"
+#include "meta/Version.h"
+#include "minecraft/VersionFile.h"
+#include "java/JavaMetadata.h"
+#include "net/Mode.h"
 #include "settings/SettingsObject.h"
 #include "PlayitTunnel.h"
 #include "UpnpPortMapper.h"
@@ -184,6 +199,7 @@ void LocalServer::install()
     ServerSoftware::resolveJar(m_network, m_config.software, m_config.minecraftVersion, this, [this](const QUrl& url, const QString& error) {
         if (!error.isEmpty()) {
             appendConsole(tr("[XylarJava] %1").arg(error));
+            m_startWhenInstalled = false;
             setState(State::NotInstalled);
             emit failed(error);
             return;
@@ -198,6 +214,7 @@ void LocalServer::install()
         if (!part->open(QIODevice::WriteOnly)) {
             reply->abort();
             appendConsole(tr("[XylarJava] Can't write to %1").arg(m_folder));
+            m_startWhenInstalled = false;
             setState(State::NotInstalled);
             emit failed(tr("Can't write to %1").arg(m_folder));
             return;
@@ -213,6 +230,7 @@ void LocalServer::install()
                 part->remove();
                 const QString message = tr("Download failed: %1").arg(reply->errorString());
                 appendConsole(tr("[XylarJava] %1").arg(message));
+                m_startWhenInstalled = false;
                 setState(State::NotInstalled);
                 emit failed(message);
                 return;
@@ -220,8 +238,11 @@ void LocalServer::install()
             QFile::remove(jar);
             part->rename(jar);
             writeServerFiles();
-            appendConsole(tr("[XylarJava] Ready. Press Start to open the server."));
             setState(State::Stopped);
+            if (std::exchange(m_startWhenInstalled, false))
+                start();
+            else
+                appendConsole(tr("[XylarJava] Ready. Press Start to open the server."));
         });
     });
 }
@@ -332,6 +353,7 @@ void LocalServer::start()
     if (isRunning() || m_state == State::Installing)
         return;
     if (m_state == State::NotInstalled) {
+        m_startWhenInstalled = true;
         install();
         return;
     }
@@ -340,8 +362,13 @@ void LocalServer::start()
         return;
     }
     QString why;
-    const QString java = findJava(m_config.javaPath, ServerSoftware::requiredJava(m_config.minecraftVersion), &why);
+    const int requiredJava = ServerSoftware::requiredJava(m_config.minecraftVersion);
+    const QString java = findJava(m_config.javaPath, requiredJava, &why);
     if (java.isEmpty()) {
+        if (!m_javaTask && !SysInfo::getSupportedJavaArchitecture().isEmpty()) {
+            downloadJava(requiredJava);
+            return;
+        }
         appendConsole(tr("[XylarJava] %1").arg(why));
         emit failed(why);
         return;
@@ -352,6 +379,11 @@ void LocalServer::start()
         m_process = new QProcess(this);
         m_process->setProcessChannelMode(QProcess::MergedChannels);
         m_process->setProcessEnvironment(CleanEnviroment());
+#ifdef Q_OS_LINUX
+        // If the launcher quits or crashes, the server gets SIGTERM: it saves the world and stops
+        // instead of running on where nobody can see or stop it (and keeping the port busy).
+        m_process->setChildProcessModifier([] { ::prctl(PR_SET_PDEATHSIG, SIGTERM); });
+#endif
         connect(m_process, &QProcess::readyRead, this, &LocalServer::onOutput);
         connect(m_process, &QProcess::finished, this, &LocalServer::onFinished);
         connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
@@ -449,6 +481,60 @@ void LocalServer::sendCommand(const QString& command)
         text.remove(0, 1);
     appendConsole(QStringLiteral("> ") + text);
     m_process->write(text.toUtf8() + '\n');
+}
+
+void LocalServer::downloadJava(int major)
+{
+    setState(State::Installing);
+    appendConsole(tr("[XylarJava] Java %1 isn't installed yet: downloading it (only the first time)...").arg(major));
+    auto fail = [this, major](const QString& reason) {
+        m_javaTask.reset();
+        const QString message = tr("Java %1 couldn't be downloaded (%2). Install it (for example from adoptium.net) or pick one "
+                                   "in the server's settings.")
+                                    .arg(major)
+                                    .arg(reason);
+        appendConsole(tr("[XylarJava] %1").arg(message));
+        setState(State::Stopped);
+        emit failed(message);
+    };
+    const QString uid = QStringLiteral("net.minecraft.java");
+    const QString version = QStringLiteral("java%1").arg(major);
+    m_javaTask = APPLICATION->metadataIndex()->loadVersion(uid, version, Net::Mode::Online);
+    connect(m_javaTask.get(), &Task::failed, this, fail);
+    connect(m_javaTask.get(), &Task::succeeded, this, [this, uid, version, fail] {
+        auto meta = APPLICATION->metadataIndex()->getLoadedVersion(uid, version);
+        const QString arch = SysInfo::getSupportedJavaArchitecture();
+        Java::MetadataPtr pick;
+        if (meta && meta->data()) {
+            for (const auto& runtime : meta->data()->runtimes) {
+                if (runtime->runtimeOS != arch || runtime->downloadType == Java::DownloadType::Unknown)
+                    continue;
+                // Mojang's own builds ("java-runtime-...") first, like the game uses.
+                if (!pick || (runtime->m_name.startsWith(QLatin1String("java-runtime")) && !pick->m_name.startsWith(QLatin1String("java-runtime"))))
+                    pick = runtime;
+            }
+        }
+        if (!pick)
+            return fail(tr("none for this system"));
+        const QString target = QDir(APPLICATION->javaPath()).absoluteFilePath(pick->m_name);
+        if (pick->downloadType == Java::DownloadType::Manifest)
+            m_javaTask = makeShared<Java::ManifestDownloadTask>(pick->url, target, pick->checksumType, pick->checksumHash);
+        else
+            m_javaTask = makeShared<Java::ArchiveDownloadTask>(pick->url, target, pick->checksumType, pick->checksumHash);
+        connect(m_javaTask.get(), &Task::progress, this, &LocalServer::installProgress);
+        connect(m_javaTask.get(), &Task::failed, this, [target, fail](const QString& reason) {
+            FS::deletePath(target);
+            fail(reason);
+        });
+        connect(m_javaTask.get(), &Task::succeeded, this, [this] {
+            appendConsole(tr("[XylarJava] Java is ready."));
+            setState(State::Stopped);
+            start();
+            m_javaTask.reset();
+        });
+        m_javaTask->start();
+    });
+    m_javaTask->start();
 }
 
 void LocalServer::onFinished(int exitCode, QProcess::ExitStatus status)
