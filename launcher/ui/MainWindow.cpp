@@ -490,7 +490,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     // GitHub release updater
     m_updater = new XylarUpdater(this, this);
-    m_homePage->setVersionInfo(XylarUpdater::currentVersion(), QString());
+    m_homePage->setVersionInfo(BuildConfig.versionString(), QString());
     connect(m_homePage, &HomePage::checkUpdatesRequested, this, [this] { m_updater->checkForUpdates(true); });
     if (!APPLICATION->updaterEnabled()) {
         ui->actionCheckUpdate->setVisible(true);

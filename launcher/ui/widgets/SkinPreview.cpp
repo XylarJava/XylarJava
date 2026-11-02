@@ -75,7 +75,8 @@ void SkinPreview::paintEvent(QPaintEvent*)
 {
     QPainter painter(this);
     const qreal seconds = m_clock.elapsed() / 1000.0;
-    const qreal phase = seconds * 1.7;
+    // A slow, calm idle: one breath every ~8 seconds, the arms sway at half that pace.
+    const qreal phase = seconds * 0.78;
     const QRectF area = QRectF(rect()).adjusted(8, 8, -8, -8);
 
     if (m_skin.isNull())
