@@ -1,18 +1,22 @@
 #include "LocalServerList.h"
 
 #include <QDir>
+#include <QFileInfo>
 #include <QRegularExpression>
 
 #include "FileSystem.h"
+#include "PlayitTunnel.h"
 
 LocalServerList::LocalServerList(const QString& root, QNetworkAccessManager* network, QObject* parent)
     : QObject(parent), m_root(root), m_network(network)
 {
     QDir().mkpath(m_root);
+    m_playit = new PlayitTunnel(QFileInfo(m_root).dir().filePath(QStringLiteral("playit")), m_network, this);
     const QStringList folders = QDir(m_root).entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
     for (const QString& name : folders) {
         auto server = new LocalServer(QDir(m_root).filePath(name), m_network, this);
         if (server->load()) {
+            server->setPlayit(m_playit);
             m_servers << server;
         } else {
             delete server;
@@ -36,6 +40,7 @@ LocalServer* LocalServerList::create(const LocalServerConfig& config)
         id = QStringLiteral("%1-%2").arg(slug).arg(i);
 
     auto server = new LocalServer(QDir(m_root).filePath(id), m_network, this);
+    server->setPlayit(m_playit);
     server->setConfig(config);
     m_servers << server;
     emit listChanged();

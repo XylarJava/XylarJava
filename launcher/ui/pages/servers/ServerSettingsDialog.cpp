@@ -13,6 +13,8 @@
 #include <QSpinBox>
 #include <QVBoxLayout>
 
+#include "servers/PlayitTunnel.h"
+
 ServerSettingsDialog::ServerSettingsDialog(QNetworkAccessManager* network, const LocalServerConfig* existing, QWidget* parent)
     : QDialog(parent), m_network(network), m_editing(existing != nullptr)
 {
@@ -111,6 +113,16 @@ ServerSettingsDialog::ServerSettingsDialog(QNetworkAccessManager* network, const
     m_openPort = new QCheckBox(tr("Open the port on my router automatically (UPnP)"), host);
     m_openPort->setChecked(m_original.openPort);
     hostForm->addRow(QString(), m_openPort);
+    m_playit = new QCheckBox(tr("Protect with playit.gg (free): friends get a playit address instead of your IP, attacks are filtered"), host);
+    m_playit->setChecked(m_original.playit);
+    m_playit->setEnabled(PlayitTunnel::supported() || m_original.playit);
+    if (!PlayitTunnel::supported())
+        m_playit->setToolTip(tr("Not available on this system yet."));
+    hostForm->addRow(QString(), m_playit);
+    // With playit nothing needs opening on the router, and opening it would publish the home IP again.
+    auto syncOpenPort = [this] { m_openPort->setEnabled(!m_playit->isChecked()); };
+    connect(m_playit, &QCheckBox::toggled, this, syncOpenPort);
+    syncOpenPort();
 
     m_java = new QLineEdit(m_original.javaPath, host);
     m_java->setPlaceholderText(tr("Automatic"));
@@ -214,7 +226,8 @@ LocalServerConfig ServerSettingsDialog::config() const
     c.motd = m_motd->text().trimmed();
     c.onlineMode = !m_offline->isChecked();
     c.pvp = m_pvp->isChecked();
-    c.openPort = m_openPort->isChecked();
+    c.playit = m_playit->isChecked();
+    c.openPort = m_openPort->isChecked() && !c.playit;
     c.javaPath = m_java->text().trimmed();
     c.eulaAccepted = m_eula->isChecked();
     return c;

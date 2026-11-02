@@ -24,7 +24,9 @@
 #include <QUrl>
 #include <QVBoxLayout>
 
+#include "DesktopServices.h"
 #include "ServerSettingsDialog.h"
+#include "servers/PlayitTunnel.h"
 #include "servers/LocalServerList.h"
 #include "ui/widgets/HomePage.h"
 
@@ -228,11 +230,11 @@ LocalServersPage::LocalServersPage(LocalServerList* servers, QNetworkAccessManag
     auto joinTitle = new QLabel(tr("How friends join"), join);
     joinTitle->setObjectName(QStringLiteral("serverCardTitle"));
     joinLayout->addWidget(joinTitle);
-    // One row per way in: the IP in big letters, the port next to it, and Copy for exactly what to type.
-    auto addressRow = [this, join, joinLayout](const QString& label, QLabel*& value, QLabel*& port, QPushButton*& copy) {
+    // One row per way in: the address in big letters, the port next to it, and Copy for exactly what to type.
+    auto addressRow = [this, join, joinLayout](const QString& label, QLabel*& name, QLabel*& value, QLabel*& port, QPushButton*& copy) {
         auto row = new QHBoxLayout();
         row->setSpacing(10);
-        auto name = new QLabel(label, join);
+        name = new QLabel(label, join);
         name->setObjectName(QStringLiteral("serverMuted"));
         name->setFixedWidth(150);
         value = new QLabel(join);
@@ -251,9 +253,25 @@ LocalServersPage::LocalServersPage(LocalServerList* servers, QNetworkAccessManag
         row->addWidget(copy);
         joinLayout->addLayout(row);
     };
-    addressRow(tr("Over the internet"), m_publicValue, m_publicPort, m_copyPublic);
-    addressRow(tr("Same Wi-Fi"), m_lanValue, m_lanPort, m_copyLan);
-    addressRow(tr("This computer"), m_localValue, m_localPort, m_copyLocal);
+    addressRow(tr("Protected (playit.gg)"), m_playitName, m_playitValue, m_playitPort, m_copyPlayit);
+    addressRow(tr("Over the internet"), m_publicName, m_publicValue, m_publicPort, m_copyPublic);
+    QLabel* unusedName = nullptr;
+    addressRow(tr("Same Wi-Fi"), unusedName, m_lanValue, m_lanPort, m_copyLan);
+    addressRow(tr("This computer"), unusedName, m_localValue, m_localPort, m_copyLocal);
+    m_playitButton = new QPushButton(join);
+    m_playitButton->setObjectName(QStringLiteral("serverSecondary"));
+    connect(m_playitButton, &QPushButton::clicked, this, [this] {
+        PlayitTunnel* playit = m_servers->playit();
+        if (playit->state() == PlayitTunnel::State::Ready)
+            DesktopServices::openUrl(PlayitTunnel::tunnelsPage());
+        else
+            playit->link();
+    });
+    auto playitRow = new QHBoxLayout();
+    playitRow->addWidget(m_playitButton);
+    playitRow->addStretch(1);
+    joinLayout->addLayout(playitRow);
+    connect(m_servers->playit(), &PlayitTunnel::changed, this, &LocalServersPage::updateAddresses);
     m_networkMessage = new QLabel(join);
     m_networkMessage->setObjectName(QStringLiteral("serverMuted"));
     m_networkMessage->setWordWrap(true);
@@ -430,16 +448,68 @@ void LocalServersPage::updateAddresses()
     show(m_lanValue, m_lanPort, m_copyLan, m_current->lanIp());
     show(m_localValue, m_localPort, m_copyLocal, QStringLiteral("localhost"));
 
-    QString message = m_current->networkMessage();
-    if (!running && message.isEmpty())
-        message = tr("Start the server to get the internet address. Friends add it under Multiplayer > Add Server.");
-    if (m_current->port() == 25565)
-        message += (message.isEmpty() ? QString() : QStringLiteral("\n")) +
-                   tr("Port 25565 is Minecraft's default, so the IP alone is enough: Copy gives exactly what to type.");
+    // playit.gg: the protected address replaces the home IP, which isn't shown at all then.
+    const bool usesPlayit = m_current->config().playit;
+    PlayitTunnel* playit = m_servers->playit();
+    const QString playitAddress = m_current->playitAddress();
+    for (QWidget* w : { static_cast<QWidget*>(m_playitName), static_cast<QWidget*>(m_playitValue), static_cast<QWidget*>(m_copyPlayit) })
+        w->setVisible(usesPlayit);
+    for (QWidget* w : { static_cast<QWidget*>(m_publicName), static_cast<QWidget*>(m_publicValue), static_cast<QWidget*>(m_copyPublic) })
+        w->setVisible(!usesPlayit);
+    if (usesPlayit)
+        m_publicPort->hide();
+    // Minecraft Java tunnels have an SRV record: the name alone finds the right port.
+    m_playitPort->setText(tr("Port: automatic"));
+    m_playitPort->setVisible(usesPlayit && !playitAddress.isEmpty());
+    m_playitValue->setText(playitAddress.isEmpty() ? tr("-") : playitAddress);
+    m_copyPlayit->setEnabled(!playitAddress.isEmpty());
+    m_copyPlayit->setProperty("address", playitAddress);
+
+    QString message;
+    m_playitButton->hide();
+    if (usesPlayit) {
+        switch (playit->state()) {
+            case PlayitTunnel::State::Unsupported:
+                message = tr("playit.gg isn't available on this system yet.");
+                break;
+            case PlayitTunnel::State::NotLinked:
+                message = tr("Link your own playit.gg account (free) once: friends then get a playit address and never see your IP.");
+                m_playitButton->setText(tr("Link playit.gg"));
+                m_playitButton->show();
+                break;
+            case PlayitTunnel::State::Linking:
+                message = playit->message();
+                break;
+            case PlayitTunnel::State::Ready:
+                if (playitAddress.isEmpty()) {
+                    playit->refresh();
+                    message = tr("On playit.gg, add a Minecraft Java tunnel to 127.0.0.1, port %1. Its address shows up here.").arg(m_current->port());
+                    m_playitButton->setText(tr("Open my playit.gg tunnels"));
+                    m_playitButton->show();
+                } else {
+                    message = tr("Friends type %1 in Multiplayer > Add Server. playit.gg filters attacks and your IP stays hidden.").arg(playitAddress);
+                    if (!running)
+                        message += ' ' + tr("Start the server to open the tunnel.");
+                }
+                if (!playit->message().isEmpty())
+                    message += QStringLiteral("\n") + playit->message();
+                break;
+        }
+    } else {
+        message = m_current->networkMessage();
+        if (!running && message.isEmpty())
+            message = tr("Start the server to get the internet address. Friends add it under Multiplayer > Add Server.");
+        if (m_current->port() == 25565)
+            message += (message.isEmpty() ? QString() : QStringLiteral("\n")) +
+                       tr("Port 25565 is Minecraft's default, so the IP alone is enough: Copy gives exactly what to type.");
+    }
     m_networkMessage->setText(message);
     m_publicValue->setProperty("ok", m_current->portOpen());
     m_publicValue->style()->unpolish(m_publicValue);
     m_publicValue->style()->polish(m_publicValue);
+    m_playitValue->setProperty("ok", !playitAddress.isEmpty() && running);
+    m_playitValue->style()->unpolish(m_playitValue);
+    m_playitValue->style()->polish(m_playitValue);
 }
 
 void LocalServersPage::appendConsole(const QString& line)

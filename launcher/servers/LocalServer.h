@@ -9,6 +9,7 @@
 #include "ServerSoftware.h"
 
 class QNetworkAccessManager;
+class PlayitTunnel;
 class UpnpPortMapper;
 
 /// What a server is set up with. Saved as xylarjava-server.json in the server's folder.
@@ -26,6 +27,7 @@ struct LocalServerConfig {
     bool onlineMode = true;
     bool pvp = true;
     bool openPort = true;  // UPnP
+    bool playit = false;   // friends join through a playit.gg tunnel: IP hidden, attacks filtered
     bool eulaAccepted = false;
 };
 
@@ -57,6 +59,9 @@ class LocalServer : public QObject {
     QString publicIp() const { return m_publicIp; }
     /// What friends type in Multiplayer > Add Server: the IP alone on the default port 25565, "ip:port" otherwise.
     QString joinAddress(const QString& ip) const;
+    /// The playit.gg address of this server when it uses playit and the tunnel exists, else empty.
+    QString playitAddress() const;
+    void setPlayit(PlayitTunnel* playit);
     QString networkMessage() const { return m_networkMessage; }
     bool portOpen() const { return m_portOpen; }
     /// Folder for mods (Fabric) or plugins (Paper); empty for Vanilla.
@@ -99,6 +104,8 @@ class LocalServer : public QObject {
     QStringList m_console;
     QByteArray m_partialLine;
     UpnpPortMapper* m_upnp = nullptr;
+    PlayitTunnel* m_playit = nullptr;
+    bool m_usingPlayit = false;
     QString m_publicIp;
     QString m_networkMessage;
     bool m_portOpen = false;

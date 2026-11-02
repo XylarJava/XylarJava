@@ -70,6 +70,12 @@ class LocalServersPage : public QWidget {
     QPushButton* m_settingsButton = nullptr;
     QPushButton* m_deleteButton = nullptr;
     QProgressBar* m_progress = nullptr;
+    QLabel* m_playitName = nullptr;
+    QLabel* m_playitValue = nullptr;
+    QLabel* m_playitPort = nullptr;
+    QPushButton* m_copyPlayit = nullptr;
+    QPushButton* m_playitButton = nullptr;
+    QLabel* m_publicName = nullptr;
     QLabel* m_publicValue = nullptr;
     QLabel* m_publicPort = nullptr;
     QPushButton* m_copyPublic = nullptr;

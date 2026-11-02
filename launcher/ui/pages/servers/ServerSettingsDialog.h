@@ -42,6 +42,7 @@ class ServerSettingsDialog : public QDialog {
     QCheckBox* m_offline = nullptr;
     QCheckBox* m_pvp = nullptr;
     QCheckBox* m_openPort = nullptr;
+    QCheckBox* m_playit = nullptr;
     QLineEdit* m_java = nullptr;
     QCheckBox* m_eula = nullptr;
     QDialogButtonBox* m_buttons = nullptr;

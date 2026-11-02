@@ -17,6 +17,7 @@
 #include "BuildConfig.h"
 #include "java/JavaUtils.h"
 #include "settings/SettingsObject.h"
+#include "PlayitTunnel.h"
 #include "UpnpPortMapper.h"
 
 namespace {
@@ -63,6 +64,7 @@ bool LocalServer::load()
     m_config.onlineMode = o.value("onlineMode").toBool(true);
     m_config.pvp = o.value("pvp").toBool(true);
     m_config.openPort = o.value("openPort").toBool(true);
+    m_config.playit = o.value("playit").toBool(false);
     m_config.eulaAccepted = o.value("eulaAccepted").toBool(false);
     m_state = QFileInfo(QDir(m_folder).filePath(QString::fromLatin1(JAR_FILE))).isFile() ? State::Stopped : State::NotInstalled;
     return !m_config.minecraftVersion.isEmpty();
@@ -85,6 +87,7 @@ bool LocalServer::save() const
     o["onlineMode"] = m_config.onlineMode;
     o["pvp"] = m_config.pvp;
     o["openPort"] = m_config.openPort;
+    o["playit"] = m_config.playit;
     o["eulaAccepted"] = m_config.eulaAccepted;
     QSaveFile file(QDir(m_folder).filePath(QString::fromLatin1(CONFIG_FILE)));
     if (!file.open(QIODevice::WriteOnly))
@@ -136,6 +139,17 @@ QString LocalServer::joinAddress(const QString& ip) const
     if (m_config.port == 25565)
         return ip;
     return QStringLiteral("%1:%2").arg(ip).arg(m_config.port);
+}
+
+QString LocalServer::playitAddress() const
+{
+    return m_config.playit && m_playit ? m_playit->addressFor(m_config.port) : QString();
+}
+
+void LocalServer::setPlayit(PlayitTunnel* playit)
+{
+    m_playit = playit;
+    connect(m_playit, &PlayitTunnel::changed, this, &LocalServer::addressesChanged);
 }
 
 QString LocalServer::addonsPath() const
@@ -379,6 +393,13 @@ void LocalServer::onOutput()
 
 void LocalServer::openPort()
 {
+    if (m_config.playit && m_playit) {
+        // Friends come in through playit.gg: don't open the router, the home IP stays private.
+        m_usingPlayit = true;
+        m_playit->acquire();
+        emit addressesChanged();
+        return;
+    }
     if (!m_config.openPort) {
         m_networkMessage = tr("Automatic port opening is off. Friends on your Wi-Fi can join with the local address.");
         emit addressesChanged();
@@ -438,6 +459,10 @@ void LocalServer::onFinished(int exitCode, QProcess::ExitStatus status)
     }
     if (m_upnp)
         m_upnp->close();
+    if (m_usingPlayit) {
+        m_usingPlayit = false;
+        m_playit->release();
+    }
     m_portOpen = false;
     m_publicIp.clear();
     m_networkMessage.clear();
