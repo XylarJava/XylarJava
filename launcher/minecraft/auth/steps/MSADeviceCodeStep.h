@@ -1,11 +1,21 @@
 #pragma once
+#include <QDeadlineTimer>
 #include <QObject>
+#include <QPointer>
 #include <QTimer>
 
-#include "minecraft/auth/AuthStep.h"
-#include "net/NetJob.h"
-#include "net/Upload.h"
+#include <functional>
 
+#include "minecraft/auth/AuthStep.h"
+
+class QNetworkReply;
+
+/**
+ * Microsoft sign-in with a device code (microsoft.com/link), the same as XylarJava for Xbox:
+ * ask for a code, then ask for the token every `interval` seconds until it's approved or the
+ * code expires. "authorization_pending" keeps waiting, "slow_down" waits 5 seconds longer,
+ * anything else stops with Microsoft's message. The code never changes while it's on screen.
+ */
 class MSADeviceCodeStep : public AuthStep {
     Q_OBJECT
    public:
@@ -22,21 +32,20 @@ class MSADeviceCodeStep : public AuthStep {
    signals:
     void authorizeWithBrowser(QString url, QString code, int expiresIn);
 
-   private slots:
-    void deviceAuthorizationFinished(QByteArray* response);
-    void startPoolTimer();
-    void authenticateUser();
-    void authenticationFinished(QByteArray* response);
-
    private:
+    /// POST a form to login.microsoftonline.com; done gets the HTTP status (0 without an answer) and the body.
+    void post(const QString& url, const QByteArray& form, std::function<void(int status, const QByteArray& body)> done);
+    void schedulePoll();
+    void poll();
+    void fail(const QString& message);
+
     QString m_clientId;
-    QString m_device_code;
-    bool m_is_aborted = false;
-    int interval = 5;
+    QString m_deviceCode;
+    bool m_isAborted = false;
+    bool m_finished = false;
+    int m_interval = 5;
+    QDeadlineTimer m_expiresAt;
 
-    QTimer m_pool_timer;
-    QTimer m_expiration_timer;
-
-    Net::Upload::Ptr m_request;
-    NetJob::Ptr m_task;
+    QTimer m_pollTimer;
+    QPointer<QNetworkReply> m_reply;
 };

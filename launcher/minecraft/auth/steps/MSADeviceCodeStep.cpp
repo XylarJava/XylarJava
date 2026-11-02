@@ -1,19 +1,59 @@
 #include "MSADeviceCodeStep.h"
 
 #include <QDateTime>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
 #include <QUrlQuery>
 
+#ifdef Q_OS_LINUX
+#include <dlfcn.h>
+#include <execinfo.h>
+#endif
+
 #include "Application.h"
-#include "Json.h"
 #include "minecraft/auth/steps/MSAScopes.h"
-#include "net/RawHeaderProxy.h"
 
 // https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-device-code
+// Same requests and loop as XylarJava for Xbox (RequestDeviceCode, PollDeviceToken, AddMicrosoftAccount).
+
+namespace {
+const char* DEVICE_CODE_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode";
+const char* TOKEN_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
+
+QJsonObject parseObject(const QByteArray& body)
+{
+    return QJsonDocument::fromJson(body).object();
+}
+
+/// Who called abort(): written to the log so an unexpected cancel can be traced.
+QString callers()
+{
+#ifdef Q_OS_LINUX
+    void* frames[12];
+    const int count = backtrace(frames, 12);
+    QStringList out;
+    for (int i = 1; i < count; i++) {
+        Dl_info info;
+        if (dladdr(frames[i], &info) && info.dli_fbase)
+            out << QStringLiteral("%1+0x%2")
+                       .arg(QString::fromLocal8Bit(info.dli_fname).section('/', -1))
+                       .arg(quintptr(frames[i]) - quintptr(info.dli_fbase), 0, 16);
+    }
+    return out.join(QStringLiteral(" <- "));
+#else
+    return QString();
+#endif
+}
+}  // namespace
+
 MSADeviceCodeStep::MSADeviceCodeStep(AccountData* data) : AuthStep(data)
 {
     m_clientId = APPLICATION->getMSAClientID();
-    connect(&m_expiration_timer, &QTimer::timeout, this, &MSADeviceCodeStep::abort);
-    connect(&m_pool_timer, &QTimer::timeout, this, &MSADeviceCodeStep::authenticateUser);
+    m_pollTimer.setSingleShot(true);
+    connect(&m_pollTimer, &QTimer::timeout, this, &MSADeviceCodeStep::poll);
 }
 
 QString MSADeviceCodeStep::describe()
@@ -21,234 +61,126 @@ QString MSADeviceCodeStep::describe()
     return tr("Signing in with Microsoft.");
 }
 
+void MSADeviceCodeStep::post(const QString& url, const QByteArray& form, std::function<void(int status, const QByteArray& body)> done)
+{
+    QNetworkRequest request{ QUrl(url) };
+    request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/x-www-form-urlencoded"));
+    request.setRawHeader("Accept", "application/json");
+    request.setHeader(QNetworkRequest::UserAgentHeader, APPLICATION->getUserAgent());
+    request.setTransferTimeout(30000);
+    m_reply = APPLICATION->network()->post(request, form);
+    QNetworkReply* reply = m_reply;
+    // Microsoft answers "not approved yet" with HTTP 400 and a JSON body: read status and body
+    // whatever the status is, like the Xbox version's HttpPostString.
+    connect(reply, &QNetworkReply::finished, this, [this, reply, done] {
+        reply->deleteLater();
+        if (m_isAborted || m_finished)
+            return;
+        done(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(), reply->readAll());
+    });
+}
+
 void MSADeviceCodeStep::perform()
 {
-    QUrlQuery data;
-    data.addQueryItem("client_id", m_clientId);
-    data.addQueryItem("scope", kMSAScopes);
-    auto payload = data.query(QUrl::FullyEncoded).toUtf8();
-    QUrl url("https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode");
-    auto headers = QList<Net::HeaderPair>{
-        { "Content-Type", "application/x-www-form-urlencoded" },
-        { "Accept", "application/json" },
-    };
-    auto [request, response] = Net::Upload::makeByteArray(url, payload);
-    m_request = request;
-    m_request->addHeaderProxy(std::make_unique<Net::RawHeaderProxy>(headers));
-    m_request->enableAutoRetry(true);
-
-    m_task.reset(new NetJob("MSADeviceCodeStep", APPLICATION->network()));
-    m_task->setAskRetry(false);
-    m_task->addNetAction(m_request);
-
-    connect(m_task.get(), &Task::finished, this, [this, response] { deviceAuthorizationFinished(response); });
-
-    m_task->start();
+    QUrlQuery form;
+    form.addQueryItem(QStringLiteral("client_id"), m_clientId);
+    form.addQueryItem(QStringLiteral("scope"), QString::fromLatin1(kMSAScopes));
+    post(QString::fromLatin1(DEVICE_CODE_URL), form.query(QUrl::FullyEncoded).toUtf8(), [this](int status, const QByteArray& body) {
+        const QJsonObject json = parseObject(body);
+        if (status < 200 || status >= 300) {
+            const QString error = json.value("error_description").toString(json.value("error").toString());
+            qWarning() << "Device code request failed: HTTP" << status << error;
+            return fail(tr("Microsoft didn't give a sign-in code (%1). Check your connection and try again.")
+                            .arg(error.isEmpty() ? tr("HTTP %1").arg(status) : error));
+        }
+        const QString userCode = json.value("user_code").toString();
+        m_deviceCode = json.value("device_code").toString();
+        const QString verificationUri = json.value("verification_uri").toString();
+        const int expiresIn = json.value("expires_in").toInt(900);
+        m_interval = qMax(1, json.value("interval").toInt(5));
+        if (userCode.isEmpty() || m_deviceCode.isEmpty() || verificationUri.isEmpty())
+            return fail(tr("Microsoft's sign-in code was incomplete. Try again."));
+        qDebug() << "Device auth code received, expires in" << expiresIn << "s, interval" << m_interval << "s";
+        m_expiresAt = QDeadlineTimer(qint64(expiresIn) * 1000);
+        emit authorizeWithBrowser(verificationUri, userCode, expiresIn);
+        schedulePoll();
+    });
 }
 
-struct DeviceAuthorizationResponse {
-    QString device_code;
-    QString user_code;
-    QString verification_uri;
-    int expires_in;
-    int interval;
-
-    QString error;
-    QString error_description;
-};
-
-DeviceAuthorizationResponse parseDeviceAuthorizationResponse(const QByteArray& data)
+void MSADeviceCodeStep::schedulePoll()
 {
-    QJsonParseError err;
-    QJsonDocument doc = QJsonDocument::fromJson(data, &err);
-    if (err.error != QJsonParseError::NoError) {
-        qWarning() << "Failed to parse device authorization response due to err:" << err.errorString();
-        return {};
-    }
-
-    if (!doc.isObject()) {
-        qWarning() << "Device authorization response is not an object";
-        return {};
-    }
-    auto obj = doc.object();
-    return {
-        obj["device_code"].toString(), obj["user_code"].toString(), obj["verification_uri"].toString(),  obj["expires_in"].toInt(),
-        obj["interval"].toInt(),       obj["error"].toString(),     obj["error_description"].toString(),
-    };
+    if (m_isAborted || m_finished)
+        return;
+    if (m_expiresAt.hasExpired())
+        return fail(tr("The code expired. Add the account again to get a new code."));
+    m_pollTimer.start(int(qMin<qint64>(qint64(m_interval) * 1000, qMax<qint64>(1000, m_expiresAt.remainingTime()))));
 }
 
-void MSADeviceCodeStep::deviceAuthorizationFinished(QByteArray* response)
+void MSADeviceCodeStep::poll()
 {
-    auto rsp = parseDeviceAuthorizationResponse(*response);
-    if (!rsp.error.isEmpty() || !rsp.error_description.isEmpty()) {
-        qWarning() << "Device authorization failed:" << rsp.error;
-        emit finished(AccountTaskState::STATE_FAILED_HARD,
-                      tr("Device authorization failed: %1").arg(rsp.error_description.isEmpty() ? rsp.error : rsp.error_description));
-        return;
-    }
-    if (!m_request->wasSuccessful() || m_request->error() != QNetworkReply::NoError) {
-        qWarning() << "Device authorization failed:" << *response;
-        emit finished(AccountTaskState::STATE_FAILED_HARD, tr("Failed to retrieve device authorization"));
-        return;
-    }
+    QUrlQuery form;
+    form.addQueryItem(QStringLiteral("grant_type"), QStringLiteral("urn:ietf:params:oauth:grant-type:device_code"));
+    form.addQueryItem(QStringLiteral("client_id"), m_clientId);
+    form.addQueryItem(QStringLiteral("device_code"), m_deviceCode);
+    post(QString::fromLatin1(TOKEN_URL), form.query(QUrl::FullyEncoded).toUtf8(), [this](int status, const QByteArray& body) {
+        const QJsonObject json = parseObject(body);
+        if (status >= 200 && status < 300) {
+            const QString accessToken = json.value("access_token").toString();
+            if (accessToken.isEmpty())
+                return fail(tr("Microsoft's answer had no access token. Try again."));
+            m_finished = true;
+            m_pollTimer.stop();
+            m_data->msaClientID = m_clientId;
+            m_data->msaToken.issueInstant = QDateTime::currentDateTimeUtc();
+            m_data->msaToken.notAfter = QDateTime::currentDateTime().addSecs(json.value("expires_in").toInt());
+            m_data->msaToken.extra = json.toVariantMap();
+            m_data->msaToken.refresh_token = json.value("refresh_token").toString();
+            m_data->msaToken.token = accessToken;
+            emit finished(AccountTaskState::STATE_WORKING, tr("Got MSA token"));
+            return;
+        }
+        const QString error = json.value("error").toString();
+        if (error == QLatin1String("authorization_pending"))
+            return schedulePoll();
+        if (error == QLatin1String("slow_down")) {
+            m_interval += 5;
+            return schedulePoll();
+        }
+        if (error.isEmpty() && status == 0) {
+            // No answer at all (connection dropped or timed out): keep the same code and ask again a bit later.
+            qWarning() << "Device token poll got no answer, trying again";
+            m_interval *= 2;
+            return schedulePoll();
+        }
+        qWarning() << "Device token poll failed: HTTP" << status << error;
+        if (error == QLatin1String("authorization_declined"))
+            return fail(tr("Microsoft login was declined. Approve the request on the Microsoft page and try again."));
+        if (error == QLatin1String("expired_token"))
+            return fail(tr("The code expired. Add the account again to get a new code."));
+        const QString description = json.value("error_description").toString();
+        fail(error.isEmpty() ? tr("Microsoft token polling failed: HTTP %1").arg(status)
+                             : QStringLiteral("%1: %2").arg(error, description));
+    });
+}
 
-    if (rsp.device_code.isEmpty() || rsp.user_code.isEmpty() || rsp.verification_uri.isEmpty() || rsp.expires_in == 0) {
-        qWarning() << "Device authorization failed: required fields missing";
-        emit finished(AccountTaskState::STATE_FAILED_HARD, tr("Device authorization failed: required fields missing"));
+void MSADeviceCodeStep::fail(const QString& message)
+{
+    if (m_finished)
         return;
-    }
-    if (rsp.interval != 0) {
-        interval = rsp.interval;
-    }
-    m_device_code = rsp.device_code;
-    emit authorizeWithBrowser(rsp.verification_uri, rsp.user_code, rsp.expires_in);
-    m_expiration_timer.setTimerType(Qt::VeryCoarseTimer);
-    m_expiration_timer.setInterval(rsp.expires_in * 1000);
-    m_expiration_timer.setSingleShot(true);
-    m_expiration_timer.start();
-    m_pool_timer.setTimerType(Qt::VeryCoarseTimer);
-    m_pool_timer.setSingleShot(true);
-    startPoolTimer();
+    m_finished = true;
+    m_pollTimer.stop();
+    emit finished(AccountTaskState::STATE_FAILED_HARD, message);
 }
 
 void MSADeviceCodeStep::abort()
 {
-    m_expiration_timer.stop();
-    m_pool_timer.stop();
-    if (m_request) {
-        m_request->abort();
-    }
-    m_is_aborted = true;
-    emit finished(AccountTaskState::STATE_FAILED_HARD, tr("Task aborted"));
-}
-
-void MSADeviceCodeStep::startPoolTimer()
-{
-    if (m_is_aborted) {
+    if (m_isAborted || m_finished)
         return;
-    }
-    if (m_expiration_timer.remainingTime() < interval * 1000) {
-        perform();
-        return;
-    }
-
-    m_pool_timer.setInterval(interval * 1000);
-    m_pool_timer.start();
-}
-
-void MSADeviceCodeStep::authenticateUser()
-{
-    QUrlQuery data;
-    data.addQueryItem("client_id", m_clientId);
-    data.addQueryItem("grant_type", "urn:ietf:params:oauth:grant-type:device_code");
-    data.addQueryItem("device_code", m_device_code);
-    auto payload = data.query(QUrl::FullyEncoded).toUtf8();
-    QUrl url("https://login.microsoftonline.com/consumers/oauth2/v2.0/token");
-    auto headers = QList<Net::HeaderPair>{
-        { "Content-Type", "application/x-www-form-urlencoded" },
-        { "Accept", "application/json" },
-    };
-    auto [request, response] = Net::Upload::makeByteArray(url, payload);
-    m_request = request;
-    m_request->addHeaderProxy(std::make_unique<Net::RawHeaderProxy>(headers));
-
-    connect(m_request.get(), &Task::finished, this, [this, response] { authenticationFinished(response); });
-
-    m_request->setNetwork(APPLICATION->network());
-    m_request->start();
-}
-
-struct AuthenticationResponse {
-    QString access_token;
-    QString token_type;
-    QString refresh_token;
-    int expires_in;
-
-    QString error;
-    QString error_description;
-
-    QVariantMap extra;
-};
-
-AuthenticationResponse parseAuthenticationResponse(const QByteArray& data)
-{
-    QJsonParseError err;
-    QJsonDocument doc = QJsonDocument::fromJson(data, &err);
-    if (err.error != QJsonParseError::NoError) {
-        qWarning() << "Failed to parse device authorization response due to err:" << err.errorString();
-        return {};
-    }
-
-    if (!doc.isObject()) {
-        qWarning() << "Device authorization response is not an object";
-        return {};
-    }
-    auto obj = doc.object();
-    return { obj["access_token"].toString(),
-             obj["token_type"].toString(),
-             obj["refresh_token"].toString(),
-             obj["expires_in"].toInt(),
-             obj["error"].toString(),
-             obj["error_description"].toString(),
-             obj.toVariantMap() };
-}
-
-void MSADeviceCodeStep::authenticationFinished(QByteArray* response)
-{
-    if (m_request->error() == QNetworkReply::TimeoutError) {
-        // rfc8628#section-3.5
-        // "On encountering a connection timeout, clients MUST unilaterally
-        // reduce their polling frequency before retrying.  The use of an
-        // exponential backoff algorithm to achieve this, such as doubling the
-        // polling interval on each such connection timeout, is RECOMMENDED."
-        interval *= 2;
-        startPoolTimer();
-        return;
-    }
-    auto rsp = parseAuthenticationResponse(*response);
-    if (rsp.error == "slow_down") {
-        // rfc8628#section-3.5
-        // "A variant of 'authorization_pending', the authorization request is
-        // still pending and polling should continue, but the interval MUST
-        // be increased by 5 seconds for this and all subsequent requests."
-        interval += 5;
-        startPoolTimer();
-        return;
-    }
-    if (rsp.error == "authorization_pending") {
-        // keep trying - rfc8628#section-3.5
-        // "The authorization request is still pending as the end user hasn't
-        // yet completed the user-interaction steps (Section 3.3)."
-        startPoolTimer();
-        return;
-    }
-    if (!rsp.error.isEmpty() || !rsp.error_description.isEmpty()) {
-        qWarning() << "Device Access failed:" << rsp.error;
-        QString message;
-        if (rsp.error == "authorization_declined") {
-            message = tr("Microsoft login was declined. Approve the request on the Microsoft page and try again.");
-        } else if (rsp.error == "expired_token") {
-            message = tr("The device login code expired. Close this dialog and start login again.");
-        } else if (rsp.error == "invalid_grant") {
-            message = tr("Microsoft rejected the device login request. Start login again.");
-        } else {
-            message = tr("Microsoft device login failed (%1): %2")
-                          .arg(rsp.error, rsp.error_description.isEmpty() ? tr("unknown error") : rsp.error_description);
-        }
-        emit finished(AccountTaskState::STATE_FAILED_HARD, message);
-        return;
-    }
-    if (!m_request->wasSuccessful() || m_request->error() != QNetworkReply::NoError) {
-        startPoolTimer();  // it failed so just try again without increasing the interval
-        return;
-    }
-
-    m_expiration_timer.stop();
-    m_data->msaClientID = m_clientId;
-    m_data->msaToken.issueInstant = QDateTime::currentDateTimeUtc();
-    m_data->msaToken.notAfter = QDateTime::currentDateTime().addSecs(rsp.expires_in);
-    m_data->msaToken.extra = rsp.extra;
-    m_data->msaToken.refresh_token = rsp.refresh_token;
-    m_data->msaToken.token = rsp.access_token;
-    emit finished(AccountTaskState::STATE_WORKING, tr("Got MSA token"));
+    qWarning() << "Microsoft device sign-in cancelled; called from" << callers();
+    m_isAborted = true;
+    m_pollTimer.stop();
+    if (m_reply)
+        m_reply->abort();
+    m_finished = true;
+    emit finished(AccountTaskState::STATE_FAILED_HARD, tr("Microsoft sign-in was cancelled."));
 }
