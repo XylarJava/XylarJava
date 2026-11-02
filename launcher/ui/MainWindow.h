@@ -245,7 +245,7 @@ class MainWindow : public QMainWindow {
     QString m_homeSkinKey;  // Mojang lookup the Home screen is waiting for
     QWidget* m_settingsPage = nullptr;
     class LocalServerList* m_localServers = nullptr;
-    class ServersPage* m_serversPage = nullptr;
+    class LocalServersPage* m_serversPage = nullptr;
     PageContainer* m_settingsContainer = nullptr;
     std::unique_ptr<SettingsObjectLockHolder> m_settingsLock;
     BaseInstance* m_playingInstance = nullptr;

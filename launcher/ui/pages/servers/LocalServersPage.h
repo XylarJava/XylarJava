@@ -24,10 +24,10 @@ class QToolButton;
  * "Servers" in the sidebar: make a Minecraft server that runs on this computer, start and stop it,
  * see how friends join (same Wi-Fi or over the internet), add mods or plugins, and use its console.
  */
-class ServersPage : public QWidget {
+class LocalServersPage : public QWidget {
     Q_OBJECT
    public:
-    ServersPage(LocalServerList* servers, QNetworkAccessManager* network, QWidget* parent = nullptr);
+    LocalServersPage(LocalServerList* servers, QNetworkAccessManager* network, QWidget* parent = nullptr);
 
     /// Instances to copy mods from: (name, mods folder). Set by the main window.
     void setModSources(std::function<QList<QPair<QString, QString>>()> sources) { m_modSources = std::move(sources); }

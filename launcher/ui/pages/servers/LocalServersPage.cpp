@@ -1,4 +1,4 @@
-#include "ServersPage.h"
+#include "LocalServersPage.h"
 
 #include <QApplication>
 #include <QClipboard>
@@ -48,7 +48,7 @@ QString describe(const LocalServer* server)
 }
 }  // namespace
 
-ServersPage::ServersPage(LocalServerList* servers, QNetworkAccessManager* network, QWidget* parent)
+LocalServersPage::LocalServersPage(LocalServerList* servers, QNetworkAccessManager* network, QWidget* parent)
     : QWidget(parent), m_servers(servers), m_network(network)
 {
     setObjectName(QStringLiteral("serversPage"));
@@ -70,7 +70,7 @@ ServersPage::ServersPage(LocalServerList* servers, QNetworkAccessManager* networ
     auto createButton = new QPushButton(QIcon::fromTheme(QStringLiteral("new")), tr("Create server"), header);
     createButton->setObjectName(QStringLiteral("addInstanceButton"));
     createButton->setCursor(Qt::PointingHandCursor);
-    connect(createButton, &QPushButton::clicked, this, &ServersPage::createServer);
+    connect(createButton, &QPushButton::clicked, this, &LocalServersPage::createServer);
     headerLayout->addWidget(title);
     headerLayout->addSpacing(12);
     headerLayout->addWidget(hint);
@@ -118,7 +118,7 @@ ServersPage::ServersPage(LocalServerList* servers, QNetworkAccessManager* networ
     auto emptyButton = new QPushButton(tr("Create your first server"), empty);
     emptyButton->setObjectName(QStringLiteral("serverPrimary"));
     emptyButton->setCursor(Qt::PointingHandCursor);
-    connect(emptyButton, &QPushButton::clicked, this, &ServersPage::createServer);
+    connect(emptyButton, &QPushButton::clicked, this, &LocalServersPage::createServer);
     emptyLayout->addWidget(emptyIcon);
     emptyLayout->addSpacing(8);
     emptyLayout->addWidget(emptyTitle);
@@ -202,10 +202,10 @@ ServersPage::ServersPage(LocalServerList* servers, QNetworkAccessManager* networ
     });
     m_settingsButton = new QPushButton(QIcon::fromTheme(QStringLiteral("settings")), QStringLiteral(" ") + tr("Settings"), top);
     m_settingsButton->setObjectName(QStringLiteral("serverSecondary"));
-    connect(m_settingsButton, &QPushButton::clicked, this, &ServersPage::editServer);
+    connect(m_settingsButton, &QPushButton::clicked, this, &LocalServersPage::editServer);
     m_deleteButton = new QPushButton(QIcon::fromTheme(QStringLiteral("delete")), QStringLiteral(" ") + tr("Delete"), top);
     m_deleteButton->setObjectName(QStringLiteral("serverSecondary"));
-    connect(m_deleteButton, &QPushButton::clicked, this, &ServersPage::deleteServer);
+    connect(m_deleteButton, &QPushButton::clicked, this, &LocalServersPage::deleteServer);
     actions->addWidget(m_startButton);
     actions->addWidget(m_folderButton);
     actions->addWidget(m_addonsButton);
@@ -288,26 +288,26 @@ ServersPage::ServersPage(LocalServerList* servers, QNetworkAccessManager* networ
     detailsLayout->addWidget(consoleCard, 1);
     m_stack->addWidget(details);
 
-    connect(m_servers, &LocalServerList::listChanged, this, &ServersPage::rebuildList);
+    connect(m_servers, &LocalServerList::listChanged, this, &LocalServersPage::rebuildList);
     rebuildList();
     updateStyle();
 }
 
-QFrame* ServersPage::card(QWidget* parent)
+QFrame* LocalServersPage::card(QWidget* parent)
 {
     auto frame = new QFrame(parent);
     frame->setObjectName(QStringLiteral("serverCard"));
     return frame;
 }
 
-void ServersPage::select(LocalServer* server)
+void LocalServersPage::select(LocalServer* server)
 {
     const int row = m_servers->servers().indexOf(server);
     if (row >= 0)
         m_list->setCurrentRow(row);
 }
 
-void ServersPage::rebuildList()
+void LocalServersPage::rebuildList()
 {
     LocalServer* keep = m_current;
     m_list->blockSignals(true);
@@ -330,7 +330,7 @@ void ServersPage::rebuildList()
     }
 }
 
-void ServersPage::watchServer(LocalServer* server)
+void LocalServersPage::watchServer(LocalServer* server)
 {
     // Connected once per server (lambdas can't use Qt::UniqueConnection).
     if (m_watched.contains(server))
@@ -341,8 +341,8 @@ void ServersPage::watchServer(LocalServer* server)
         if (server == m_current)
             appendConsole(line);
     });
-    connect(server, &LocalServer::stateChanged, this, &ServersPage::updateDetails);
-    connect(server, &LocalServer::addressesChanged, this, &ServersPage::updateAddresses);
+    connect(server, &LocalServer::stateChanged, this, &LocalServersPage::updateDetails);
+    connect(server, &LocalServer::addressesChanged, this, &LocalServersPage::updateAddresses);
     connect(server, &LocalServer::installProgress, this, [this, server](qint64 done, qint64 total) {
         if (server != m_current)
             return;
@@ -356,7 +356,7 @@ void ServersPage::watchServer(LocalServer* server)
     });
 }
 
-void ServersPage::showServer()
+void LocalServersPage::showServer()
 {
     m_stack->setCurrentIndex(m_current ? 1 : 0);
     m_list->setVisible(!m_servers->servers().isEmpty());
@@ -368,7 +368,7 @@ void ServersPage::showServer()
     updateAddresses();
 }
 
-void ServersPage::updateDetails()
+void LocalServersPage::updateDetails()
 {
     // Refresh the list texts (status changes) without rebuilding it.
     const auto all = m_servers->servers();
@@ -405,7 +405,7 @@ void ServersPage::updateDetails()
     m_command->setEnabled(m_current->isRunning());
 }
 
-void ServersPage::updateAddresses()
+void LocalServersPage::updateAddresses()
 {
     if (!m_current)
         return;
@@ -422,7 +422,7 @@ void ServersPage::updateAddresses()
     m_publicValue->style()->polish(m_publicValue);
 }
 
-void ServersPage::appendConsole(const QString& line)
+void LocalServersPage::appendConsole(const QString& line)
 {
     QScrollBar* bar = m_console->verticalScrollBar();
     const bool atBottom = bar->value() >= bar->maximum() - 4;
@@ -431,7 +431,7 @@ void ServersPage::appendConsole(const QString& line)
         bar->setValue(bar->maximum());
 }
 
-void ServersPage::createServer()
+void LocalServersPage::createServer()
 {
     ServerSettingsDialog dialog(m_network, nullptr, this);
     if (dialog.exec() != QDialog::Accepted)
@@ -441,7 +441,7 @@ void ServersPage::createServer()
     server->install();
 }
 
-void ServersPage::editServer()
+void LocalServersPage::editServer()
 {
     if (!m_current || m_current->isRunning())
         return;
@@ -455,7 +455,7 @@ void ServersPage::editServer()
     updateDetails();
 }
 
-void ServersPage::deleteServer()
+void LocalServersPage::deleteServer()
 {
     if (!m_current || m_current->isRunning())
         return;
@@ -467,7 +467,7 @@ void ServersPage::deleteServer()
         m_servers->remove(m_current);
 }
 
-void ServersPage::copyModsFrom(const QString& folder)
+void LocalServersPage::copyModsFrom(const QString& folder)
 {
     if (!m_current)
         return;
@@ -487,14 +487,14 @@ void ServersPage::copyModsFrom(const QString& folder)
                                  .arg(copied));
 }
 
-void ServersPage::changeEvent(QEvent* event)
+void LocalServersPage::changeEvent(QEvent* event)
 {
     if (event->type() == QEvent::PaletteChange || event->type() == QEvent::ApplicationPaletteChange || event->type() == QEvent::StyleChange)
         updateStyle();
     QWidget::changeEvent(event);
 }
 
-void ServersPage::updateStyle()
+void LocalServersPage::updateStyle()
 {
     if (m_updatingStyle)
         return;

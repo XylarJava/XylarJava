@@ -894,8 +894,8 @@ SET(LAUNCHER_SOURCES
     ui/setupwizard/XylarWelcomeWizardPage.h
     ui/setupwizard/XylarDoneWizardPage.cpp
     ui/setupwizard/XylarDoneWizardPage.h
-    ui/pages/servers/ServersPage.cpp
-    ui/pages/servers/ServersPage.h
+    ui/pages/servers/LocalServersPage.cpp
+    ui/pages/servers/LocalServersPage.h
     ui/pages/servers/ServerSettingsDialog.cpp
     ui/pages/servers/ServerSettingsDialog.h
 

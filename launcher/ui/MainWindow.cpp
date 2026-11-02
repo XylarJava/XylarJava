@@ -90,7 +90,7 @@
 #include "minecraft/PackProfile.h"
 #include "minecraft/XylarClient.h"
 #include "servers/LocalServerList.h"
-#include "ui/pages/servers/ServersPage.h"
+#include "ui/pages/servers/LocalServersPage.h"
 #include "minecraft/VersionFile.h"
 #include "minecraft/WorldList.h"
 #include "minecraft/mod/ModFolderModel.h"
@@ -348,7 +348,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
 
         // Servers hosted on this computer
         m_localServers = new LocalServerList(FS::PathCombine(APPLICATION->dataRoot(), QStringLiteral("servers")), APPLICATION->network(), this);
-        m_serversPage = new ServersPage(m_localServers, APPLICATION->network(), m_pages);
+        m_serversPage = new LocalServersPage(m_localServers, APPLICATION->network(), m_pages);
         m_serversPage->setFolderOpener([](const QString& path) { DesktopServices::openPath(path, true); });
         m_serversPage->setModSources([] {
             QList<QPair<QString, QString>> sources;

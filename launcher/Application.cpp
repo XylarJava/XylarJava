@@ -28,6 +28,7 @@
 #include "ui/setupwizard/LoginWizardPage.h"
 #include "ui/setupwizard/PasteWizardPage.h"
 #include <QMessageBox>
+#include <QScreen>
 #include <QPushButton>
 #include "InstanceRepair.h"
 #include "ui/setupwizard/SetupWizard.h"
@@ -1698,7 +1699,20 @@ MainWindow* Application::showMainWindow(bool minimized)
     } else {
         m_mainWindow = new MainWindow();
         m_mainWindow->restoreState(QByteArray::fromBase64(APPLICATION->settings()->get("MainWindowState").toString().toUtf8()));
-        m_mainWindow->restoreGeometry(QByteArray::fromBase64(APPLICATION->settings()->get("MainWindowGeometry").toString().toUtf8()));
+        const bool restored =
+            m_mainWindow->restoreGeometry(QByteArray::fromBase64(APPLICATION->settings()->get("MainWindowGeometry").toString().toUtf8()));
+        if (!restored) {
+            // First start: open big enough for the Home dashboard, but never larger than the screen.
+            QSize size(1200, 780);
+            if (const QScreen* screen = QGuiApplication::primaryScreen()) {
+                const QRect available = screen->availableGeometry();
+                size = size.boundedTo(available.size() * 0.92);
+                m_mainWindow->resize(size);
+                m_mainWindow->move(available.center() - QPoint(size.width() / 2, size.height() / 2));
+            } else {
+                m_mainWindow->resize(size);
+            }
+        }
 
         if (minimized) {
             m_mainWindow->showMinimized();

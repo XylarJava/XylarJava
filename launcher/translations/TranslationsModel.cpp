@@ -554,6 +554,10 @@ void TranslationsModel::downloadIndex()
     if (d->m_index_job || d->m_dl_job) {
         return;
     }
+    if (BuildConfig.TRANSLATION_FILES_URL.isEmpty()) {
+        // English only for now: no translations server is configured.
+        return;
+    }
     qDebug() << "Downloading Translations Index...";
     d->m_index_job.reset(new NetJob("Translations Index", APPLICATION->network()));
     MetaEntryPtr entry = APPLICATION->metacache()->resolveEntry("translations", "index_v2.json");
