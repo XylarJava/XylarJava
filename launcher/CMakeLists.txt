@@ -319,6 +319,8 @@ set(MINECRAFT_SOURCES
     minecraft/MojangDownloadInfo.h
     minecraft/VanillaInstanceCreationTask.cpp
     minecraft/VanillaInstanceCreationTask.h
+    minecraft/XylarClient.cpp
+    minecraft/XylarClient.h
     minecraft/VersionFile.cpp
     minecraft/VersionFile.h
     minecraft/VersionFilterData.h

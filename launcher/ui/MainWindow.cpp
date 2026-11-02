@@ -35,6 +35,7 @@
 #include <QWidget>
 #include <QWidgetAction>
 #include <QDateTime>
+#include <QMessageBox>
 #include <algorithm>
 #include <memory>
 
@@ -87,6 +88,7 @@
 #include "ui/widgets/LabeledToolButton.h"
 
 #include "minecraft/PackProfile.h"
+#include "minecraft/XylarClient.h"
 #include "minecraft/VersionFile.h"
 #include "minecraft/WorldList.h"
 #include "minecraft/mod/ModFolderModel.h"
@@ -399,6 +401,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
                 on_actionKillInstance_triggered();
             }
         });
+        connect(m_homePage, &HomePage::setupClientRequested, this, &MainWindow::setUpXylarClient);
         connect(m_homePage, &HomePage::editInstanceRequested, this, [this](const QString& id) {
             if (instanceById(id)) {
                 setSelectedInstanceById(id);
@@ -692,7 +695,7 @@ QString describeInstance(BaseInstance* instance)
                 static const Loader loaders[] = {
                     { "net.fabricmc.fabric-loader", "Fabric" }, { "org.quiltmc.quilt-loader", "Quilt" },
                     { "net.neoforged", "NeoForge" },            { "net.minecraftforge", "Forge" },
-                    { "com.mumfrey.liteloader", "LiteLoader" },
+                    { "com.mumfrey.liteloader", "LiteLoader" }, { "io.xylarjava.client", "XylarJava Client" },
                 };
                 for (const Loader& loader : loaders) {
                     const QString version = profile->getComponentVersion(QString::fromLatin1(loader.uid));
@@ -725,8 +728,43 @@ void MainWindow::updateHomePage()
         return;
     }
 
-    m_homePage->showInstance(APPLICATION->icons()->getIcon(m_selectedInstance->iconKey()), m_selectedInstance->name(),
-                             describeInstance(m_selectedInstance), m_selectedInstance->canLaunch(), m_selectedInstance->isRunning());
+    const bool client = XylarClient::isClientInstance(m_selectedInstance);
+    m_homePage->showInstance(client ? APPLICATION->logo() : APPLICATION->icons()->getIcon(m_selectedInstance->iconKey()),
+                             client ? XylarClient::displayName() : m_selectedInstance->name(), describeInstance(m_selectedInstance),
+                             m_selectedInstance->canLaunch(), m_selectedInstance->isRunning(), client);
+}
+
+void MainWindow::setUpXylarClient()
+{
+    auto task = new XylarClientCreationTask();
+    task->setName(XylarClient::displayName());
+    task->setIcon(QStringLiteral("default"));
+    task->setGroup(APPLICATION->settings()->get("LastUsedGroupForNewInstance").toString());
+    const bool withMod = !XylarClient::findClientJar().isEmpty();
+    instanceFromInstanceTask(task);
+
+    // Select the new instance so Play on the Home screen starts it right away.
+    BaseInstance* created = nullptr;
+    auto instanceList = APPLICATION->instances();
+    for (int i = 0; i < instanceList->count(); i++) {
+        auto instance = instanceList->at(i);
+        if (instance && XylarClient::isClientInstance(instance)) {
+            created = instance;
+            break;
+        }
+    }
+    if (!created)
+        return;  // creation failed or was cancelled; the task already told the user
+    setSelectedInstanceById(created->id());
+    updateHomePage();
+
+    if (!withMod) {
+        QMessageBox::information(this, XylarClient::displayName(),
+                                 tr("The Minecraft 1.8.9 instance is ready.\n\n"
+                                    "To add the client itself, put %1 in the \"xylarjava-client\" folder inside the launcher's data folder "
+                                    "(or next to the launcher) and set it up again, or follow the steps in client/README.md.")
+                                     .arg(QString::fromLatin1(XylarClient::JarFileName)));
+    }
 }
 
 BaseInstance* MainWindow::instanceById(const QString& id) const
@@ -788,9 +826,44 @@ void MainWindow::updateHomeRecent()
 
     QList<HomePage::RecentInstance> recent;
     const QString separator = QStringLiteral("  ") + QChar(0x00B7) + QStringLiteral("  ");
+
+    // The XylarJava Client is always pinned on top, even before it has been set up.
+    BaseInstance* client = nullptr;
+    for (BaseInstance* instance : sorted) {
+        if (XylarClient::isClientInstance(instance) && (!client || XylarClient::hasClientComponent(instance))) {
+            client = instance;
+            if (XylarClient::hasClientComponent(instance))
+                break;
+        }
+    }
+    {
+        HomePage::RecentInstance pinned;
+        pinned.featured = true;
+        pinned.icon = APPLICATION->logo();
+        pinned.name = XylarClient::displayName();
+        if (client) {
+            pinned.id = client->id();
+            pinned.running = client->isRunning();
+            pinned.canLaunch = client->canLaunch();
+            QString status;
+            if (pinned.running)
+                status = tr("Playing now");
+            else if (!XylarClient::hasClientComponent(client))
+                status = tr("Client mod not installed yet");
+            else
+                status = playedAgo(client->lastLaunch());
+            pinned.details = describeInstance(client) + separator + status;
+        } else {
+            pinned.details = tr("Minecraft 1.8.9") + separator + tr("PvP HUD, toggle sprint, zoom") + separator + tr("Not set up yet");
+        }
+        recent.append(pinned);
+    }
+
     for (BaseInstance* instance : sorted) {
         if (recent.size() >= 4)
             break;
+        if (instance == client)
+            continue;
         if (instance->lastLaunch() <= 0 && !instance->isRunning())
             continue;
         HomePage::RecentInstance entry;

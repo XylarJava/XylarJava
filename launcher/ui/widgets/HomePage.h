@@ -35,6 +35,8 @@ class HomePage : public QWidget {
         QString details;  // e.g. "Fabric 1.21.1  ·  2 hours ago"
         bool running = false;
         bool canLaunch = true;
+        /// Pinned to the top and highlighted (the XylarJava Client). An empty id means it isn't set up yet.
+        bool featured = false;
     };
 
     explicit HomePage(QWidget* parent = nullptr);
@@ -42,7 +44,7 @@ class HomePage : public QWidget {
     void setLogo(const QIcon& logo);
 
     /// Show the selected instance in the hero card.
-    void showInstance(const QIcon& icon, const QString& name, const QString& details, bool canLaunch, bool running);
+    void showInstance(const QIcon& icon, const QString& name, const QString& details, bool canLaunch, bool running, bool featured = false);
 
     /// Show the empty state. If other instances exist the user is asked to pick one, otherwise to create one.
     void showNoInstance(bool instancesExist);
@@ -84,6 +86,8 @@ class HomePage : public QWidget {
     void playInstanceRequested(const QString& id);
     void stopInstanceRequested(const QString& id);
     void editInstanceRequested(const QString& id);
+    /// The pinned XylarJava Client row was clicked before the client instance exists.
+    void setupClientRequested();
 
    protected:
     void paintEvent(QPaintEvent* event) override;

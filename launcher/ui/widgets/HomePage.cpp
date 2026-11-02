@@ -83,6 +83,46 @@ QPixmap skinFace(const QImage& skin, int size)
     return QPixmap::fromImage(face.scaled(size, size, Qt::IgnoreAspectRatio, Qt::FastTransformation));
 }
 
+/// Gold, flame and magenta: the XylarJava Client colours, a bit deeper on light themes.
+struct FeatureColors {
+    QColor gold, flame, magenta;
+};
+
+FeatureColors featureColors(bool dark)
+{
+    if (dark)
+        return { QColor(0xFF, 0xD1, 0x4A), QColor(0xFF, 0x7A, 0x3C), QColor(0xFF, 0x4F, 0xB0) };
+    return { QColor(0xC2, 0x6A, 0x00), QColor(0xD8, 0x3A, 0x1A), QColor(0xC0, 0x1C, 0x7A) };
+}
+
+/// A label that draws its text with the client gradient while its "featured" property is set.
+/// (Stylesheet gradients can't be used for text: they don't stretch across the label.)
+class GradientLabel : public QLabel {
+   public:
+    using QLabel::QLabel;
+
+   protected:
+    void paintEvent(QPaintEvent* event) override
+    {
+        if (!property("featured").toBool() || text().isEmpty()) {
+            QLabel::paintEvent(event);
+            return;
+        }
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::TextAntialiasing, true);
+        painter.setFont(font());
+        const QRect area = contentsRect();
+        const int textWidth = qMin(area.width(), fontMetrics().horizontalAdvance(text()));
+        const FeatureColors colors = featureColors(QApplication::palette(this).color(QPalette::Window).lightnessF() < 0.5f);
+        QLinearGradient gradient(area.left(), 0, area.left() + qMax(1, textWidth), 0);
+        gradient.setColorAt(0.0, colors.gold);
+        gradient.setColorAt(0.5, colors.flame);
+        gradient.setColorAt(1.0, colors.magenta);
+        painter.setPen(QPen(QBrush(gradient), 1));
+        painter.drawText(area, int(alignment()), fontMetrics().elidedText(text(), Qt::ElideRight, area.width()));
+    }
+};
+
 }  // namespace
 
 // ---------------------------------------------------------------------------
@@ -393,7 +433,7 @@ HomePage::HomePage(QWidget* parent) : QWidget(parent)
     m_iconLabel->setObjectName(QStringLiteral("heroIcon"));
     m_iconLabel->setFixedSize(46, 46);
     m_iconLabel->setAlignment(Qt::AlignCenter);
-    m_nameLabel = new QLabel(heroBar);
+    m_nameLabel = new GradientLabel(heroBar);
     m_nameLabel->setObjectName(QStringLiteral("heroName"));
     m_nameLabel->setTextFormat(Qt::PlainText);
     m_detailsLabel = new QLabel(heroBar);
@@ -646,9 +686,11 @@ void HomePage::setLogo(const QIcon& logo)
     m_logoLabel->setPixmap(logo.pixmap(40, 40));
 }
 
-void HomePage::showInstance(const QIcon& icon, const QString& name, const QString& details, bool canLaunch, bool running)
+void HomePage::showInstance(const QIcon& icon, const QString& name, const QString& details, bool canLaunch, bool running, bool featured)
 {
     m_hasInstance = true;
+    m_nameLabel->setProperty("featured", featured);
+    m_nameLabel->update();
     m_instancesExist = true;
     m_running = running;
     m_iconLabel->setPixmap(icon.pixmap(36, 36));
@@ -672,6 +714,8 @@ void HomePage::showInstance(const QIcon& icon, const QString& name, const QStrin
 void HomePage::showNoInstance(bool instancesExist)
 {
     m_hasInstance = false;
+    m_nameLabel->setProperty("featured", false);
+    m_nameLabel->update();
     m_instancesExist = instancesExist;
     m_running = false;
     m_iconLabel->setPixmap(QIcon::fromTheme(QStringLiteral("new")).pixmap(36, 36));
@@ -741,8 +785,9 @@ void HomePage::rebuildRecent()
     m_recentEmpty->setVisible(m_recent.isEmpty());
 
     for (const RecentInstance& entry : m_recent) {
+        const bool needsSetup = entry.featured && entry.id.isEmpty();
         auto row = new QFrame();
-        row->setObjectName(QStringLiteral("recentRow"));
+        row->setObjectName(entry.featured ? QStringLiteral("featuredRow") : QStringLiteral("recentRow"));
         row->setProperty("card", true);
         row->setProperty("running", entry.running);
 
@@ -751,24 +796,39 @@ void HomePage::rebuildRecent()
         icon->setFixedSize(44, 44);
         icon->setAlignment(Qt::AlignCenter);
         icon->setPixmap(entry.icon.pixmap(34, 34));
-        auto name = new QLabel(entry.name, row);
-        name->setObjectName(QStringLiteral("recentName"));
+        auto name = new GradientLabel(entry.name, row);
+        name->setProperty("featured", entry.featured);
+        name->setObjectName(entry.featured ? QStringLiteral("featuredName") : QStringLiteral("recentName"));
         name->setTextFormat(Qt::PlainText);
+        auto nameRow = new QHBoxLayout();
+        nameRow->setSpacing(8);
+        nameRow->addWidget(name);
+        if (entry.featured) {
+            auto badge = new QLabel(tr("PINNED"), row);
+            badge->setObjectName(QStringLiteral("pinnedBadge"));
+            nameRow->addWidget(badge, 0, Qt::AlignVCenter);
+        }
+        nameRow->addStretch(1);
         auto details = new QLabel(entry.details, row);
         details->setObjectName(QStringLiteral("cardMuted"));
         details->setTextFormat(Qt::PlainText);
         auto text = new QVBoxLayout();
         text->setSpacing(2);
-        text->addWidget(name);
+        text->addLayout(nameRow);
         text->addWidget(details);
 
         const QString id = entry.id;
-        auto play = new QPushButton(entry.running ? tr("Stop") : tr("Play"), row);
-        play->setObjectName(entry.running ? QStringLiteral("stopButton") : QStringLiteral("rowPlayButton"));
+        auto play = new QPushButton(entry.running ? tr("Stop") : needsSetup ? tr("Set up") : tr("Play"), row);
+        if (entry.running)
+            play->setObjectName(QStringLiteral("stopButton"));
+        else
+            play->setObjectName(entry.featured ? QStringLiteral("featuredPlayButton") : QStringLiteral("rowPlayButton"));
         play->setCursor(Qt::PointingHandCursor);
         play->setMinimumSize(96, 38);
-        play->setEnabled(entry.running || entry.canLaunch);
-        if (entry.running)
+        play->setEnabled(entry.running || entry.canLaunch || needsSetup);
+        if (needsSetup)
+            connect(play, &QPushButton::clicked, this, &HomePage::setupClientRequested);
+        else if (entry.running)
             connect(play, &QPushButton::clicked, this, [this, id] { emit stopInstanceRequested(id); });
         else
             connect(play, &QPushButton::clicked, this, [this, id] { emit playInstanceRequested(id); });
@@ -778,6 +838,7 @@ void HomePage::rebuildRecent()
         edit->setFixedSize(38, 38);
         edit->setToolTip(tr("Edit instance"));
         connect(edit, &QPushButton::clicked, this, [this, id] { emit editInstanceRequested(id); });
+        edit->setVisible(!needsSetup);
 
         auto layout = new QHBoxLayout(row);
         layout->setContentsMargins(14, 12, 14, 12);
@@ -926,6 +987,7 @@ void HomePage::updateStyle()
                                    : QStringLiteral("border-radius: 12px;");
     const bool running = m_playButton->property("running").toBool();
     const QColor playColor = running ? danger : accent;
+    const bool clientSelected = m_hasInstance && m_nameLabel->property("featured").toBool();
 
     QString qss;
     qss += QStringLiteral("#homeScroll, #homeContent { background: transparent; }");
@@ -938,6 +1000,30 @@ void HomePage::updateStyle()
                .arg(rgba(card, 235), rgba(fg, 22));
     qss += QStringLiteral("QFrame#recentRow:hover { background-color: %1; }").arg(rgba(cardHover, 245));
     qss += QStringLiteral("QFrame#recentRow[running=\"true\"] { border: 1px solid %1; }").arg(accent.name());
+
+    // The pinned XylarJava Client: gold to magenta, a little louder than everything else.
+    const FeatureColors featured = featureColors(dark);
+    const QColor gold = featured.gold;
+    const QColor flame = featured.flame;
+    const QColor magenta = featured.magenta;
+    const QString featureGradient = QStringLiteral("qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0, stop: 0 %1, stop: 0.5 %2, stop: 1 %3)")
+                                        .arg(gold.name(), flame.name(), magenta.name());
+    qss += QStringLiteral(
+               "QFrame#featuredRow { border: 1px solid %1;"
+               " background-color: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0, stop: 0 %2, stop: 0.6 %3, stop: 1 %4); }"
+               "QFrame#featuredRow:hover { border-color: %5; }")
+               .arg(rgba(flame, 150), rgba(gold, dark ? 38 : 46), rgba(card, 235), rgba(magenta, dark ? 30 : 26), rgba(gold, 220));
+    qss += QStringLiteral("#featuredName { color: %1; font-size: 16px; font-weight: 900; background: transparent; }").arg(flame.name());
+    qss += QStringLiteral("#pinnedBadge { color: %1; background-color: %2; border-radius: 6px; padding: 1px 7px;"
+                          " font-size: 10px; font-weight: 800; letter-spacing: 1px; }")
+               .arg(textOn(gold).name(), gold.name());
+    qss += QStringLiteral(
+               "#featuredPlayButton { border-image: none; margin: 0; background-color: %1; color: %2; border: none; border-radius: 10px;"
+               " font-weight: 800; padding: 6px 16px; }"
+               "#featuredPlayButton:hover { background-color: %3; }")
+               .arg(featureGradient, textOn(flame).name(),
+                    QStringLiteral("qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0, stop: 0 %1, stop: 0.5 %2, stop: 1 %3)")
+                        .arg(gold.lighter(110).name(), flame.lighter(110).name(), magenta.lighter(110).name()));
     qss += QStringLiteral("#cardTitle, #accountName, #recentName { color: %1; font-size: 15px; font-weight: 700; background: transparent; }")
                .arg(fg.name());
     qss += QStringLiteral("#accountName { font-size: 18px; }");
@@ -995,6 +1081,19 @@ void HomePage::updateStyle()
                "#playMenuButton:disabled { background-color: %5; }"
                "#playMenuButton::menu-indicator { image: none; width: 0; }")
                .arg(accent.name(), accentText.name(), splitColor.name(), accent.lighter(110).name(), rgba(fg, 18));
+
+    if (clientSelected && !running) {
+        // The client gets its own colours on the big button too.
+        qss += QStringLiteral(
+                   "#playButton { background-color: %1; color: %2; }"
+                   "#playButton:hover { background-color: %3; }"
+                   "#playMenuButton { background-color: %4; color: %5; border-left: 1px solid %6; }"
+                   "#playMenuButton:hover { background-color: %7; }")
+                   .arg(featureGradient, textOn(flame).name(),
+                        QStringLiteral("qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0, stop: 0 %1, stop: 1 %2)")
+                            .arg(gold.lighter(108).name(), flame.lighter(108).name()),
+                        magenta.name(), textOn(magenta).name(), magenta.darker(115).name(), magenta.lighter(110).name());
+    }
 
     if (qss != m_appliedStyleSheet) {
         m_appliedStyleSheet = qss;

@@ -201,6 +201,7 @@ class MainWindow : public QMainWindow {
     /// Fill the Home screen's instance picker menu.
     void populateHomeInstanceMenu();
     void updateHomeRecent();
+    void setUpXylarClient();
     BaseInstance* instanceById(const QString& id) const;
     /// Show the active account and the skin it will have in game on the Home screen.
     void updateHomePlayer();

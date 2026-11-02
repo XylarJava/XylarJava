@@ -9,5 +9,6 @@
         <file>arrow-down@2x.png</file>
         <file>arrow-up.png</file>
         <file>arrow-up@2x.png</file>
+        <file>io.xylarjava.client.json</file>
     </qresource>
 </RCC>
