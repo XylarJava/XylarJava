@@ -70,10 +70,15 @@ class LocalServersPage : public QWidget {
     QPushButton* m_settingsButton = nullptr;
     QPushButton* m_deleteButton = nullptr;
     QProgressBar* m_progress = nullptr;
-    QLabel* m_lanValue = nullptr;
     QLabel* m_publicValue = nullptr;
-    QPushButton* m_copyLan = nullptr;
+    QLabel* m_publicPort = nullptr;
     QPushButton* m_copyPublic = nullptr;
+    QLabel* m_lanValue = nullptr;
+    QLabel* m_lanPort = nullptr;
+    QPushButton* m_copyLan = nullptr;
+    QLabel* m_localValue = nullptr;
+    QLabel* m_localPort = nullptr;
+    QPushButton* m_copyLocal = nullptr;
     QLabel* m_networkMessage = nullptr;
     QPlainTextEdit* m_console = nullptr;
     QLineEdit* m_command = nullptr;

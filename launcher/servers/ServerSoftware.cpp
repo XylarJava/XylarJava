@@ -116,6 +116,10 @@ QString addonsFolder(Kind kind)
 int requiredJava(const QString& minecraftVersion)
 {
     const QStringList parts = minecraftVersion.split('.');
+    // Since 2026 versions are numbered by year ("26.1", "26.3"), not "1.x": those need Java 25.
+    // Reading "26.3" the old way made it "1.3", so the server got Java 8 and quit at once.
+    if (parts.value(0).toInt() >= 26)
+        return 25;
     const int minor = parts.size() > 1 ? parts.at(1).toInt() : 0;
     const int patch = parts.size() > 2 ? parts.at(2).toInt() : 0;
     if (minor > 20 || (minor == 20 && patch >= 5))

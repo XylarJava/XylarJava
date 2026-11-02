@@ -126,9 +126,16 @@ QString LocalServer::statusText() const
     return QString();
 }
 
-QString LocalServer::lanAddress() const
+QString LocalServer::lanIp() const
 {
-    return QStringLiteral("%1:%2").arg(UpnpPortMapper::localAddress().toString()).arg(m_config.port);
+    return UpnpPortMapper::localAddress().toString();
+}
+
+QString LocalServer::joinAddress(const QString& ip) const
+{
+    if (m_config.port == 25565)
+        return ip;
+    return QStringLiteral("%1:%2").arg(ip).arg(m_config.port);
 }
 
 QString LocalServer::addonsPath() const
@@ -345,7 +352,7 @@ void LocalServer::start()
                                QStringLiteral("-jar"), QString::fromLatin1(JAR_FILE), QStringLiteral("nogui") };
     appendConsole(tr("[XylarJava] Starting with %1 (Java %2), %3 MB of memory").arg(java).arg(javaMajor(java)).arg(m_config.memoryMb));
     m_portOpen = false;
-    m_publicAddress.clear();
+    m_publicIp.clear();
     m_networkMessage.clear();
     emit addressesChanged();
     setState(State::Starting);
@@ -381,7 +388,7 @@ void LocalServer::openPort()
         m_upnp = new UpnpPortMapper(m_network, this);
         connect(m_upnp, &UpnpPortMapper::finished, this, [this](bool ok, const QString& address, const QString& message) {
             m_portOpen = ok;
-            m_publicAddress = address.isEmpty() ? QString() : QStringLiteral("%1:%2").arg(address).arg(m_config.port);
+            m_publicIp = address;
             m_networkMessage = message;
             appendConsole(tr("[XylarJava] %1").arg(message));
             emit addressesChanged();
@@ -432,7 +439,7 @@ void LocalServer::onFinished(int exitCode, QProcess::ExitStatus status)
     if (m_upnp)
         m_upnp->close();
     m_portOpen = false;
-    m_publicAddress.clear();
+    m_publicIp.clear();
     m_networkMessage.clear();
     emit addressesChanged();
     if (status == QProcess::CrashExit || (exitCode != 0 && m_state != State::Stopping))

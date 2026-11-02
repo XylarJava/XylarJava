@@ -50,8 +50,13 @@ class LocalServer : public QObject {
     bool isRunning() const { return m_state == State::Starting || m_state == State::Running || m_state == State::Stopping; }
     QString statusText() const;
     QStringList console() const { return m_console; }
-    QString lanAddress() const;
-    QString publicAddress() const { return m_publicAddress; }
+    int port() const { return m_config.port; }
+    /// This computer's address on the home network, e.g. "192.168.1.11".
+    QString lanIp() const;
+    /// The public address once the router (or ipify) told us, e.g. "151.75.128.107"; empty before.
+    QString publicIp() const { return m_publicIp; }
+    /// What friends type in Multiplayer > Add Server: the IP alone on the default port 25565, "ip:port" otherwise.
+    QString joinAddress(const QString& ip) const;
     QString networkMessage() const { return m_networkMessage; }
     bool portOpen() const { return m_portOpen; }
     /// Folder for mods (Fabric) or plugins (Paper); empty for Vanilla.
@@ -94,7 +99,7 @@ class LocalServer : public QObject {
     QStringList m_console;
     QByteArray m_partialLine;
     UpnpPortMapper* m_upnp = nullptr;
-    QString m_publicAddress;
+    QString m_publicIp;
     QString m_networkMessage;
     bool m_portOpen = false;
 };

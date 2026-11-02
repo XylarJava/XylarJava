@@ -228,25 +228,32 @@ LocalServersPage::LocalServersPage(LocalServerList* servers, QNetworkAccessManag
     auto joinTitle = new QLabel(tr("How friends join"), join);
     joinTitle->setObjectName(QStringLiteral("serverCardTitle"));
     joinLayout->addWidget(joinTitle);
-    auto addressRow = [this, join, joinLayout](const QString& label, QLabel*& value, QPushButton*& copy) {
+    // One row per way in: the IP in big letters, the port next to it, and Copy for exactly what to type.
+    auto addressRow = [this, join, joinLayout](const QString& label, QLabel*& value, QLabel*& port, QPushButton*& copy) {
         auto row = new QHBoxLayout();
+        row->setSpacing(10);
         auto name = new QLabel(label, join);
         name->setObjectName(QStringLiteral("serverMuted"));
         name->setFixedWidth(150);
         value = new QLabel(join);
         value->setObjectName(QStringLiteral("serverAddress"));
         value->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        port = new QLabel(join);
+        port->setObjectName(QStringLiteral("serverPort"));
+        port->setTextInteractionFlags(Qt::TextSelectableByMouse);
         copy = new QPushButton(tr("Copy"), join);
         copy->setObjectName(QStringLiteral("serverSecondary"));
-        QLabel* target = value;
-        connect(copy, &QPushButton::clicked, this, [target] { QApplication::clipboard()->setText(target->text()); });
+        connect(copy, &QPushButton::clicked, this, [copy] { QApplication::clipboard()->setText(copy->property("address").toString()); });
         row->addWidget(name);
-        row->addWidget(value, 1);
+        row->addWidget(value);
+        row->addWidget(port);
+        row->addStretch(1);
         row->addWidget(copy);
         joinLayout->addLayout(row);
     };
-    addressRow(tr("Same Wi-Fi"), m_lanValue, m_copyLan);
-    addressRow(tr("Over the internet"), m_publicValue, m_copyPublic);
+    addressRow(tr("Over the internet"), m_publicValue, m_publicPort, m_copyPublic);
+    addressRow(tr("Same Wi-Fi"), m_lanValue, m_lanPort, m_copyLan);
+    addressRow(tr("This computer"), m_localValue, m_localPort, m_copyLocal);
     m_networkMessage = new QLabel(join);
     m_networkMessage->setObjectName(QStringLiteral("serverMuted"));
     m_networkMessage->setWordWrap(true);
@@ -410,12 +417,25 @@ void LocalServersPage::updateAddresses()
     if (!m_current)
         return;
     const bool running = m_current->state() == LocalServer::State::Running;
-    m_lanValue->setText(m_current->lanAddress());
-    m_publicValue->setText(m_current->publicAddress().isEmpty() ? tr("-") : m_current->publicAddress());
-    m_copyPublic->setEnabled(!m_current->publicAddress().isEmpty());
+    const QString port = tr("Port %1").arg(m_current->port());
+    auto show = [this, &port](QLabel* value, QLabel* portLabel, QPushButton* copy, const QString& ip) {
+        value->setText(ip.isEmpty() ? tr("-") : ip);
+        portLabel->setText(port);
+        portLabel->setVisible(!ip.isEmpty());
+        copy->setEnabled(!ip.isEmpty());
+        copy->setProperty("address", ip.isEmpty() ? QString() : m_current->joinAddress(ip));
+        copy->setToolTip(ip.isEmpty() ? QString() : tr("Copies %1").arg(m_current->joinAddress(ip)));
+    };
+    show(m_publicValue, m_publicPort, m_copyPublic, m_current->publicIp());
+    show(m_lanValue, m_lanPort, m_copyLan, m_current->lanIp());
+    show(m_localValue, m_localPort, m_copyLocal, QStringLiteral("localhost"));
+
     QString message = m_current->networkMessage();
     if (!running && message.isEmpty())
-        message = tr("Start the server to get the addresses. Friends add it under Multiplayer > Add Server.");
+        message = tr("Start the server to get the internet address. Friends add it under Multiplayer > Add Server.");
+    if (m_current->port() == 25565)
+        message += (message.isEmpty() ? QString() : QStringLiteral("\n")) +
+                   tr("Port 25565 is Minecraft's default, so the IP alone is enough: Copy gives exactly what to type.");
     m_networkMessage->setText(message);
     m_publicValue->setProperty("ok", m_current->portOpen());
     m_publicValue->style()->unpolish(m_publicValue);
@@ -517,8 +537,10 @@ void LocalServersPage::updateStyle()
     qss += QStringLiteral("#serverEmptyTitle { font-size: 22px; font-weight: 800; color: %1; }").arg(fg.name());
     qss += QStringLiteral("#serverCardTitle { font-size: 14px; font-weight: 700; color: %1; }").arg(fg.name());
     qss += QStringLiteral("#serverMuted { color: %1; }").arg(muted.name());
-    qss += QStringLiteral("#serverAddress { font-size: 15px; font-weight: 700; color: %1; }").arg(fg.name());
+    qss += QStringLiteral("#serverAddress { font-size: 20px; font-weight: 800; color: %1; }").arg(fg.name());
     qss += QStringLiteral("#serverAddress[ok=\"true\"] { color: %1; }").arg(green.name());
+    qss += QStringLiteral("#serverPort { border-radius: 8px; padding: 3px 10px; font-weight: 700; background-color: %1; color: %2; }")
+               .arg(rgba(accent, 40), accent.name());
     qss += QStringLiteral("#serverStatus { border-radius: 10px; padding: 4px 12px; font-weight: 700; background-color: %1; color: %2; }")
                .arg(rgba(fg, 18), muted.name());
     qss += QStringLiteral("#serverStatus[state=\"online\"] { background-color: %1; color: %2; }").arg(rgba(green, 48), green.name());
