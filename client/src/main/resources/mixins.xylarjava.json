@@ -28,6 +28,7 @@
     "MixinRenderItem",
     "MixinRenderManager",
     "MixinRendererLivingEntity",
+    "MixinSoundManager",
     "MixinTextureMap",
     "MixinTileEntityRendererDispatcher",
     "MixinWorld"
