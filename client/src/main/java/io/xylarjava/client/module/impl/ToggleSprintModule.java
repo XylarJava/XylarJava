@@ -8,7 +8,7 @@ import net.minecraft.client.entity.EntityPlayerSP;
 public class ToggleSprintModule extends Module {
 
     public ToggleSprintModule() {
-        super("togglesprint", "Toggle Sprint", "Sprint automatically while moving forward.");
+        super("togglesprint", "Toggle Sprint", "Sprint without holding the key.");
     }
 
     @Override

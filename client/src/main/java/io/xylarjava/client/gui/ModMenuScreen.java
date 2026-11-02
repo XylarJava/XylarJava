@@ -82,7 +82,8 @@ public class ModMenuScreen extends GuiScreen {
         this.fontRendererObj.drawStringWithShadow(module.name(), x + 10, y + 8, Draw.TEXT);
         String kind = module instanceof HudModule ? "HUD" : "Gameplay";
         this.fontRendererObj.drawString(kind, x + 10 + this.fontRendererObj.getStringWidth(module.name()) + 6, y + 8, Draw.MUTED);
-        String description = this.fontRendererObj.trimStringToWidth(module.description(), cardWidth - 64);
+        // The switch sits on the title line, so the description can use the whole card width.
+        String description = ellipsize(module.description(), cardWidth - 20);
         this.fontRendererObj.drawString(description, x + 10, y + 24, Draw.MUTED);
 
         // Switch
@@ -90,6 +91,17 @@ public class ModMenuScreen extends GuiScreen {
         int switchY = y + 8;
         Draw.softRect(switchX, switchY, 26, 12, on ? Draw.ACCENT : 0xFF2C3142);
         Draw.rect(on ? switchX + 15 : switchX + 2, switchY + 2, 9, 8, on ? 0xFF1A1006 : Draw.MUTED);
+    }
+
+    /** Shortens text to fit, cutting at a word and ending with "...". */
+    private String ellipsize(String text, int width) {
+        if (this.fontRendererObj.getStringWidth(text) <= width)
+            return text;
+        String cut = this.fontRendererObj.trimStringToWidth(text, width - this.fontRendererObj.getStringWidth("..."));
+        int space = cut.lastIndexOf(' ');
+        if (space > cut.length() / 2)
+            cut = cut.substring(0, space);
+        return cut.trim() + "...";
     }
 
     private int cardX(int index) {

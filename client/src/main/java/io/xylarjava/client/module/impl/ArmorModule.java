@@ -11,7 +11,7 @@ import net.minecraft.item.ItemStack;
 public class ArmorModule extends HudModule {
 
     public ArmorModule() {
-        super("armor", "Armor", "Your armour and held item with durability.", 0.01f, 0.4f);
+        super("armor", "Armor", "Armour and held item durability.", 0.01f, 0.4f);
     }
 
     @Override

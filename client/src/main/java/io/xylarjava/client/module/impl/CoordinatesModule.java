@@ -9,7 +9,7 @@ import net.minecraft.util.MathHelper;
 public class CoordinatesModule extends HudModule {
 
     public CoordinatesModule() {
-        super("coordinates", "Coordinates", "Your position and the direction you're facing.", 0.01f, 0.11f);
+        super("coordinates", "Coordinates", "Your position and facing direction.", 0.01f, 0.11f);
     }
 
     @Override

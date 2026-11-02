@@ -15,7 +15,7 @@ public class KeystrokesModule extends HudModule {
     private static final int GAP = 2;
 
     public KeystrokesModule() {
-        super("keystrokes", "Keystrokes", "Shows the movement keys and mouse buttons as you press them.", 0.01f, 0.2f);
+        super("keystrokes", "Keystrokes", "Shows WASD and mouse clicks.", 0.01f, 0.2f);
     }
 
     @Override
