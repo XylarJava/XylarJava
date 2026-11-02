@@ -5,6 +5,7 @@
 
 #include "Application.h"
 #include "Json.h"
+#include "minecraft/auth/steps/MSAScopes.h"
 #include "net/RawHeaderProxy.h"
 
 // https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-device-code
@@ -17,14 +18,14 @@ MSADeviceCodeStep::MSADeviceCodeStep(AccountData* data) : AuthStep(data)
 
 QString MSADeviceCodeStep::describe()
 {
-    return tr("Logging in with Microsoft account(device code).");
+    return tr("Signing in with Microsoft.");
 }
 
 void MSADeviceCodeStep::perform()
 {
     QUrlQuery data;
     data.addQueryItem("client_id", m_clientId);
-    data.addQueryItem("scope", "XboxLive.SignIn XboxLive.offline_access");
+    data.addQueryItem("scope", kMSAScopes);
     auto payload = data.query(QUrl::FullyEncoded).toUtf8();
     QUrl url("https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode");
     auto headers = QList<Net::HeaderPair>{

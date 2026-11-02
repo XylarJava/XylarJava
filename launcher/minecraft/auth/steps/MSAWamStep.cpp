@@ -28,14 +28,28 @@ QString MSAWamStep::describe()
     return tr("Logging in with Microsoft account.");
 }
 
-void MSAWamStep::useBrowserFlow(const QString& reason)
+void MSAWamStep::useFallback(const QString& reason)
 {
     if (!reason.isEmpty())
-        qWarning() << "Windows token broker:" << reason << "- using the browser sign-in instead";
-    m_fallback.reset(new MSAStep(m_data, m_silent));
-    connect(m_fallback.get(), &MSAStep::authorizeWithBrowser, this, &MSAWamStep::authorizeWithBrowser);
+        qWarning() << "Windows token broker:" << reason << (m_silent ? "- using the saved refresh token" : "- using a device code");
+    if (m_silent) {
+        m_fallback = makeShared<MSARefreshStep>(m_data);
+    } else {
+        auto deviceCode = makeShared<MSADeviceCodeStep>(m_data);
+        connect(deviceCode.get(), &MSADeviceCodeStep::authorizeWithBrowser, this, &MSAWamStep::authorizeWithDeviceCode);
+        // a fresh sign-in starts from a clean account, like the broker path does
+        *m_data = AccountData();
+        m_data->msaClientID = m_clientId;
+        m_fallback = deviceCode;
+    }
     connect(m_fallback.get(), &AuthStep::finished, this, &AuthStep::finished);
     m_fallback->perform();
+}
+
+void MSAWamStep::abort()
+{
+    if (m_fallback)
+        m_fallback->abort();
 }
 
 void MSAWamStep::perform()
@@ -48,7 +62,7 @@ void MSAWamStep::perform()
         accountId = m_data->msaToken.extra.value(kWamAccountId).toString().toStdString();
         // accounts added in the browser keep using their refresh token
         if (accountId.empty() || m_data->msaClientID != m_clientId) {
-            useBrowserFlow(QString());
+            useFallback(QString());
             return;
         }
     }
@@ -86,7 +100,7 @@ void MSAWamStep::perform()
                     return;
                 }
                 if (result.status != wambroker::Status::Success) {
-                    self->useBrowserFlow(QString::fromStdString(result.error));
+                    self->useFallback(QString::fromStdString(result.error));
                     return;
                 }
                 if (!self->m_silent) {
@@ -107,6 +121,6 @@ void MSAWamStep::perform()
             Qt::QueuedConnection);
     }).detach();
 #else
-    useBrowserFlow(QString());
+    useFallback(QString());
 #endif
 }

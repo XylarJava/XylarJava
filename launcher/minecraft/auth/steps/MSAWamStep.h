@@ -2,7 +2,8 @@
 #include <QObject>
 
 #include "minecraft/auth/AuthStep.h"
-#include "minecraft/auth/steps/MSAStep.h"
+#include "minecraft/auth/steps/MSADeviceCodeStep.h"
+#include "minecraft/auth/steps/MSARefreshStep.h"
 
 // Microsoft sign-in through the Windows token broker, with the browser flow (MSAStep) as the
 // fallback. Login shows the Windows account picker; Refresh gets a new token silently for
@@ -17,13 +18,19 @@ class MSAWamStep : public AuthStep {
 
     QString describe() override;
 
+   public slots:
+    void abort() override;
+
    signals:
-    void authorizeWithBrowser(const QUrl& url);
+    /// The sign-in continues with a device code (see MSADeviceCodeStep::authorizeWithBrowser).
+    void authorizeWithDeviceCode(QString url, QString code, int expiresIn);
 
    private:
-    void useBrowserFlow(const QString& reason);
+    /// Without the Windows token broker: the saved refresh token when signing in silently, a device
+    /// code otherwise. That's the order XylarJava for Xbox uses too.
+    void useFallback(const QString& reason);
 
     bool m_silent;
     QString m_clientId;
-    shared_qobject_ptr<MSAStep> m_fallback;
+    AuthStep::Ptr m_fallback;
 };

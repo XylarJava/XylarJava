@@ -256,6 +256,9 @@ set(MINECRAFT_SOURCES
     minecraft/auth/steps/MinecraftProfileStep.h
     minecraft/auth/steps/MSADeviceCodeStep.cpp
     minecraft/auth/steps/MSADeviceCodeStep.h
+    minecraft/auth/steps/MSARefreshStep.cpp
+    minecraft/auth/steps/MSARefreshStep.h
+    minecraft/auth/steps/MSAScopes.h
     minecraft/auth/steps/MSAStep.cpp
     minecraft/auth/steps/MSAStep.h
     minecraft/auth/steps/MSAWamStep.cpp

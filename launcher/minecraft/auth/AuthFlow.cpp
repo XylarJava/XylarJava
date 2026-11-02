@@ -27,9 +27,11 @@ AuthFlow::AuthFlow(AccountData* data, Action action) : Task(), m_data(data)
             connect(this, &Task::aborted, oauthStep.get(), &MSADeviceCodeStep::abort);
             m_steps.append(oauthStep);
         } else {
-            // Windows token broker first, the browser sign-in when it is not available
+            // Same chain as XylarJava for Xbox: the Windows token broker first; without it the saved
+            // refresh token (refresh) or a device code shown in the sign-in dialog (new sign-in).
             auto oauthStep = makeShared<MSAWamStep>(m_data, action == Action::Refresh);
-            connect(oauthStep.get(), &MSAWamStep::authorizeWithBrowser, this, &AuthFlow::authorizeWithBrowser);
+            connect(oauthStep.get(), &MSAWamStep::authorizeWithDeviceCode, this, &AuthFlow::authorizeWithBrowserWithExtra);
+            connect(this, &Task::aborted, oauthStep.get(), &MSAWamStep::abort);
             m_steps.append(oauthStep);
         }
         m_steps.append(makeShared<XboxUserStep>(m_data));
