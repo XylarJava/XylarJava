@@ -2,6 +2,9 @@
 #include "ui_AppearanceWidget.h"
 
 #include <DesktopServices.h>
+#include <QIcon>
+#include <QImage>
+#include <QPushButton>
 #include "BuildConfig.h"
 #include "ui/themes/ITheme.h"
 #include "ui/themes/ThemeManager.h"
@@ -37,6 +40,41 @@ AppearanceWidget::AppearanceWidget(bool themesOnly, QWidget* parent)
     connect(m_ui->widgetStyleFolder, &QPushButton::clicked, this,
             [] { DesktopServices::openPath(APPLICATION->themeManager()->getApplicationThemesFolder().path()); });
     connect(m_ui->reloadThemesButton, &QPushButton::pressed, this, &AppearanceWidget::loadThemeSettings);
+
+    updateIconPreview();
+}
+
+void AppearanceWidget::updateIconPreview()
+{
+    // Only show icons the selected icon theme actually has: no empty buttons in the preview.
+    const QList<QPushButton*> buttons = { m_ui->icon1, m_ui->icon2, m_ui->icon3, m_ui->icon4, m_ui->icon5,
+                                          m_ui->icon6, m_ui->icon7, m_ui->icon8, m_ui->icon9 };
+    for (QPushButton* button : buttons) {
+        QString name = button->property("themeIconName").toString();
+        if (name.isEmpty()) {
+            name = button->icon().name();
+            button->setProperty("themeIconName", name);
+        }
+        bool available = false;
+        if (!name.isEmpty() && QIcon::hasThemeIcon(name)) {
+            const QIcon icon = QIcon::fromTheme(name);
+            // A theme can list an icon it can't draw; only keep buttons that show something.
+            const QImage image = icon.pixmap(24, 24).toImage().convertToFormat(QImage::Format_ARGB32);
+            for (int y = 0; y < image.height() && !available; y++) {
+                for (int x = 0; x < image.width(); x++) {
+                    if (qAlpha(image.pixel(x, y)) > 0) {
+                        available = true;
+                        break;
+                    }
+                }
+            }
+            if (available)
+                button->setIcon(icon);
+        }
+        button->setVisible(available);
+    }
+    // The last one repeated "settings".
+    m_ui->icon10->hide();
 }
 
 AppearanceWidget::~AppearanceWidget()
@@ -81,6 +119,7 @@ void AppearanceWidget::applyIconTheme(int index)
         settings->set("IconTheme", newIconTheme);
         APPLICATION->themeManager()->applyCurrentlySelectedTheme();
     }
+    updateIconPreview();
 }
 
 void AppearanceWidget::applyWidgetTheme(int index)
@@ -167,16 +206,9 @@ void AppearanceWidget::updateConsolePreview()
     };
 
     print(QString("%1 version: %2\n").arg(BuildConfig.LAUNCHER_DISPLAYNAME, BuildConfig.printableVersionString()), MessageLevel::Launcher);
-
-    QDate today = QDate::currentDate();
-
-    if (today.month() == 10 && today.day() == 31)
-        print(tr("[ERROR] OOoooOOOoooo! A spooky error!"), MessageLevel::Error);
-    else
-        print(tr("[ERROR] A spooky error!"), MessageLevel::Error);
-
+    print(tr("[ERROR] XylarJava detected an error!! oops!"), MessageLevel::Error);
     print(tr("[INFO] A harmless message..."), MessageLevel::Info);
-    print(tr("[WARN] A not so spooky warning."), MessageLevel::Warning);
+    print(tr("[WARN] stay out of the way.. this is a warning"), MessageLevel::Warning);
     print(tr("[DEBUG] A secret debugging message..."), MessageLevel::Debug);
     print(tr("[FATAL] A terrifying fatal error!"), MessageLevel::Fatal);
 }

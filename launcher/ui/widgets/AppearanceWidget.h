@@ -30,6 +30,7 @@ class AppearanceWidget : public QWidget {
     void loadThemeSettings();
 
     void updateConsolePreview();
+    void updateIconPreview();
 
     Ui::AppearanceWidget* m_ui;
     QTextCharFormat m_defaultFormat;
