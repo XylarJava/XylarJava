@@ -10,10 +10,9 @@ class QCheckBox;
 /**
  * First-run welcome page for XylarJava.
  *
- * Introduces the launcher, lets the user create an offline account by
- * choosing a username, and confirms the skin backend URL so offline skins
- * work out of the box. All fields are optional: leaving them untouched keeps
- * the current defaults.
+ * A short introduction (logo, what the launcher does), then an optional offline
+ * account and the skin server. All fields are optional: leaving them untouched
+ * keeps the current defaults.
  */
 class XylarWelcomeWizardPage : public BaseWizardPage {
     Q_OBJECT
@@ -30,6 +29,11 @@ class XylarWelcomeWizardPage : public BaseWizardPage {
    private:
     QLabel* m_logoLabel = nullptr;
     QLabel* m_welcomeLabel = nullptr;
+    QLabel* m_leadLabel = nullptr;
+    QLabel* m_featureTitles[3] = {};
+    QLabel* m_featureTexts[3] = {};
+    QLabel* m_offlineTitle = nullptr;
+    QLabel* m_offlineText = nullptr;
     QLabel* m_accountLabel = nullptr;
     QLineEdit* m_usernameEdit = nullptr;
     QLabel* m_backendLabel = nullptr;

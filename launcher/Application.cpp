@@ -28,6 +28,7 @@
 #include "ui/setupwizard/LoginWizardPage.h"
 #include "ui/setupwizard/PasteWizardPage.h"
 #include "ui/setupwizard/SetupWizard.h"
+#include "ui/setupwizard/XylarDoneWizardPage.h"
 #include "ui/setupwizard/XylarWelcomeWizardPage.h"
 #include "ui/setupwizard/ThemeWizardPage.h"
 
@@ -1212,6 +1213,7 @@ bool Application::createSetupWizard()
         m_themeManager->applyCurrentlySelectedTheme(true);
 
         m_setupWizard = new SetupWizard(nullptr);
+        m_setupWizard->setLogo(logo());
         if (welcomeRequired) {
             m_setupWizard->addPage(new XylarWelcomeWizardPage(m_setupWizard));
             settings()->set("XylarSetupCompleted", true);
@@ -1230,13 +1232,16 @@ bool Application::createSetupWizard()
             m_setupWizard->addPage(new PasteWizardPage(m_setupWizard));
         }
 
-        if (themeInterventionRequired) {
+        // On the very first run, offer the look too (Xylar Dark is already selected).
+        if (themeInterventionRequired || welcomeRequired) {
             m_setupWizard->addPage(new ThemeWizardPage(m_setupWizard));
         }
 
         if (login) {
             m_setupWizard->addPage(new LoginWizardPage(m_setupWizard));
         }
+
+        m_setupWizard->addPage(new XylarDoneWizardPage(m_setupWizard));
         connect(m_setupWizard, &QDialog::finished, this, &Application::setupWizardFinished);
         m_setupWizard->show();
     }

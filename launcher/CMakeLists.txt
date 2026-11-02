@@ -880,6 +880,8 @@ SET(LAUNCHER_SOURCES
     ui/setupwizard/LoginWizardPage.h
     ui/setupwizard/XylarWelcomeWizardPage.cpp
     ui/setupwizard/XylarWelcomeWizardPage.h
+    ui/setupwizard/XylarDoneWizardPage.cpp
+    ui/setupwizard/XylarDoneWizardPage.h
 
     # GUI - themes
     ui/themes/FusionTheme.cpp
