@@ -232,7 +232,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     }
 
     // add the toolbar toggles to the view menu
-    ui->viewMenu->addAction(ui->instanceToolBar->toggleViewAction());
     ui->viewMenu->addAction(ui->newsToolBar->toggleViewAction());
 
     updateThemeMenu();
@@ -485,11 +484,20 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     removeToolBar(ui->mainToolBar);
     ui->mainToolBar->hide();
 
-    // Remember whether the user wants the instance toolbar; it is only shown on the Instances page.
-    connect(ui->instanceToolBar->toggleViewAction(), &QAction::triggered, this, [this](bool checked) {
-        m_instanceToolBarWanted = checked;
-        applyPageChrome();
-    });
+    // The old instance toolbar on the right is gone too: everything it offered is in the
+    // instance right-click menu and on the Home screen. Its actions stay alive (shortcuts,
+    // enabled state) but the bar itself never shows.
+    removeToolBar(ui->instanceToolBar);
+    ui->instanceToolBar->hide();
+    ui->instanceToolBar->toggleViewAction()->setVisible(false);
+
+    // No menu bar either (it used to pop up when pressing Alt). Keep the keyboard
+    // shortcuts of its actions working by attaching them to the window itself.
+    ui->menuBar->hide();
+    for (QAction* menuAction : ui->menuBar->actions()) {
+        if (QMenu* menu = menuAction->menu())
+            addActions(menu->actions());
+    }
 
     // "Add account" entry for the accounts menu
     m_addAccountAction = new QAction(this);
@@ -615,18 +623,6 @@ void MainWindow::applyXylarBranding()
     }
 }
 
-void MainWindow::showEvent(QShowEvent* event)
-{
-    QMainWindow::showEvent(event);
-    if (!m_pageChromeReady) {
-        // The saved window state has been restored by now, so the instance
-        // toolbar's visibility is the user's own choice.
-        m_instanceToolBarWanted = !ui->instanceToolBar->isHidden();
-        m_pageChromeReady = true;
-        applyPageChrome();
-    }
-}
-
 void MainWindow::switchToPage(Page page)
 {
     if (page == m_currentPage && page != Page::Settings)
@@ -644,7 +640,6 @@ void MainWindow::switchToPage(Page page)
         m_pages->setCurrentIndexAnimated(static_cast<int>(page));
     if (m_sideBar)
         m_sideBar->setCurrentPage(static_cast<int>(page));
-    applyPageChrome();
     if (page == Page::Instances && view)
         view->setFocus();
 }
@@ -683,25 +678,6 @@ bool MainWindow::closeSettings()
     m_settingsLock.reset();
     emit APPLICATION->globalSettingsApplied();
     return true;
-}
-
-void MainWindow::applyPageChrome()
-{
-    if (!m_pageChromeReady)
-        return;
-    ui->instanceToolBar->setVisible(m_currentPage == Page::Instances && m_instanceToolBarWanted);
-}
-
-QString MainWindow::serializedWindowState()
-{
-    if (!m_pageChromeReady)
-        return QString::fromUtf8(saveState().toBase64());
-
-    const bool shownNow = !ui->instanceToolBar->isHidden();
-    ui->instanceToolBar->setVisible(m_instanceToolBarWanted);
-    const QString state = QString::fromUtf8(saveState().toBase64());
-    ui->instanceToolBar->setVisible(shownNow);
-    return state;
 }
 
 namespace {
@@ -1081,10 +1057,8 @@ void MainWindow::updateDiscordPresence()
 #ifndef Q_OS_MAC
 void MainWindow::keyReleaseEvent(QKeyEvent* event)
 {
-    if (event->key() == Qt::Key_Alt && !APPLICATION->settings()->get("MenuBarInsteadOfToolBar").toBool())
-        ui->menuBar->setVisible(!ui->menuBar->isVisible());
-    else
-        QMainWindow::keyReleaseEvent(event);
+    // Alt used to toggle the old menu bar; XylarJava has no menu bar.
+    QMainWindow::keyReleaseEvent(event);
 }
 #endif
 
@@ -1209,8 +1183,8 @@ void MainWindow::showInstanceContextMenu(const QPoint& pos)
 
 void MainWindow::updateMainToolBar()
 {
-    ui->menuBar->setVisible(APPLICATION->settings()->get("MenuBarInsteadOfToolBar").toBool());
-    // The sidebar replaces the main toolbar.
+    // The sidebar replaces both the menu bar and the main toolbar.
+    ui->menuBar->setVisible(false);
     ui->mainToolBar->setVisible(false);
 }
 
@@ -1972,7 +1946,7 @@ void MainWindow::globalSettingsClosed()
     updateDiscordPresence();
     // This needs to be done to prevent UI elements disappearing in the event the config is changed
     // but PolyMC exits abnormally, causing the window state to never be saved:
-    APPLICATION->settings()->set("MainWindowState", serializedWindowState());
+    APPLICATION->settings()->set("MainWindowState", QString::fromUtf8(saveState().toBase64()));
     update();
 }
 
@@ -2170,7 +2144,7 @@ void MainWindow::closeEvent(QCloseEvent* event)
         return;
     }
     // Save the window state and geometry.
-    APPLICATION->settings()->set("MainWindowState", serializedWindowState());
+    APPLICATION->settings()->set("MainWindowState", QString::fromUtf8(saveState().toBase64()));
     APPLICATION->settings()->set("MainWindowGeometry", QString::fromUtf8(saveGeometry().toBase64()));
     instanceToolbarSetting->set(QString::fromUtf8(ui->instanceToolBar->getVisibilityState().toBase64()));
     event->accept();

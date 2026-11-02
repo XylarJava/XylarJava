@@ -54,7 +54,6 @@ class MainWindow : public QMainWindow {
 
    protected:
     QMenu* createPopupMenu() override;
-    void showEvent(QShowEvent* event) override;
 
    private slots:
     void on_actionAbout_triggered();
@@ -195,7 +194,6 @@ class MainWindow : public QMainWindow {
     /// Switch the central area between the Home screen and the instance list.
     void switchToPage(Page page);
     /// Show/hide page-specific chrome (the instance toolbar only belongs to the instance list).
-    void applyPageChrome();
     /// Refresh the launch card on the Home screen from the selected instance.
     void updateHomePage();
     /// Fill the Home screen's instance picker menu.
@@ -210,7 +208,6 @@ class MainWindow : public QMainWindow {
     /// Watch every instance so Discord knows when one is running.
     void watchInstancesForPresence();
     /// Window state with the instance toolbar's user-chosen visibility, regardless of the current page.
-    QString serializedWindowState();
 
     void addInstance(const QString& url = QString(), const QMap<QString, QString>& extra_info = {});
     void activateInstance(BaseInstance* instance);
@@ -250,8 +247,6 @@ class MainWindow : public QMainWindow {
     std::unique_ptr<SettingsObjectLockHolder> m_settingsLock;
     BaseInstance* m_playingInstance = nullptr;
     Page m_currentPage = Page::Home;
-    bool m_instanceToolBarWanted = true;
-    bool m_pageChromeReady = false;
     QString m_appliedChromeStyle;
 
     BaseInstance* m_selectedInstance = nullptr;

@@ -49,8 +49,56 @@ QProcessEnvironment CleanEnviroment()
 #endif
         "QT_PLUGIN_PATH", "QT_FONTPATH"
     };
+#if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD) || defined(Q_OS_OPENBSD)
+    // The AppImage runtime (sharun) points a lot of variables at the libraries bundled with the
+    // launcher. The game must use the system's own graphics stack: with GBM_BACKENDS_PATH aimed at
+    // our bundled Mesa backend, a newer system Mesa can't create any GLX context and Minecraft
+    // crashes with "Could not choose GLX13 config".
+    QString bundleDir = rawenv.value("SHARUN_DIR");
+    if (bundleDir.isEmpty())
+        bundleDir = rawenv.value("APPDIR");
+    if (!bundleDir.isEmpty() && !bundleDir.endsWith('/'))
+        bundleDir += '/';
+    // Set by the runtime only: unset them completely so the system defaults apply.
+    const QStringList runtimeOnly = { "SHARUN_DIR",
+                                      "SHARUN_WORKING_DIR",
+                                      "ARGV0",
+                                      "APPDIR",
+                                      "GBM_BACKENDS_PATH",
+                                      "LIBGL_DRIVERS_PATH",
+                                      "LIBVA_DRIVERS_PATH",
+                                      "__EGL_VENDOR_LIBRARY_DIRS",
+                                      "__EGL_VENDOR_LIBRARY_FILENAMES",
+                                      "VK_DRIVER_FILES",
+                                      "VK_ICD_FILENAMES",
+                                      "DRIRC_CONFIGDIR",
+                                      QStringLiteral("%1_DISABLE_GLVULKAN").arg(BuildConfig.LAUNCHER_ENVNAME) };
+#endif
+
     for (auto key : rawenv.keys()) {
         auto value = rawenv.value(key);
+#if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD) || defined(Q_OS_OPENBSD)
+        if (!bundleDir.isEmpty()) {
+            if (runtimeOnly.contains(key)) {
+                qDebug() << "Env: dropping AppImage variable" << key << value;
+                continue;
+            }
+            if (value.contains(bundleDir)) {
+                // Keep only the entries that point outside the AppImage.
+                QStringList kept;
+                for (const QString& entry : value.split(':')) {
+                    if (!entry.startsWith(bundleDir) && entry + '/' != bundleDir)
+                        kept.append(entry);
+                }
+                if (kept.isEmpty() || (kept.size() == 1 && kept.first().isEmpty())) {
+                    qDebug() << "Env: dropping AppImage variable" << key << value;
+                    continue;
+                }
+                qDebug() << "Env: stripped AppImage entries from" << key;
+                value = kept.join(':');
+            }
+        }
+#endif
         // filter out dangerous java crap
         if (ignored.contains(key)) {
             qDebug() << "Env: ignoring" << key << value;

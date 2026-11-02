@@ -37,6 +37,9 @@ LauncherPage::LauncherPage(QWidget* parent) : QWidget(parent), ui(new Ui::Launch
 {
     ui->setupUi(this);
 
+    // XylarJava has no menu bar (the sidebar replaces it), so the option does nothing.
+    ui->preferMenuBarCheckBox->setVisible(false);
+
     ui->sortingModeGroup->setId(ui->sortByNameBtn, Sort_Name);
     ui->sortingModeGroup->setId(ui->sortLastLaunchedBtn, Sort_LastLaunch);
 

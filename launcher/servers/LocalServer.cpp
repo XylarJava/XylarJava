@@ -259,6 +259,7 @@ int LocalServer::javaMajor(const QString& javaPath)
         return 0;
     QProcess process;
     process.setProcessChannelMode(QProcess::MergedChannels);
+    process.setProcessEnvironment(CleanEnviroment());
     process.start(javaPath, { QStringLiteral("-version") });
     if (!process.waitForFinished(5000)) {
         process.kill();
@@ -329,6 +330,7 @@ void LocalServer::start()
     if (!m_process) {
         m_process = new QProcess(this);
         m_process->setProcessChannelMode(QProcess::MergedChannels);
+        m_process->setProcessEnvironment(CleanEnviroment());
         connect(m_process, &QProcess::readyRead, this, &LocalServer::onOutput);
         connect(m_process, &QProcess::finished, this, &LocalServer::onFinished);
         connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
