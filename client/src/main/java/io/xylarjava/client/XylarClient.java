@@ -12,13 +12,7 @@ import io.xylarjava.client.config.ClientConfig;
 import io.xylarjava.client.gui.ModMenuScreen;
 import io.xylarjava.client.module.HudModule;
 import io.xylarjava.client.module.Module;
-import io.xylarjava.client.module.impl.ArmorModule;
-import io.xylarjava.client.module.impl.CoordinatesModule;
-import io.xylarjava.client.module.impl.CpsModule;
-import io.xylarjava.client.module.impl.FpsModule;
-import io.xylarjava.client.module.impl.KeystrokesModule;
-import io.xylarjava.client.module.impl.ToggleSprintModule;
-import io.xylarjava.client.module.impl.ZoomModule;
+import io.xylarjava.client.util.CombatTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
@@ -32,7 +26,6 @@ public final class XylarClient {
 
     private final ClientConfig config;
     private final List<Module> modules = new ArrayList<Module>();
-    private final ZoomModule zoom = new ZoomModule();
     private final String version;
     private boolean menuKeyWasDown;
     private int saveCountdown;
@@ -48,16 +41,10 @@ public final class XylarClient {
         config = ClientConfig.load(mc.mcDataDir);
         version = readVersion();
 
-        modules.add(new FpsModule());
-        modules.add(new CpsModule());
-        modules.add(new CoordinatesModule());
-        modules.add(new KeystrokesModule());
-        modules.add(new ArmorModule());
-        modules.add(new ToggleSprintModule());
-        modules.add(zoom);
+        modules.addAll(Modules.all());
         for (Module module : modules)
             module.attach(config);
-        config.save();
+        writeConfig();
     }
 
     public ClientConfig config() {
@@ -66,10 +53,6 @@ public final class XylarClient {
 
     public List<Module> modules() {
         return Collections.unmodifiableList(modules);
-    }
-
-    public ZoomModule zoom() {
-        return zoom;
     }
 
     public String version() {
@@ -83,6 +66,12 @@ public final class XylarClient {
 
     public void saveNow() {
         saveCountdown = 0;
+        writeConfig();
+    }
+
+    private void writeConfig() {
+        for (Module module : modules)
+            module.storeSettings();
         config.save();
     }
 
@@ -101,8 +90,10 @@ public final class XylarClient {
             mc.displayGuiScreen(new ModMenuScreen(null));
         menuKeyWasDown = menuKeyDown;
 
+        CombatTracker.tick(mc);
+
         if (saveCountdown > 0 && --saveCountdown == 0)
-            config.save();
+            writeConfig();
     }
 
     /** After the vanilla HUD has been drawn. */
@@ -112,6 +103,8 @@ public final class XylarClient {
             return;
         ScaledResolution res = new ScaledResolution(mc);
         GlStateManager.enableBlend();
+        if (Modules.CROSSHAIR.isEnabled())
+            Modules.CROSSHAIR.draw(mc, res);
         for (Module module : modules) {
             if (module instanceof HudModule && module.isEnabled())
                 ((HudModule) module).render(res, false);
@@ -120,7 +113,7 @@ public final class XylarClient {
     }
 
     public float modifyFov(float fov) {
-        return zoom.apply(fov);
+        return Modules.ZOOM.apply(fov);
     }
 
     private static String readVersion() {

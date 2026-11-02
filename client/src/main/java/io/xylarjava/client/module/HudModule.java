@@ -1,5 +1,7 @@
 package io.xylarjava.client.module;
 
+import io.xylarjava.client.Modules;
+import io.xylarjava.client.module.impl.HudStyle;
 import io.xylarjava.client.util.Draw;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
@@ -14,7 +16,7 @@ public abstract class HudModule extends Module {
     private final float defaultY;
 
     protected HudModule(String id, String name, String description, float defaultX, float defaultY) {
-        super(id, name, description);
+        super(id, name, description, Category.HUD);
         this.defaultX = defaultX;
         this.defaultY = defaultY;
     }
@@ -73,9 +75,28 @@ public abstract class HudModule extends Module {
         return Math.max(0, Math.min(value, Math.max(0, max)));
     }
 
-    /** Common "pill" background used by the text elements. */
+    /** Background in the HUD style (on/off and opacity come from the HUD Style module). */
+    protected void drawBackground(int w, int h) {
+        HudStyle style = Modules.HUD_STYLE;
+        if (style.background())
+            Draw.rect(0, 0, w, h, style.backgroundColor());
+    }
+
+    /** Text in the HUD style colour, with or without shadow. */
+    protected void drawText(String text, int x, int y, int color) {
+        if (Modules.HUD_STYLE.shadow())
+            mc().fontRendererObj.drawStringWithShadow(text, x, y, color);
+        else
+            mc().fontRendererObj.drawString(text, x, y, color);
+    }
+
+    protected int textColor() {
+        return Modules.HUD_STYLE.textColor();
+    }
+
+    /** Common "pill" used by the text elements. */
     protected void drawLabel(String text) {
-        Draw.rect(0, 0, width(), height(), Draw.PANEL);
-        mc().fontRendererObj.drawStringWithShadow(text, 4, 4, Draw.TEXT);
+        drawBackground(width(), height());
+        drawText(Modules.HUD_STYLE.decorate(text), 4, 4, textColor());
     }
 }

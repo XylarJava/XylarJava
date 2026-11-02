@@ -1,6 +1,9 @@
 package io.xylarjava.client.util;
 
+import org.lwjgl.opengl.GL11;
+
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.GlStateManager;
@@ -64,6 +67,30 @@ public final class Draw {
             x += font.getCharWidth(text.charAt(i)) + spacing;
         }
         GlStateManager.popMatrix();
+    }
+
+    /** Clip drawing to a rectangle in GUI coordinates until {@link #endScissor()}. */
+    public static void scissor(Minecraft mc, int x, int y, int w, int h) {
+        ScaledResolution res = new ScaledResolution(mc);
+        int scale = res.getScaleFactor();
+        GL11.glEnable(GL11.GL_SCISSOR_TEST);
+        GL11.glScissor(x * scale, mc.displayHeight - (y + h) * scale, Math.max(0, w * scale), Math.max(0, h * scale));
+    }
+
+    public static void endScissor() {
+        GL11.glDisable(GL11.GL_SCISSOR_TEST);
+    }
+
+    /** Blend two ARGB colours. */
+    public static int blend(int from, int to, float t) {
+        t = Math.max(0f, Math.min(1f, t));
+        int out = 0;
+        for (int shift = 24; shift >= 0; shift -= 8) {
+            int a = (from >>> shift) & 0xFF;
+            int b = (to >>> shift) & 0xFF;
+            out |= ((int) (a + (b - a) * t) & 0xFF) << shift;
+        }
+        return out;
     }
 
     public static boolean inside(int mouseX, int mouseY, int x, int y, int w, int h) {

@@ -1,19 +1,34 @@
 package io.xylarjava.client.module.impl;
 
-import org.lwjgl.input.Keyboard;
-
-import io.xylarjava.client.XylarClient;
+import io.xylarjava.client.module.Category;
 import io.xylarjava.client.module.Module;
+import io.xylarjava.client.setting.BoolSetting;
+import io.xylarjava.client.setting.KeySetting;
+import io.xylarjava.client.setting.ModeSetting;
+import io.xylarjava.client.setting.NumberSetting;
 import net.minecraft.client.Minecraft;
 
-/** Hold the zoom key (C by default) to zoom in, like OptiFine. */
+/** Hold (or toggle) the zoom key, C by default, to zoom in like OptiFine. Scroll to zoom further. */
 public class ZoomModule extends Module {
 
+    private final KeySetting key = key("key", "Zoom key", 46);
+    private final ModeSetting mode = mode("mode", "Mode", "Hold", "Hold", "Toggle");
+    private final NumberSetting factor = number("factor", "Zoom", 4f, 2f, 10f, 0.5f, "x");
+    private final BoolSetting smooth = bool("smooth", "Smooth camera", true);
+    private final BoolSetting scroll = bool("scroll", "Scroll to adjust", true);
+
     private boolean zooming;
+    private boolean keyWasDown;
     private boolean savedSmoothCamera;
+    private float scrollFactor = 1f;
 
     public ZoomModule() {
-        super("zoom", "Zoom", "Hold C to zoom in.");
+        super("zoom", "Zoom", "Hold C to zoom in.", Category.VISUAL);
+    }
+
+    @Override
+    protected boolean enabledByDefault() {
+        return true;
     }
 
     public boolean isZooming() {
@@ -22,11 +37,18 @@ public class ZoomModule extends Module {
 
     @Override
     public void onTick(Minecraft mc) {
-        boolean held = mc.currentScreen == null && Keyboard.isKeyDown(XylarClient.get().config().zoomKey);
-        if (held == zooming)
+        boolean down = mc.currentScreen == null && key.isDown();
+        boolean next = zooming;
+        if (mode.is("Hold"))
+            next = down;
+        else if (down && !keyWasDown)
+            next = !zooming;
+        keyWasDown = down;
+        if (next == zooming)
             return;
-        zooming = held;
-        if (XylarClient.get().config().smoothZoom) {
+        zooming = next;
+        scrollFactor = 1f;
+        if (smooth.on()) {
             if (zooming) {
                 savedSmoothCamera = mc.gameSettings.smoothCamera;
                 mc.gameSettings.smoothCamera = true;
@@ -38,12 +60,20 @@ public class ZoomModule extends Module {
 
     @Override
     protected void onDisable() {
-        if (zooming && XylarClient.get().config().smoothZoom)
+        if (zooming && smooth.on())
             mc().gameSettings.smoothCamera = savedSmoothCamera;
         zooming = false;
     }
 
+    /** Mouse wheel while zooming: returns true when the scroll was used for zoom. */
+    public boolean onScroll(int direction) {
+        if (!isZooming() || !scroll.on())
+            return false;
+        scrollFactor = Math.max(0.5f, Math.min(4f, scrollFactor * (direction > 0 ? 0.8f : 1.25f)));
+        return true;
+    }
+
     public float apply(float fov) {
-        return isZooming() ? fov / Math.max(1f, XylarClient.get().config().zoomFactor) : fov;
+        return isZooming() ? fov / Math.max(1f, factor.value() / scrollFactor) : fov;
     }
 }

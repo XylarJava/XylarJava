@@ -14,6 +14,14 @@ public class ArmorModule extends HudModule {
         super("armor", "Armor", "Armour and held item durability.", 0.01f, 0.4f);
     }
 
+    private final io.xylarjava.client.setting.BoolSetting held = bool("held", "Show held item", true);
+    private final io.xylarjava.client.setting.ModeSetting durability = mode("durability", "Durability as", "Uses left", "Uses left", "Percent");
+
+    @Override
+    protected boolean enabledByDefault() {
+        return true;
+    }
+
     @Override
     public int width() {
         return 58;
@@ -26,7 +34,7 @@ public class ArmorModule extends HudModule {
 
     @Override
     protected void draw(boolean editing) {
-        Draw.rect(0, 0, width(), height(), Draw.PANEL);
+        drawBackground(width(), height());
         EntityPlayerSP player = mc().thePlayer;
         if (player == null)
             return;
@@ -34,7 +42,7 @@ public class ArmorModule extends HudModule {
         ItemStack[] stacks = new ItemStack[5];
         for (int i = 0; i < 4; i++)
             stacks[i] = player.inventory.armorInventory[3 - i];
-        stacks[4] = player.getHeldItem();
+        stacks[4] = held.on() ? player.getHeldItem() : null;
 
         RenderHelper.enableGUIStandardItemLighting();
         for (int i = 0; i < stacks.length; i++) {
@@ -46,9 +54,10 @@ public class ArmorModule extends HudModule {
             mc().getRenderItem().renderItemOverlays(mc().fontRendererObj, stack, 2, y);
             if (stack.isItemStackDamageable()) {
                 int left = stack.getMaxDamage() - stack.getItemDamage();
-                mc().fontRendererObj.drawStringWithShadow(String.valueOf(left), 21, y + 4, Draw.TEXT);
+                String text = durability.is("Percent") ? (left * 100 / Math.max(1, stack.getMaxDamage())) + "%" : String.valueOf(left);
+                drawText(text, 21, y + 4, textColor());
             } else if (stack.stackSize > 1) {
-                mc().fontRendererObj.drawStringWithShadow("x" + stack.stackSize, 21, y + 4, Draw.TEXT);
+                drawText("x" + stack.stackSize, 21, y + 4, textColor());
             }
         }
         RenderHelper.disableStandardItemLighting();

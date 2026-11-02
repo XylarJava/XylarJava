@@ -8,7 +8,12 @@ import net.minecraft.client.entity.EntityPlayerSP;
 public class ToggleSprintModule extends Module {
 
     public ToggleSprintModule() {
-        super("togglesprint", "Toggle Sprint", "Sprint without holding the key.");
+        super("togglesprint", "Toggle Sprint", "Sprint without holding the key.", io.xylarjava.client.module.Category.PVP);
+    }
+
+    @Override
+    protected boolean enabledByDefault() {
+        return true;
     }
 
     @Override

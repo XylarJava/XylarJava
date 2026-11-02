@@ -27,13 +27,11 @@ public class ClientConfig {
         public float x = -1f;
         public float y = -1f;
         public float scale = 1f;
+        /** Setting values by id, as text. */
+        public Map<String, String> settings = new LinkedHashMap<String, String>();
     }
 
-    public boolean customMainMenu = true;
     public int menuKey = 54; // Keyboard.KEY_RSHIFT
-    public int zoomKey = 46; // Keyboard.KEY_C
-    public float zoomFactor = 4f;
-    public boolean smoothZoom = true;
     public Map<String, ModuleState> modules = new LinkedHashMap<String, ModuleState>();
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -68,6 +66,8 @@ public class ClientConfig {
             state.enabled = enabledByDefault;
             modules.put(id, state);
         }
+        if (state.settings == null)
+            state.settings = new LinkedHashMap<String, String>();
         return state;
     }
 
