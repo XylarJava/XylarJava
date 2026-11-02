@@ -13,7 +13,6 @@
 #include <QPainter>
 #include <QPixmap>
 #include <QUrl>
-#include <QUrlQuery>
 #include <QtWidgets/QPushButton>
 
 #include <qrencode.h>
@@ -122,25 +121,25 @@ void MSALoginDialog::showDeviceCode(QString url, QString code, int expiresIn)
     Q_UNUSED(expiresIn)
     m_waitingForCode = true;
 
-    // microsoft.com/link fills the code in by itself with ?otc=
-    QUrl link(url);
-    QUrlQuery query(link);
-    query.removeAllQueryItems(QStringLiteral("otc"));
-    query.addQueryItem(QStringLiteral("otc"), code);
-    link.setQuery(query);
+    // Like XylarJava for Xbox: the plain microsoft.com/link page and the code to type there.
+    // A link with ?otc=<code> goes through another Microsoft page that refuses this app.
+    const QUrl link(url);
     const bool firstCode = !m_linkUrl.isValid();
     m_linkUrl = link;
 
     ui->code->setText(code);
     ui->qr->setPixmap(qrCodeFor(link.toString(QUrl::FullyEncoded), ui->qr->maximumWidth() * devicePixelRatio()));
     ui->qrMessage->setText(tr("Go to <a href=\"%1\">%2</a> and enter this code, or scan the QR code with your phone. "
+                              "The code is already copied, so you can paste it. "
                               "This window continues by itself once you've approved the sign-in.")
                                .arg(link.toString(QUrl::FullyEncoded).toHtmlEscaped(), QUrl(url).host() + QUrl(url).path()));
     ui->stackedWidget->setCurrentIndex(1);
 
     // Open the page once; a refreshed code (after it expired) just updates the dialog.
-    if (firstCode)
+    if (firstCode) {
+        QGuiApplication::clipboard()->setText(code);
         DesktopServices::openUrl(link);
+    }
 }
 
 void MSALoginDialog::onFlowStatus(QString status)
