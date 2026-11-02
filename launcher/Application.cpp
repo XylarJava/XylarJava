@@ -1715,6 +1715,7 @@ MainWindow* Application::showMainWindow(bool minimized)
     } else {
         m_mainWindow = new MainWindow();
         m_mainWindow->restoreState(QByteArray::fromBase64(APPLICATION->settings()->get("MainWindowState").toString().toUtf8()));
+        m_mainWindow->hideLegacyBars();
         const bool restored =
             m_mainWindow->restoreGeometry(QByteArray::fromBase64(APPLICATION->settings()->get("MainWindowGeometry").toString().toUtf8()));
         if (!restored) {

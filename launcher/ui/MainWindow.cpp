@@ -436,13 +436,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         connect(APPLICATION->instances(), &InstanceList::modelReset, this, [this] { updateHomePage(); });
     }
 
-    // Togglable status bar
-    {
-        bool statusBarVisible = APPLICATION->settings()->get("StatusBarVisible").toBool();
-        ui->actionToggleStatusBar->setChecked(statusBarVisible);
-        connect(ui->actionToggleStatusBar, &QAction::toggled, this, &MainWindow::setStatusBarVisibility);
-        setStatusBarVisibility(statusBarVisible);
-    }
+    // The old Prism/PolyMC status bar ("No instance selected", playtime) is gone: the Home screen
+    // already shows the selected instance. Its toggle goes too.
+    ui->actionToggleStatusBar->setVisible(false);
 
     // Lock toolbars
     {
@@ -479,17 +475,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     ui->mainToolBar->insertWidget(ui->actionAccountsButton, spacer);
 
-    // The sidebar replaces the old main toolbar; keep the toolbar object (its actions
-    // live on in the sidebar and the menu bar) but take it out of the window.
-    removeToolBar(ui->mainToolBar);
-    ui->mainToolBar->hide();
-
-    // The old instance toolbar on the right is gone too: everything it offered is in the
-    // instance right-click menu and on the Home screen. Its actions stay alive (shortcuts,
-    // enabled state) but the bar itself never shows.
-    removeToolBar(ui->instanceToolBar);
-    ui->instanceToolBar->hide();
+    // The sidebar replaces the old Prism/PolyMC toolbars (main, instance and news bar); keep the
+    // toolbar objects (their actions live on in the sidebar and the menus) but take them out of the window.
+    hideLegacyBars();
     ui->instanceToolBar->toggleViewAction()->setVisible(false);
+    ui->newsToolBar->toggleViewAction()->setVisible(false);
+    // With no toolbars left there's nothing to lock.
+    ui->actionLockToolbars->setVisible(false);
 
     // No menu bar either (it used to pop up when pressing Alt). Keep the keyboard
     // shortcuts of its actions working by attaching them to the window itself.
@@ -1108,9 +1100,22 @@ QMenu* MainWindow::createPopupMenu()
 
     return filteredMenu;
 }
+void MainWindow::hideLegacyBars()
+{
+    // Called again after restoreState(): a window state saved by an older version would
+    // otherwise put these bars back.
+    removeToolBar(ui->mainToolBar);
+    ui->mainToolBar->hide();
+    removeToolBar(ui->instanceToolBar);
+    ui->instanceToolBar->hide();
+    removeToolBar(ui->newsToolBar);
+    ui->newsToolBar->hide();
+    statusBar()->hide();
+}
+
 void MainWindow::setStatusBarVisibility(bool state)
 {
-    statusBar()->setVisible(state);
+    // The status bar never shows in XylarJava (see the constructor); only remember the choice.
     APPLICATION->settings()->set("StatusBarVisible", state);
 }
 void MainWindow::lockToolbars(bool state)

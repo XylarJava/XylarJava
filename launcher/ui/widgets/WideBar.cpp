@@ -55,6 +55,7 @@ WideBar::WideBar(const QString& title, QWidget* parent) : QToolBar(title, parent
 
     setContextMenuPolicy(Qt::ContextMenuPolicy::CustomContextMenu);
     connect(this, &QToolBar::customContextMenuRequested, this, &WideBar::showVisibilityMenu);
+    hideForGood();
 }
 
 WideBar::WideBar(QWidget* parent) : QToolBar(parent)
@@ -64,6 +65,27 @@ WideBar::WideBar(QWidget* parent) : QToolBar(parent)
 
     setContextMenuPolicy(Qt::ContextMenuPolicy::CustomContextMenu);
     connect(this, &QToolBar::customContextMenuRequested, this, &WideBar::showVisibilityMenu);
+    hideForGood();
+}
+
+void WideBar::hideForGood()
+{
+    // XylarJava has its own sidebar and menus: the old Prism/PolyMC button bars never show.
+    // Everything they offered is in the right-click menu of their page (createContextMenu).
+    QToolBar::setVisible(false);
+    toggleViewAction()->setVisible(false);
+}
+
+void WideBar::setVisible(bool)
+{
+    QToolBar::setVisible(false);
+}
+
+void WideBar::keepShortcut(QAction* action)
+{
+    // Shortcuts of actions that only live on a hidden bar stop working; attach them to the page too.
+    if (auto* page = parentWidget())
+        page->addAction(action);
 }
 
 void WideBar::addAction(QAction* action)
@@ -72,6 +94,7 @@ void WideBar::addAction(QAction* action)
     entry.bar_action = addWidget(new ActionButton(action, this, m_use_default_action));
     entry.menu_action = action;
     entry.type = BarEntry::Type::Action;
+    keepShortcut(action);
 
     m_entries.push_back(entry);
 
@@ -104,6 +127,7 @@ void WideBar::insertActionBefore(QAction* before, QAction* action)
     entry.bar_action = insertWidget(iter->bar_action, new ActionButton(action, this, m_use_default_action));
     entry.menu_action = action;
     entry.type = BarEntry::Type::Action;
+    keepShortcut(action);
 
     m_entries.insert(iter, entry);
 
@@ -129,6 +153,7 @@ void WideBar::insertActionAfter(QAction* after, QAction* action)
     entry.bar_action = insertWidget(iter->bar_action, new ActionButton(action, this, m_use_default_action));
     entry.menu_action = action;
     entry.type = BarEntry::Type::Action;
+    keepShortcut(action);
 
     m_entries.insert(iter, entry);
 

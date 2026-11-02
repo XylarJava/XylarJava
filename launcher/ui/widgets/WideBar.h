@@ -40,7 +40,12 @@ class WideBar : public QToolBar {
 
     void removeAction(QAction* action);
 
+    void setVisible(bool visible) override;
+
    private:
+    void hideForGood();
+    void keepShortcut(QAction* action);
+
     struct BarEntry {
         enum class Type { None, Action, Separator, Spacer } type = Type::None;
         QAction* bar_action = nullptr;

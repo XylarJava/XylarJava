@@ -555,6 +555,10 @@ QStringList MinecraftInstance::javaArguments(const AuthSession* session)
             args << QString("-javaagent:%1=%2").arg(injectorJar, skinBackendUrl);
             // Keep the game window title as it is (authlib-injector would add the server name).
             args << "-Dauthlibinjector.noShowServerName";
+            // Cloudflare blocks Java 8's default User-Agent ("Java/1.8.0_xxx") with error 1010, so
+            // authlib-injector got a 403 from the skin backend and the game quit before starting.
+            // With http.agent set Java sends "XylarJava Java/1.8.0_xxx", which gets through.
+            args << "-Dhttp.agent=XylarJava";
         } else {
             args << "-Dminecraft.api.session.host=https://nope.invalid";
         }
