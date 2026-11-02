@@ -135,4 +135,4 @@ The jar ends up in `build/libs/xylarjava-client-0.1.0.jar`.
    up as a component.
 
 The component tells the launcher to start the game through LaunchWrapper with
-`io.xylarjava.client.XylarTweaker`, which loads the client's mixins.
+`io.xylarjava.client.launch.XylarTweaker`, which loads the client's mixins.

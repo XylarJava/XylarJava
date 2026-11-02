@@ -28,7 +28,7 @@ minecraft {
     version = "1.8.9"
     mappings = "stable_22"
     runDir = "run"
-    tweakClass = "io.xylarjava.client.XylarTweaker"
+    tweakClass = "io.xylarjava.client.launch.XylarTweaker"
     makeObfSourceJar = false
 }
 
@@ -63,7 +63,7 @@ jar {
         exclude "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA", "LICENSE.txt"
     }
     manifest.attributes(
-        "TweakClass": "io.xylarjava.client.XylarTweaker",
+        "TweakClass": "io.xylarjava.client.launch.XylarTweaker",
         "MixinConfigs": "mixins.xylarjava.json",
         "TweakOrder": 0,
         "Implementation-Title": "XylarJava Client",

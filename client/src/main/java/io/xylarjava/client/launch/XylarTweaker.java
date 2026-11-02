@@ -1,4 +1,4 @@
-package io.xylarjava.client;
+package io.xylarjava.client.launch;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -11,8 +11,11 @@ import org.spongepowered.asm.mixin.MixinEnvironment;
 import org.spongepowered.asm.mixin.Mixins;
 
 /**
- * Entry point used by LaunchWrapper ({@code --tweakClass io.xylarjava.client.XylarTweaker}).
+ * Entry point used by LaunchWrapper ({@code --tweakClass io.xylarjava.client.launch.XylarTweaker}).
  * Boots Mixin, registers our mixins and hands control to the vanilla 1.8.9 main class.
+ *
+ * <p>Keep this class in its own package: LaunchWrapper excludes the tweaker's whole package from its
+ * class loader, and the rest of the client (mixins, GUI) must be loaded next to Minecraft's classes.
  */
 public class XylarTweaker implements ITweaker {
 
