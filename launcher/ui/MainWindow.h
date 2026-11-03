@@ -218,6 +218,8 @@ class MainWindow : public QMainWindow {
     void updateSocialVisibility();
     /// Tell XylarJava Social what the player is doing (launcher, playing, away).
     void updateSocialActivity();
+    /// Who Social is online as: the player in the running game, else the launcher's account.
+    void updateSocialPlayer();
     /// Watch every hosted server so Social and Discord know when one runs.
     void watchLocalServers();
     /// The first server this computer hosts right now, or nullptr.

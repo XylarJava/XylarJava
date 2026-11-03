@@ -100,7 +100,9 @@ class SocialClient : public QObject {
     using Done = std::function<void(int status, const QJsonObject& body)>;
     void call(const QByteArray& method, const QString& path, const QJsonObject& body, Done done);
     void claim();
+    /// Sends the presence once the current event is done, so a player change and the new activity go out together.
     void sendPresence();
+    void sendPresenceNow();
     void friendAction(const QByteArray& method, const QString& path, const QString& name, const QString& okMessage);
     void setError(const QString& error);
     /// Takes in a friend list answer (from GET /v1/friends or a heartbeat) and sends the notices.
@@ -123,6 +125,7 @@ class SocialClient : public QObject {
     bool m_claiming = false;
     bool m_watching = false;
     bool m_loaded = false;
+    bool m_presencePending = false;
     QString m_error;
     int m_generation = 0;  ///< bumped on every player change so late answers for the old one are dropped
 

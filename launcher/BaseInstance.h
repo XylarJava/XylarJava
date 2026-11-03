@@ -144,6 +144,9 @@ class BaseInstance : public QObject {
     /// Sets the last launched time to 'val' milliseconds since epoch
     void setLastLaunch(qint64 val = QDateTime::currentMSecsSinceEpoch());
 
+    /// The Minecraft name the last launch plays with (whatever account the launcher has selected since).
+    QString playerName() const { return m_playerName; }
+
     /*!
      * \brief Gets this instance's settings object.
      * This settings object stores instance-specific settings.
@@ -274,6 +277,7 @@ class BaseInstance : public QObject {
     // InstanceFlags m_flags;
     bool m_isRunning = false;
     std::unique_ptr<LaunchTask> m_launchProcess;
+    QString m_playerName;
     QDateTime m_timeStarted;
     RuntimeContext m_runtimeContext;
 

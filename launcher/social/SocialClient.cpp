@@ -180,6 +180,17 @@ void SocialClient::claim()
 
 void SocialClient::sendPresence()
 {
+    if (m_presencePending)
+        return;
+    m_presencePending = true;
+    QTimer::singleShot(0, this, [this] {
+        m_presencePending = false;
+        sendPresenceNow();
+    });
+}
+
+void SocialClient::sendPresenceNow()
+{
     if (!ready())
         return;
     QJsonObject body{ { "state", m_state } };

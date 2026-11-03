@@ -1103,12 +1103,20 @@ void MainWindow::onInstanceRunningChanged(bool running)
     auto instance = qobject_cast<BaseInstance*>(sender());
     if (!instance)
         return;
-    if (running)
+    if (running) {
         m_playingInstance = instance;
-    else if (instance == m_playingInstance)
+    } else if (instance == m_playingInstance) {
+        // Another game may still be running.
         m_playingInstance = nullptr;
+        auto instanceList = APPLICATION->instances();
+        for (int i = 0; i < instanceList->count() && !m_playingInstance; i++) {
+            if (auto other = instanceList->at(i); other && other != instance && other->isRunning())
+                m_playingInstance = other;
+        }
+    }
     if (m_game)
         m_game->watch(m_playingInstance && m_playingInstance->isRunning() ? m_playingInstance : nullptr);
+    updateSocialPlayer();
     updateDiscordPresence();
     updateSocialActivity();
     updateHomeRecent();
@@ -1371,6 +1379,23 @@ void MainWindow::updateSocialVisibility()
     m_socialButton->setVisible(home);
     if (m_socialPanel->isOpen() != (home && m_socialButton->isChecked()))
         m_socialPanel->setOpen(home && m_socialButton->isChecked());
+}
+
+void MainWindow::updateSocialPlayer()
+{
+    if (!m_social)
+        return;
+    // While a game runs, Social is the player in it: picking another account in the launcher
+    // changes who plays next, not who is playing now. Names are Minecraft names (offline or Microsoft).
+    QString name;
+    if (m_playingInstance && m_playingInstance->isRunning())
+        name = m_playingInstance->playerName();
+    if (name.isEmpty()) {
+        MinecraftAccountPtr account = APPLICATION->accounts()->defaultAccount();
+        if (account)
+            name = account->profileName().isEmpty() ? account->displayName() : account->profileName();
+    }
+    m_social->setPlayer(name);
 }
 
 void MainWindow::updateSocialActivity()
@@ -1706,9 +1731,7 @@ void MainWindow::defaultAccountChanged()
 
     updateKnownPlayers();
 
-    // Social follows the active account, by its Minecraft name (offline or Microsoft).
-    if (m_social)
-        m_social->setPlayer(account ? (account->profileName().isEmpty() ? account->displayName() : account->profileName()) : QString());
+    updateSocialPlayer();
 
     // FIXME: this needs adjustment for MSA
     if (account && account->profileName() != "") {

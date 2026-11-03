@@ -1137,6 +1137,7 @@ QList<LaunchStep::Ptr> MinecraftInstance::createUpdateTask()
 LaunchTask* MinecraftInstance::createLaunchTask(AuthSessionPtr session, MinecraftTarget::Ptr targetToJoin)
 {
     updateRuntimeContext();
+    m_playerName = session ? session->player_name : QString();
     auto process = LaunchTask::create(this);
     auto pptr = process.get();
 
