@@ -11,6 +11,7 @@ class QPushButton;
 class QToolButton;
 class QFrame;
 class QVBoxLayout;
+class QBoxLayout;
 class SkinPreview;
 class HeroScene;
 
@@ -93,6 +94,7 @@ class HomePage : public QWidget {
     void paintEvent(QPaintEvent* event) override;
     void changeEvent(QEvent* event) override;
     void showEvent(QShowEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
     void hideEvent(QHideEvent* event) override;
 
    private:
@@ -102,6 +104,8 @@ class HomePage : public QWidget {
     QFrame* makeCard(const QString& objectName);
 
     // Header
+    QBoxLayout* m_grid = nullptr;
+    QWidget* m_rightHolder = nullptr;
     QLabel* m_greetingFace = nullptr;
     QLabel* m_greeting = nullptr;
     QLabel* m_greetingSub = nullptr;

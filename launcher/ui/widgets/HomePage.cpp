@@ -685,6 +685,8 @@ HomePage::HomePage(QWidget* parent) : QWidget(parent)
     rightHolder->setLayout(rightColumn);
     rightColumn->setContentsMargins(0, 0, 0, 0);
     grid->addWidget(rightHolder, 0, Qt::AlignTop);
+    m_grid = grid;
+    m_rightHolder = rightHolder;
 
     auto page = new QVBoxLayout(content);
     page->setContentsMargins(32, 26, 32, 26);
@@ -997,6 +999,25 @@ void HomePage::changeEvent(QEvent* event)
             m_hero->setAnimating(isActiveWindow() && isVisible());
     }
     QWidget::changeEvent(event);
+}
+
+void HomePage::resizeEvent(QResizeEvent* event)
+{
+    QWidget::resizeEvent(event);
+    // Half a screen wide there's no room for two columns: the account, stats and updates cards go
+    // under the instances instead of being cut off on the right.
+    const bool stacked = width() < 960;
+    if (!m_grid || stacked == (m_grid->direction() == QBoxLayout::TopToBottom))
+        return;
+    m_grid->setDirection(stacked ? QBoxLayout::TopToBottom : QBoxLayout::LeftToRight);
+    if (stacked) {
+        m_rightHolder->setMinimumWidth(0);
+        m_rightHolder->setMaximumWidth(QWIDGETSIZE_MAX);
+        m_grid->setAlignment(m_rightHolder, Qt::Alignment());
+    } else {
+        m_rightHolder->setFixedWidth(320);
+        m_grid->setAlignment(m_rightHolder, Qt::AlignTop);
+    }
 }
 
 void HomePage::showEvent(QShowEvent* event)
