@@ -62,6 +62,7 @@ class LaunchController : public Task {
    private:
     LaunchMode m_wantedLaunchMode = LaunchMode::Normal;
     bool m_reachedLaunch = false;
+    bool m_triedRefresh = false;
     QElapsedTimer m_startedAt;
     LaunchMode m_actualLaunchMode = LaunchMode::Normal;
     BaseProfilerFactory* m_profiler = nullptr;

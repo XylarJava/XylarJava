@@ -93,6 +93,44 @@ void LaunchController::decideAccount()
 LaunchDecision LaunchController::decideLaunchMode()
 {
     m_actualLaunchMode = LaunchMode::Normal;
+    // Offline accounts need nothing from Microsoft.
+    if (!m_accountToUse || m_accountToUse->accountType() != AccountType::MSA)
+        return LaunchDecision::Continue;
+
+    switch (m_accountToUse->accountState()) {
+        case AccountState::Online:
+            return LaunchDecision::Continue;
+        case AccountState::Unchecked:
+        case AccountState::Working:
+        case AccountState::Errored: {
+            // The sign-in isn't checked yet (or is being checked): wait for it once, so the game gets a
+            // session Mojang accepts. Without one the game starts but no online server lets the player in.
+            if (m_triedRefresh) {
+                // Still not checked (Microsoft or Mojang having trouble): play anyway, like when offline.
+                return LaunchDecision::Continue;
+            }
+            m_triedRefresh = true;
+            auto task = m_accountToUse->refresh();
+            if (task && !task->isFinished()) {
+                ProgressDialog dialog(m_parentWidget);
+                dialog.setSkipButton(true, tr("Play anyway"));
+                dialog.execWithTask(task.get());
+            }
+            return LaunchDecision::Undecided;
+        }
+        case AccountState::Offline:
+            // No internet: single player still works.
+            return LaunchDecision::Continue;
+        case AccountState::Disabled:
+        case AccountState::Expired:
+        case AccountState::Gone: {
+            const QString reason = m_accountToUse->lastError().isEmpty() ? tr("The Microsoft sign-in of %1 expired").arg(m_accountToUse->profileName())
+                                                                         : m_accountToUse->lastError();
+            if (reauthenticateAccount(m_accountToUse, reason.endsWith('.') ? reason.chopped(1) : reason))
+                return LaunchDecision::Undecided;
+            return LaunchDecision::Abort;
+        }
+    }
     return LaunchDecision::Continue;
 }
 
@@ -228,11 +266,12 @@ bool LaunchController::reauthenticateAccount(const MinecraftAccountPtr& account,
     if (button == QMessageBox::StandardButton::Yes) {
         auto* accounts = APPLICATION->accounts();
         const bool isDefault = accounts->defaultAccount() == account;
-        accounts->removeAccount(accounts->index(accounts->findAccountByProfileId(account->profileId())));
         if (account->accountType() == AccountType::MSA) {
             auto newAccount = MSALoginDialog::newAccount(m_parentWidget);
 
             if (newAccount != nullptr) {
+                // The old entry goes only once the new sign-in worked: cancelling keeps the account.
+                accounts->removeAccount(accounts->index(accounts->findAccountByProfileId(account->profileId())));
                 accounts->addAccount(newAccount);
 
                 if (isDefault) {

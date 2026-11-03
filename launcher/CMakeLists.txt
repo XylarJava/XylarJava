@@ -237,6 +237,8 @@ set(MINECRAFT_SOURCES
     minecraft/auth/AccountTokenCipher.cpp
     minecraft/auth/AccountData.h
     minecraft/auth/AccountTokenCipher.h
+    minecraft/auth/YggdrasilRelay.cpp
+    minecraft/auth/YggdrasilRelay.h
     minecraft/auth/AccountList.cpp
     minecraft/auth/AccountList.h
     minecraft/auth/AuthSession.cpp

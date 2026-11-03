@@ -16,6 +16,7 @@
 #include <QStandardPaths>
 #include <QTimer>
 #include <QUuid>
+#include <memory>
 #include <utility>
 
 #ifdef Q_OS_LINUX
@@ -38,6 +39,7 @@
 #include "settings/SettingsObject.h"
 #include "PlayitTunnel.h"
 #include "UpnpPortMapper.h"
+#include "minecraft/auth/YggdrasilRelay.h"
 
 namespace {
 QStringList& knownPlayers()
@@ -224,47 +226,35 @@ bool writeWhitelist(const QString& folder, const QJsonArray& entries)
     return file.open(QIODevice::WriteOnly) && file.write(QJsonDocument(entries).toJson()) >= 0 && file.commit();
 }
 
-/**
- * In offline mode a player is known by the UUID made from their name, Microsoft accounts included.
- * The server's own "whitelist add" and "op" look names up at Mojang first, so a name that also
- * has a Microsoft account got its Mojang UUID and was then turned away. Put every list back on
- * the offline UUIDs, and forget the Mojang ones the server cached.
- */
-void useOfflineUuids(const QString& folder)
+QString dashedUuid(const QString& id)
 {
-    for (const char* list : { "whitelist.json", "ops.json", "banned-players.json" }) {
-        const QString path = QDir(folder).filePath(QString::fromLatin1(list));
-        QFile file(path);
-        if (!file.open(QIODevice::ReadOnly))
-            continue;
-        QJsonArray entries = QJsonDocument::fromJson(file.readAll()).array();
-        file.close();
-        bool changed = false;
-        for (int i = 0; i < entries.size(); i++) {
-            QJsonObject entry = entries.at(i).toObject();
-            // Earlier commands may have saved the name in lowercase: spell it the way the player does.
-            const QString name = LocalServer::knownSpelling(entry.value("name").toString());
-            if (name.isEmpty())
-                continue;
-            const QString uuid = LocalServer::offlineUuid(name);
-            if (entry.value("uuid").toString() != uuid || entry.value("name").toString() != name) {
-                entry.insert("name", name);
-                entry.insert("uuid", uuid);
-                entries.replace(i, entry);
-                changed = true;
-            }
-        }
-        if (!changed)
-            continue;
-        QSaveFile out(path);
-        if (out.open(QIODevice::WriteOnly) && out.write(QJsonDocument(entries).toJson()) >= 0)
-            out.commit();
-    }
+    if (id.size() != 32)
+        return id;
+    return QStringLiteral("%1-%2-%3-%4-%5").arg(id.mid(0, 8), id.mid(8, 4), id.mid(12, 4), id.mid(16, 4), id.mid(20));
+}
 
-    // The server answers "op", "whitelist add" and "ban" from usercache.json before anything else,
-    // and without it an offline server writes the name in lowercase, which is another UUID.
-    // So it starts out knowing everyone on its lists and everyone the launcher knows, spelled right.
-    QStringList names = knownPlayers();
+QString mojangIdsPath(const QString& folder)
+{
+    return QDir(folder).filePath(QStringLiteral("xylarjava-mojang-ids.json"));
+}
+
+/// lowercase name -> { "id": Mojang UUID or "" when there's no Microsoft account, "at": when asked }
+QJsonObject readMojangIds(const QString& folder)
+{
+    QFile file(mojangIdsPath(folder));
+    if (!file.open(QIODevice::ReadOnly))
+        return {};
+    return QJsonDocument::fromJson(file.readAll()).object();
+}
+
+QString mojangIdFor(const QJsonObject& ids, const QString& name)
+{
+    return ids.value(name.toLower()).toObject().value("id").toString();
+}
+
+QStringList listedNames(const QString& folder)
+{
+    QStringList names;
     for (const char* list : { "whitelist.json", "ops.json", "banned-players.json" }) {
         QFile file(QDir(folder).filePath(QString::fromLatin1(list)));
         if (file.open(QIODevice::ReadOnly)) {
@@ -272,6 +262,59 @@ void useOfflineUuids(const QString& folder)
                 names << value.toObject().value("name").toString();
         }
     }
+    return names;
+}
+
+/**
+ * Puts the whitelist, ops and bans on the UUIDs players really join with.
+ *
+ * Offline, everyone (Microsoft accounts included) joins with the UUID made from their name. The
+ * server's own "whitelist add" and "op" looked names up at Mojang and saved the Microsoft UUID, so
+ * those players were turned away.
+ *
+ * In mixed mode (@p mojangIds given) a Microsoft account joins with its Mojang UUID and an offline
+ * account with the offline one, so every name is listed with both: whoever plays as that name gets in.
+ */
+void fixPlayerLists(const QString& folder, const QJsonObject* mojangIds)
+{
+    for (const char* list : { "whitelist.json", "ops.json", "banned-players.json" }) {
+        const QString path = QDir(folder).filePath(QString::fromLatin1(list));
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly))
+            continue;
+        const QJsonArray entries = QJsonDocument::fromJson(file.readAll()).array();
+        file.close();
+        QJsonArray fixed;
+        QStringList seen;
+        for (const QJsonValue& value : entries) {
+            QJsonObject entry = value.toObject();
+            // Earlier commands may have saved the name in lowercase: spell it the way the player does.
+            const QString name = LocalServer::knownSpelling(entry.value("name").toString());
+            if (name.isEmpty() || seen.contains(name, Qt::CaseInsensitive))
+                continue;
+            seen << name;
+            entry.insert("name", name);
+            entry.insert("uuid", LocalServer::offlineUuid(name));
+            fixed.append(entry);
+            const QString mojang = mojangIds ? mojangIdFor(*mojangIds, name) : QString();
+            if (!mojang.isEmpty()) {
+                entry.insert("uuid", mojang);
+                fixed.append(entry);
+            }
+        }
+        if (fixed == entries)
+            continue;
+        QSaveFile out(path);
+        if (out.open(QIODevice::WriteOnly) && out.write(QJsonDocument(fixed).toJson()) >= 0)
+            out.commit();
+    }
+
+    // The server answers "op", "whitelist add" and "ban" from usercache.json before anything else,
+    // and without it an offline server writes the name in lowercase, which is another UUID.
+    // So it starts out knowing everyone on its lists and everyone the launcher knows, spelled right.
+    // In mixed mode a name with a Microsoft account is cached with its Mojang UUID, like the server
+    // itself would (an "op" for someone not online then goes to the Microsoft account).
+    QStringList names = knownPlayers() + listedNames(folder);
     const QString cachePath = QDir(folder).filePath(QStringLiteral("usercache.json"));
     QJsonArray cached;
     {
@@ -281,8 +324,10 @@ void useOfflineUuids(const QString& folder)
     }
     for (const QJsonValue& value : cached) {
         const QJsonObject entry = value.toObject();
-        if (entry.value("uuid").toString() == LocalServer::offlineUuid(entry.value("name").toString()))
-            names << entry.value("name").toString();
+        const QString name = entry.value("name").toString();
+        const QString uuid = entry.value("uuid").toString();
+        if (uuid == LocalServer::offlineUuid(name) || (mojangIds && uuid == mojangIdFor(*mojangIds, name)))
+            names << name;
     }
     // Same format the server writes: "2026-12-03 02:48:57 +0100".
     const QDateTime later = QDateTime::currentDateTime().addMonths(1);
@@ -295,20 +340,49 @@ void useOfflineUuids(const QString& folder)
         if (!LocalServer::validPlayerName(name) || seen.contains(name, Qt::CaseInsensitive))
             continue;
         seen << name;
-        seeded.append(QJsonObject{ { "uuid", LocalServer::offlineUuid(name) }, { "name", name }, { "expiresOn", expires } });
+        const QString mojang = mojangIds ? mojangIdFor(*mojangIds, name) : QString();
+        seeded.append(QJsonObject{ { "uuid", mojang.isEmpty() ? LocalServer::offlineUuid(name) : mojang }, { "name", name }, { "expiresOn", expires } });
     }
     QSaveFile out(cachePath);
     if (out.open(QIODevice::WriteOnly) && out.write(QJsonDocument(seeded).toJson()) >= 0)
         out.commit();
+}
+/**
+ * A Microsoft account played this world offline (under its offline UUID) before mixed mode: give
+ * its Microsoft UUID the same inventory, advancements and stats, so nothing looks lost.
+ */
+void copyOfflinePlayerData(const QString& folder, const QJsonObject& mojangIds)
+{
+    const QString world = QDir(folder).filePath(QStringLiteral("world"));
+    // 26.1 keeps players in world/players/..., older versions straight in world/.
+    const QList<QPair<QString, QString>> places = { { "players/data", ".dat" },  { "players/advancements", ".json" },
+                                                    { "players/stats", ".json" }, { "playerdata", ".dat" },
+                                                    { "advancements", ".json" },  { "stats", ".json" } };
+    QStringList names = listedNames(folder);
+    names.removeDuplicates();
+    for (const QString& name : names) {
+        const QString mojang = mojangIdFor(mojangIds, name);
+        if (mojang.isEmpty())
+            continue;
+        for (const auto& [dir, ext] : places) {
+            const QString from = QDir(world).filePath(dir + "/" + LocalServer::offlineUuid(name) + ext);
+            const QString to = QDir(world).filePath(dir + "/" + mojang + ext);
+            if (QFile::exists(from) && !QFile::exists(to))
+                QFile::copy(from, to);
+        }
+    }
 }
 }  // namespace
 
 QStringList LocalServer::allowedPlayers() const
 {
     QStringList names;
-    for (const QJsonValue& entry : readWhitelist(m_folder))
-        names << entry.toObject().value("name").toString();
-    names.removeAll(QString());
+    for (const QJsonValue& entry : readWhitelist(m_folder)) {
+        const QString name = entry.toObject().value("name").toString();
+        // In mixed mode a name is there twice (offline and Microsoft UUID).
+        if (!name.isEmpty() && !names.contains(name, Qt::CaseInsensitive))
+            names << name;
+    }
     return names;
 }
 
@@ -326,17 +400,29 @@ void LocalServer::allowPlayer(const QString& typed, std::function<void(const QSt
         QTimer::singleShot(800, this, [done] { done(QString()); });
         return;
     }
-    auto write = [this, name, done](const QString& uuid) {
+    auto write = [this, name, done](const QStringList& uuids) {
         QJsonArray entries = readWhitelist(m_folder);
-        entries.append(QJsonObject{ { "uuid", uuid }, { "name", name } });
+        for (const QString& uuid : uuids)
+            entries.append(QJsonObject{ { "uuid", uuid }, { "name", name } });
         if (!writeWhitelist(m_folder, entries))
             return done(tr("Couldn't write the whitelist in %1.").arg(m_folder));
         if (m_state == State::Running)
             sendCommand(QStringLiteral("whitelist reload"));
         done(QString());
     };
-    if (!m_config.onlineMode)
-        return write(offlineUuid(name));
+    if (!m_config.onlineMode && !mixedMode())
+        return write({ offlineUuid(name) });
+    if (!m_config.onlineMode) {
+        // Mixed mode: the name gets in both as an offline account and as a Microsoft account.
+        lookUpMojangIds({ name }, [this, name, write] {
+            QStringList uuids{ offlineUuid(name) };
+            const QString mojang = mojangIdFor(readMojangIds(m_folder), name);
+            if (!mojang.isEmpty())
+                uuids << mojang;
+            write(uuids);
+        });
+        return;
+    }
     // Online mode knows players by their Mojang UUID.
     QNetworkRequest request(QUrl(QStringLiteral("https://api.mojang.com/users/profiles/minecraft/%1").arg(name)));
     request.setHeader(QNetworkRequest::UserAgentHeader, BuildConfig.USER_AGENT);
@@ -346,9 +432,67 @@ void LocalServer::allowPlayer(const QString& typed, std::function<void(const QSt
         const QString id = QJsonDocument::fromJson(reply->readAll()).object().value("id").toString();
         if (id.size() != 32)
             return done(tr("There's no Microsoft account called %1. On a server in online mode only those can join.").arg(name));
-        write(QUuid::fromString(QStringLiteral("%1-%2-%3-%4-%5").arg(id.mid(0, 8), id.mid(8, 4), id.mid(12, 4), id.mid(16, 4), id.mid(20)))
-                  .toString(QUuid::WithoutBraces));
+        write({ dashedUuid(id) });
     });
+}
+
+QString LocalServer::injectorJar()
+{
+    const QString jar = APPLICATION->getJarPath(QStringLiteral("authlib-injector.jar"));
+    return !jar.isEmpty() && QFile::exists(jar) ? jar : QString();
+}
+
+QString LocalServer::skinBackendUrl()
+{
+    QString url = APPLICATION->settings()->get("XylarSkinBackendUrl").toString().trimmed();
+    while (url.endsWith(QLatin1Char('/')))
+        url.chop(1);
+    return url;
+}
+
+bool LocalServer::mixedMode() const
+{
+    return !m_config.onlineMode && !injectorJar().isEmpty() && !skinBackendUrl().isEmpty();
+}
+
+void LocalServer::lookUpMojangIds(const QStringList& names, std::function<void()> then)
+{
+    const QJsonObject ids = readMojangIds(m_folder);
+    const qint64 now = QDateTime::currentSecsSinceEpoch();
+    QStringList missing;
+    for (const QString& name : names) {
+        if (!validPlayerName(name) || missing.contains(name, Qt::CaseInsensitive))
+            continue;
+        const QJsonObject known = ids.value(name.toLower()).toObject();
+        // A name with no Microsoft account is asked again after a week: someone may have taken it.
+        if (known.contains("id") && (!known.value("id").toString().isEmpty() || now - qint64(known.value("at").toDouble()) < 7 * 24 * 3600))
+            continue;
+        missing << name;
+    }
+    if (missing.isEmpty())
+        return then();
+    auto pending = std::make_shared<int>(int(missing.size()));
+    for (const QString& name : missing) {
+        QNetworkRequest request(QUrl(QStringLiteral("https://api.mojang.com/users/profiles/minecraft/%1").arg(name)));
+        request.setHeader(QNetworkRequest::UserAgentHeader, BuildConfig.USER_AGENT);
+        request.setTransferTimeout(8000);
+        QNetworkReply* reply = m_network->get(request);
+        connect(reply, &QNetworkReply::finished, this, [this, reply, name, pending, then, now] {
+            reply->deleteLater();
+            const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            const QString id = QJsonDocument::fromJson(reply->readAll()).object().value("id").toString();
+            // Only a clear answer is remembered; a timeout or a rate limit is asked again next time.
+            if ((status == 200 && id.size() == 32) || status == 204 || status == 404) {
+                QJsonObject ids = readMojangIds(m_folder);
+                ids.insert(name.toLower(), QJsonObject{ { "id", status == 200 ? dashedUuid(id) : QString() }, { "at", double(now) } });
+                QSaveFile out(mojangIdsPath(m_folder));
+                if (out.open(QIODevice::WriteOnly) && out.write(QJsonDocument(ids).toJson()) >= 0)
+                    out.commit();
+            }
+            if (--*pending == 0)
+                then();
+        });
+    }
 }
 
 void LocalServer::disallowPlayer(const QString& name)
@@ -450,8 +594,13 @@ void LocalServer::install()
 
 void LocalServer::writeServerFiles()
 {
-    if (!m_config.onlineMode)
-        useOfflineUuids(m_folder);
+    if (!m_config.onlineMode) {
+        const QJsonObject ids = readMojangIds(m_folder);
+        const bool mixed = mixedMode();
+        fixPlayerLists(m_folder, mixed ? &ids : nullptr);
+        if (mixed)
+            copyOfflinePlayerData(m_folder, ids);
+    }
 
     // eula.txt only says true when the user ticked the box in XylarJava.
     QFile eula(QDir(m_folder).filePath(QStringLiteral("eula.txt")));
@@ -473,7 +622,9 @@ void LocalServer::writeServerFiles()
         { QStringLiteral("max-players"), QString::number(m_config.maxPlayers) },
         { QStringLiteral("gamemode"), m_config.gamemode },
         { QStringLiteral("difficulty"), m_config.difficulty },
-        { QStringLiteral("online-mode"), m_config.onlineMode ? QStringLiteral("true") : QStringLiteral("false") },
+        // Mixed mode is online mode with logins checked by XylarSkins: it lets offline accounts in
+        // too and sends everyone's skin, which an offline server can't do.
+        { QStringLiteral("online-mode"), m_config.onlineMode || mixedMode() ? QStringLiteral("true") : QStringLiteral("false") },
         { QStringLiteral("pvp"), m_config.pvp ? QStringLiteral("true") : QStringLiteral("false") },
         { QStringLiteral("white-list"), m_config.whitelist ? QStringLiteral("true") : QStringLiteral("false") },
         // Taking someone off the list while they play kicks them out too.
@@ -582,6 +733,20 @@ void LocalServer::start()
         emit failed(why);
         return;
     }
+    // Starting now, so a second Start does nothing while Microsoft accounts are looked up.
+    setState(State::Starting);
+    auto go = [this, java] {
+        if (m_state == State::Starting)
+            launch(java);
+    };
+    if (mixedMode())
+        lookUpMojangIds(knownPlayers() + listedNames(m_folder), go);
+    else
+        go();
+}
+
+void LocalServer::launch(const QString& java)
+{
     writeServerFiles();
 
     if (!m_process) {
@@ -604,7 +769,19 @@ void LocalServer::start()
     }
     m_process->setWorkingDirectory(m_folder);
     QStringList args = { QStringLiteral("-Xms%1M").arg(qMin(1024, m_config.memoryMb)), QStringLiteral("-Xmx%1M").arg(m_config.memoryMb) };
-    if (!m_config.onlineMode) {
+    if (mixedMode()) {
+        // Logins go through XylarSkins: Microsoft accounts are passed on to Mojang, offline accounts
+        // the launcher vouched for get in with their offline UUID, and both come with their skin.
+        QString jar = injectorJar();
+#ifdef Q_OS_WIN
+        jar = FS::getPathNameInLocal8bit(jar);
+#endif
+        // The launcher's relay checks Microsoft accounts with Mojang (which turns away the backend).
+        const QString relay = YggdrasilRelay::urlFor(skinBackendUrl());
+        args << QStringLiteral("-javaagent:%1=%2").arg(jar, relay.isEmpty() ? skinBackendUrl() : relay);
+        // Cloudflare turns away Java's default User-Agent.
+        args << QStringLiteral("-Dhttp.agent=XylarJava");
+    } else if (!m_config.onlineMode) {
         // In offline mode "whitelist add", "op" and "ban" would look names up at Mojang and use the
         // Microsoft UUID, which isn't the one the player joins with. With no Mojang to ask, the server
         // takes names from usercache.json (filled in by writeServerFiles) and gives everyone, offline
@@ -618,7 +795,6 @@ void LocalServer::start()
     m_publicIp.clear();
     m_networkMessage.clear();
     emit addressesChanged();
-    setState(State::Starting);
     m_process->start(java, args);
 }
 

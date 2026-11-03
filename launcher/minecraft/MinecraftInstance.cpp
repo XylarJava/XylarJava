@@ -1,4 +1,5 @@
 #include "MinecraftInstance.h"
+#include "minecraft/auth/YggdrasilRelay.h"
 #include <QFile>
 #include "Application.h"
 #include "BuildConfig.h"
@@ -538,9 +539,9 @@ QStringList MinecraftInstance::javaArguments(const AuthSession* session)
 
     // Everyone plays through authlib-injector pointed at XylarSkins, Microsoft accounts included:
     // that's how offline and Microsoft players see each other's XylarJava skins on the same server.
-    // A Microsoft account loses nothing: the backend passes joining a server and chat signing keys
-    // on to Mojang, and a player it doesn't know (or a Microsoft account with no XylarSkins skin)
-    // is looked up at Mojang, so online servers and real skins work as before.
+    // A Microsoft account loses nothing: the launcher's relay (YggdrasilRelay) sends joining a server
+    // and chat signing keys straight to Mojang, and a player XylarSkins doesn't know (or a Microsoft
+    // account with no XylarSkins skin) is looked up at Mojang, so online servers and real skins work as before.
     const bool onlineMicrosoft = session && session->user_type == QStringLiteral("msa") && session->launchMode == LaunchMode::Normal;
     if (!onlineMicrosoft) {
         args << "-Dminecraft.api.auth.host=https://nope.invalid";
@@ -554,7 +555,10 @@ QStringList MinecraftInstance::javaArguments(const AuthSession* session)
 #ifdef Q_OS_WIN
         injectorJar = FS::getPathNameInLocal8bit(injectorJar);
 #endif
-        args << QString("-javaagent:%1=%2").arg(injectorJar, skinBackendUrl);
+        // Through the launcher's relay: Mojang turns away requests from the backend's servers,
+        // so a Microsoft account's server joins and chat keys must go to Mojang from here.
+        const QString relay = YggdrasilRelay::urlFor(skinBackendUrl);
+        args << QString("-javaagent:%1=%2").arg(injectorJar, relay.isEmpty() ? skinBackendUrl : relay);
         // Keep the game window title as it is (authlib-injector would add the server name).
         args << "-Dauthlibinjector.noShowServerName";
         // Cloudflare blocks Java 8's default User-Agent ("Java/1.8.0_xxx") with error 1010, so

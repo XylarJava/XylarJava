@@ -26,7 +26,8 @@ struct LocalServerConfig {
     QString gamemode = QStringLiteral("survival");
     QString difficulty = QStringLiteral("normal");
     QString motd;
-    // Offline mode lets in both Microsoft and offline accounts; the whitelist keeps strangers out.
+    // Off: both Microsoft and offline accounts can join (with their XylarSkins skins when
+    // authlib-injector is there); the whitelist keeps strangers out. On: Microsoft accounts only.
     bool onlineMode = false;
     bool whitelist = true;  // only the players in whitelist.json can join
     bool pvp = true;
@@ -113,6 +114,14 @@ class LocalServer : public QObject {
     void setState(State state);
     void appendConsole(const QString& line);
     void writeServerFiles();
+    /// Starts the Java process (after start() checked everything and found Java).
+    void launch(const QString& java);
+    /// Online mode through authlib-injector and XylarSkins, for a server not set to online mode.
+    bool mixedMode() const;
+    static QString injectorJar();
+    static QString skinBackendUrl();
+    /// Asks Mojang which of @p names are Microsoft accounts (kept in xylarjava-mojang-ids.json), then calls @p then.
+    void lookUpMojangIds(const QStringList& names, std::function<void()> then);
     void onOutput();
     void onFinished(int exitCode, QProcess::ExitStatus status);
     void openPort();
