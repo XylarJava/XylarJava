@@ -210,6 +210,8 @@ class MainWindow : public QMainWindow {
     void updateDiscordPresence();
     /// Watch every instance so Discord knows when one is running.
     void watchInstancesForPresence();
+    /// Tell XylarJava Social what the player is doing (launcher, playing, away).
+    void updateSocialActivity();
     /// Window state with the instance toolbar's user-chosen visibility, regardless of the current page.
 
     void addInstance(const QString& url = QString(), const QMap<QString, QString>& extra_info = {});
@@ -242,6 +244,11 @@ class MainWindow : public QMainWindow {
     DiscordPresence* m_discord = nullptr;
     XylarUpdater* m_updater = nullptr;
     MojangSkinFetcher* m_skinFetcher = nullptr;
+    class SocialClient* m_social = nullptr;
+    class SocialPanel* m_socialPanel = nullptr;
+    class SocialButton* m_socialButton = nullptr;
+    QTimer* m_awayTimer = nullptr;
+    bool m_away = false;
     QString m_homeSkinKey;  // Mojang lookup the Home screen is waiting for
     QWidget* m_settingsPage = nullptr;
     class LocalServerList* m_localServers = nullptr;

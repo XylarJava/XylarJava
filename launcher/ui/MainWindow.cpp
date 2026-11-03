@@ -29,6 +29,7 @@
 #include <QProgressDialog>
 #include <QShortcut>
 #include <QShowEvent>
+#include <QSignalBlocker>
 #include <QStatusBar>
 #include <QToolBar>
 #include <QToolButton>
@@ -84,6 +85,8 @@
 #include "settings/SettingsObject.h"
 #include "ui/widgets/HomePage.h"
 #include "ui/widgets/SideBar.h"
+#include "ui/widgets/SocialPanel.h"
+#include "social/SocialClient.h"
 #include "ui/widgets/SkinPreview.h"
 #include "ui/widgets/LabeledToolButton.h"
 
@@ -391,6 +394,18 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         m_sideBar->addPage(QIcon::fromTheme(QStringLiteral("minecraft")), QString());
         m_sideBar->addPage(QIcon::fromTheme(QStringLiteral("server")), QString());
         m_sideBar->addPage(QIcon::fromTheme(QStringLiteral("settings")), QString());
+        // XylarJava Social: friends and who's online, in a panel that slides in on the right.
+        m_social = new SocialClient(APPLICATION->network(), APPLICATION->dataRoot(), this);
+        m_social->setBackendUrl(APPLICATION->settings()->get("XylarSocialUrl").toString());
+        m_socialPanel = new SocialPanel(m_social, APPLICATION->network(), ui->centralWidget);
+        // Its button sits in the top-right corner of the pages, out of the way of the navigation.
+        m_socialButton = new SocialButton(m_pages);
+        connect(m_socialButton, &QToolButton::toggled, this, [this](bool open) {
+            m_socialPanel->setOpen(open);
+            APPLICATION->settings()->set("SocialPanelOpen", open);
+        });
+        connect(m_socialPanel, &SocialPanel::closeRequested, m_socialButton, [this] { m_socialButton->setChecked(false); });
+        connect(m_social, &SocialClient::changed, m_socialButton, [this] { m_socialButton->setBadge(m_social->incoming().size()); });
         m_sideBar->addActionButton(ui->actionFoldersButton);
         if (qgetenv("XDG_CURRENT_DESKTOP") == "gamescope")
             m_sideBar->addActionButton(ui->actionCloseWindow);
@@ -399,6 +414,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
 
         ui->horizontalLayout->addWidget(m_sideBar);
         ui->horizontalLayout->addWidget(m_pages, 1);
+        ui->horizontalLayout->addWidget(m_socialPanel);
+        if (APPLICATION->settings()->get("SocialPanelOpen").toBool()) {
+            const QSignalBlocker blocker(m_socialButton);
+            m_socialButton->setChecked(true);
+            m_socialPanel->setOpen(true, false);
+        }
 
         m_homeInstanceMenu = new QMenu(this);
         m_homeInstanceMenu->setStyleSheet(QStringLiteral("QMenu { menu-scrollable: 1; }"));
@@ -509,6 +530,27 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(APPLICATION->instances(), &InstanceList::rowsInserted, this, [this] { watchInstancesForPresence(); });
     connect(APPLICATION->instances(), &InstanceList::modelReset, this, [this] { watchInstancesForPresence(); });
     updateDiscordPresence();
+
+    // Away after ten minutes outside the launcher (unless a game is running).
+    m_awayTimer = new QTimer(this);
+    m_awayTimer->setSingleShot(true);
+    m_awayTimer->setInterval(10 * 60 * 1000);
+    connect(m_awayTimer, &QTimer::timeout, this, [this] {
+        m_away = true;
+        updateSocialActivity();
+    });
+    connect(qApp, &QGuiApplication::applicationStateChanged, this, [this](Qt::ApplicationState state) {
+        if (state == Qt::ApplicationActive) {
+            m_awayTimer->stop();
+            if (m_away) {
+                m_away = false;
+                updateSocialActivity();
+            }
+        } else if (!m_awayTimer->isActive() && !m_away) {
+            m_awayTimer->start();
+        }
+    });
+    updateSocialActivity();
 
     // GitHub release updater
     m_updater = new XylarUpdater(this, this);
@@ -1025,6 +1067,7 @@ void MainWindow::onInstanceRunningChanged(bool running)
     else if (instance == m_playingInstance)
         m_playingInstance = nullptr;
     updateDiscordPresence();
+    updateSocialActivity();
     updateHomeRecent();
     // The selected instance's skin source (default skin jar) may only exist after a first launch.
     if (!running)
@@ -1044,6 +1087,20 @@ void MainWindow::updateDiscordPresence()
     } else {
         m_playingInstance = nullptr;
         m_discord->showIdle();
+    }
+}
+
+void MainWindow::updateSocialActivity()
+{
+    if (!m_social)
+        return;
+    if (m_playingInstance && m_playingInstance->isRunning()) {
+        const QString what = describeInstance(m_playingInstance);
+        m_social->setActivity(QStringLiteral("playing"), what.isEmpty() ? m_playingInstance->name() : what);
+    } else if (m_away) {
+        m_social->setActivity(QStringLiteral("away"));
+    } else {
+        m_social->setActivity(QStringLiteral("launcher"));
     }
 }
 
@@ -1356,6 +1413,10 @@ void MainWindow::defaultAccountChanged()
     updateHomePlayer();
 
     MinecraftAccountPtr account = APPLICATION->accounts()->defaultAccount();
+
+    // Social follows the active account, by its Minecraft name (offline or Microsoft).
+    if (m_social)
+        m_social->setPlayer(account ? (account->profileName().isEmpty() ? account->displayName() : account->profileName()) : QString());
 
     // FIXME: this needs adjustment for MSA
     if (account && account->profileName() != "") {
@@ -2151,6 +2212,8 @@ void MainWindow::closeEvent(QCloseEvent* event)
         event->ignore();
         return;
     }
+    if (m_social)
+        m_social->goOfflineNow();
     // Save the window state and geometry.
     APPLICATION->settings()->set("MainWindowState", QString::fromUtf8(saveState().toBase64()));
     APPLICATION->settings()->set("MainWindowGeometry", QString::fromUtf8(saveGeometry().toBase64()));

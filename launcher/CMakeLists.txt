@@ -416,6 +416,8 @@ set(MINECRAFT_SOURCES
     minecraft/skins/DefaultSkin.h
     minecraft/skins/MojangSkinFetcher.cpp
     minecraft/skins/MojangSkinFetcher.h
+    social/SocialClient.cpp
+    social/SocialClient.h
     discord/DiscordPresence.cpp
     discord/DiscordPresence.h
     minecraft/skins/XylarSkinClient.h
@@ -1175,6 +1177,8 @@ SET(LAUNCHER_SOURCES
     ui/widgets/HomePage.h
     ui/widgets/SideBar.cpp
     ui/widgets/SideBar.h
+    ui/widgets/SocialPanel.cpp
+    ui/widgets/SocialPanel.h
     ui/widgets/SkinPreview.cpp
     ui/widgets/SkinPreview.h
     ui/widgets/LabeledToolButton.cpp
