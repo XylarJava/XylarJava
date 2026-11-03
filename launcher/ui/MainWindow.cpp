@@ -462,6 +462,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
             }
         });
         connect(m_homePage, &HomePage::setupClientRequested, this, &MainWindow::setUpXylarClient);
+        connect(m_homePage, &HomePage::repairInstanceRequested, this, [](const QString& id) {
+            APPLICATION->repairInstance(APPLICATION->instances()->getInstanceById(id));
+        });
         connect(m_homePage, &HomePage::editInstanceRequested, this, [this](const QString& id) {
             if (instanceById(id)) {
                 setSelectedInstanceById(id);
@@ -1517,6 +1520,12 @@ void MainWindow::showInstanceContextMenu(const QPoint& pos)
 
         // actionChangeInstIcon intentionally omitted: instance icon editing is disabled.
         actions.prepend(ui->actionRenameInstance);
+
+        // Repair: reads the last log and fixes what it finds.
+        QAction* actionRepair = new QAction(tr("Repair..."), this);
+        actionRepair->setEnabled(!m_selectedInstance->isRunning());
+        connect(actionRepair, &QAction::triggered, this, [this] { APPLICATION->repairInstance(m_selectedInstance); });
+        actions.append(actionRepair);
 
         // add header
         actions.prepend(actionSep);

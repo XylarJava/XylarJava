@@ -390,6 +390,11 @@ bool LaunchController::failedWhileStarting() const
     return m_reachedLaunch && getState() == State::Failed && m_startedAt.isValid() && m_startedAt.elapsed() < 120000;
 }
 
+bool LaunchController::failedAfterLaunch() const
+{
+    return m_reachedLaunch && getState() == State::Failed;
+}
+
 void LaunchController::onSucceeded()
 {
     emitSucceeded();

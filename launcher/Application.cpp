@@ -28,6 +28,8 @@
 #include "ui/setupwizard/LoginWizardPage.h"
 #include "ui/setupwizard/PasteWizardPage.h"
 #include <QMessageBox>
+#include <QPointer>
+#include <QProgressDialog>
 #include <QScreen>
 #include <QPushButton>
 #include "InstanceRepair.h"
@@ -1618,6 +1620,10 @@ void Application::controllerFinished()
 
     const bool wasSuccessful = controller->wasSuccessful();
     const bool offerRepair = controller->failedWhileStarting();
+    const bool crashedLater = !offerRepair && controller->failedAfterLaunch();
+    if (!wasSuccessful)
+        qDebug() << "[Repair] Launch of" << id << "ended after" << controller->elapsedMs() << "ms; failed while starting:" << offerRepair
+                 << "crashed later:" << crashedLater;
     BaseInstance* failedInstance = controller->instance();
     const LaunchMode failedMode = controller->launchMode();
     const QString failReason = controller->failReason();
@@ -1633,17 +1639,10 @@ void Application::controllerFinished()
 
     if (wasSuccessful) {
         m_repairedInstances.remove(id);
-    } else if (offerRepair && failedInstance && m_mainWindow) {
-        // Ask once; if it still fails after a repair, just say so.
-        if (!m_repairedInstances.contains(id)) {
-            QMetaObject::invokeMethod(this, [this, id, failedMode, failReason] { offerAutoRepair(id, failedMode, failReason); },
-                                      Qt::QueuedConnection);
-        } else {
-            m_repairedInstances.remove(id);
-            QMessageBox::warning(m_mainWindow, tr("Still not starting"),
-                                 tr("%1 still couldn't start after the repair.\n\n%2\n\nOpen the instance's log for the details.")
-                                     .arg(failedInstance->name(), failReason));
-        }
+    } else if ((offerRepair || crashedLater) && failedInstance && m_mainWindow) {
+        QMetaObject::invokeMethod(
+            this, [this, id, failedMode, failReason, crashedLater] { offerAutoRepair(id, failedMode, failReason, crashedLater); },
+            Qt::QueuedConnection);
     }
 
     // quit when there are no more windows.
@@ -1653,44 +1652,135 @@ void Application::controllerFinished()
     }
 }
 
-void Application::offerAutoRepair(const QString& instanceId, LaunchMode mode, const QString& reason)
+void Application::offerAutoRepair(const QString& instanceId, LaunchMode mode, const QString& reason, bool crashedLater)
 {
     auto instance = m_instances->getInstanceById(instanceId);
-    if (!instance || instance->isRunning())
+    if (!instance || instance->isRunning() || !m_mainWindow)
         return;
     QString gameLog;
     if (auto task = instance->getLaunchTask()) {
         if (auto log = task->getLogModel())
             gameLog = log->toPlainText();
     }
-    const bool graphics = InstanceRepair::looksLikeGraphicsFailure(gameLog);
+    const InstanceRepair::Diagnosis diagnosis = InstanceRepair::diagnose(instance, gameLog);
+    // A crash after a while of playing gets help only when the log says why.
+    if (crashedLater && !diagnosis.specific())
+        return;
+
+    // The same problem again right after a repair: the repair can't fix it, so say so instead of looping.
+    if (m_repairedInstances.value(instanceId) == diagnosis.signature()) {
+        m_repairedInstances.remove(instanceId);
+        QString text = tr("%1 still couldn't start after the repair.").arg(instance->name());
+        if (diagnosis.specific())
+            text += QStringLiteral("\n\n") + diagnosis.cause;
+        if (!diagnosis.advice.isEmpty())
+            text += QStringLiteral("\n\n") + diagnosis.advice.join(QLatin1Char('\n'));
+        text += QStringLiteral("\n\n") + tr("Open the instance's log for the details.");
+        QMessageBox box(QMessageBox::Warning, tr("Still not starting"), text, QMessageBox::Ok, m_mainWindow);
+        if (!reason.isEmpty())
+            box.setDetailedText(reason);
+        box.exec();
+        return;
+    }
+    // The game got as far as its menu only if it started its sound engine: before that it never started.
+    const bool reachedMenu = gameLog.contains(QLatin1String("Sound engine started"));
+    showRepairDialog(instance, diagnosis, mode, reason, crashedLater && reachedMenu ? RepairContext::Crashed : RepairContext::FailedToStart);
+}
+
+void Application::repairInstance(BaseInstance* instance)
+{
+    if (!instance || !m_mainWindow)
+        return;
+    if (instance->isRunning()) {
+        QMessageBox::information(m_mainWindow, tr("Repair %1").arg(instance->name()), tr("Close the game first."));
+        return;
+    }
+    showRepairDialog(instance, InstanceRepair::diagnose(instance, QString()), LaunchMode::Normal, QString(), RepairContext::Asked);
+}
+
+void Application::showRepairDialog(BaseInstance* instance, const InstanceRepair::Diagnosis& diagnosis, LaunchMode mode,
+                                   const QString& reason, RepairContext context)
+{
+    const QString name = instance->name().toHtmlEscaped();
+    QString heading;
+    switch (context) {
+        case RepairContext::FailedToStart: heading = tr("%1 couldn't start.").arg(name); break;
+        case RepairContext::Crashed: heading = tr("%1 crashed.").arg(name); break;
+        case RepairContext::Asked: heading = tr("Repair %1").arg(name); break;
+    }
+    QString text = QStringLiteral("<b>%1</b>").arg(heading);
+    if (diagnosis.specific())
+        text += QStringLiteral("<p>%1</p>").arg(diagnosis.cause.toHtmlEscaped());
+    else if (context == RepairContext::Asked)
+        text += QStringLiteral("<p>%1</p>").arg(tr("The last game log doesn't show a known problem, so the usual fixes are tried.").toHtmlEscaped());
+    else
+        text += QStringLiteral("<p>%1</p>").arg(tr("The log doesn't say exactly why, so the usual fixes are tried.").toHtmlEscaped());
+
+    QString info = tr("What the repair will do:") + QStringLiteral("<ul>");
+    for (const QString& step : diagnosis.plan)
+        info += QStringLiteral("<li>%1</li>").arg(step.toHtmlEscaped());
+    info += QStringLiteral("</ul>");
+    for (const QString& line : diagnosis.advice)
+        info += QStringLiteral("<p>%1</p>").arg(line.toHtmlEscaped());
+    info += QStringLiteral("<p>%1</p>")
+                .arg(tr("Your worlds stay as they are. Turned-off mods are renamed to .disabled: you can turn them back on in Edit → Mods.")
+                         .toHtmlEscaped());
 
     QMessageBox box(m_mainWindow);
     box.setIcon(QMessageBox::Question);
-    box.setWindowTitle(tr("Couldn't start %1").arg(instance->name()));
-    box.setText(tr("<b>%1 couldn't start.</b>").arg(instance->name().toHtmlEscaped()));
-    if (graphics) {
-        box.setInformativeText(tr("The game couldn't open its window: OpenGL didn't start. %1 can undo the graphics tweaks "
-                                  "that cause this (like Zink or a forced GPU), download the game files again and check Java. "
-                                  "Your worlds, mods and settings stay as they are.\n\nRepair and start again?")
-                                   .arg(BuildConfig.LAUNCHER_DISPLAYNAME));
-    } else {
-        box.setInformativeText(tr("%1 can try to fix it: download the game files and libraries again, refresh the version info "
-                                  "and check Java. Your worlds, mods and settings stay as they are.\n\nRepair and start again?")
-                                   .arg(BuildConfig.LAUNCHER_DISPLAYNAME));
+    switch (context) {
+        case RepairContext::FailedToStart: box.setWindowTitle(tr("Couldn't start %1").arg(instance->name())); break;
+        case RepairContext::Crashed: box.setWindowTitle(tr("%1 crashed").arg(instance->name())); break;
+        case RepairContext::Asked: box.setWindowTitle(tr("Repair %1").arg(instance->name())); break;
     }
+    box.setTextFormat(Qt::RichText);
+    box.setText(text);
+    box.setInformativeText(info);
     if (!reason.isEmpty())
         box.setDetailedText(reason);
-    auto repairButton = box.addButton(tr("Repair and start"), QMessageBox::AcceptRole);
+    auto startButton = box.addButton(tr("Repair and start"), QMessageBox::AcceptRole);
+    auto onlyButton = box.addButton(tr("Repair only"), QMessageBox::ActionRole);
     box.addButton(tr("Not now"), QMessageBox::RejectRole);
-    box.setDefaultButton(repairButton);
+    box.setDefaultButton(startButton);
     box.exec();
-    if (box.clickedButton() != repairButton)
+    if (box.clickedButton() != startButton && box.clickedButton() != onlyButton)
         return;
+    const bool start = box.clickedButton() == startButton;
 
-    InstanceRepair::repair(instance, gameLog);
-    m_repairedInstances.insert(instanceId);
-    launch(instance, mode);
+    const QString id = instance->id();
+    if (context != RepairContext::Asked)
+        m_repairedInstances.insert(id, diagnosis.signature());
+
+    // Downloading mods takes a moment: a small progress window, closed when it's done.
+    QPointer<QProgressDialog> progress;
+    if (!diagnosis.modsToInstall.isEmpty() || !diagnosis.modsToUpdate.isEmpty()) {
+        progress = new QProgressDialog(tr("Repairing %1: getting mods from Modrinth...").arg(instance->name()), QString(), 0, 0, m_mainWindow);
+        progress->setWindowTitle(tr("Repairing"));
+        progress->setWindowModality(Qt::WindowModal);
+        progress->setMinimumDuration(0);
+        progress->setAttribute(Qt::WA_DeleteOnClose);
+        progress->show();
+    }
+    InstanceRepair::repair(instance, diagnosis, [this, id, mode, start, progress](const QStringList& done, const QStringList& failed) {
+        if (progress)
+            progress->close();
+        auto repaired = m_instances->getInstanceById(id);
+        if (!repaired || !m_mainWindow)
+            return;
+        if (!failed.isEmpty() || !start) {
+            QString text = done.isEmpty() ? tr("Nothing needed changing.") : QStringLiteral("• ") + done.join(QStringLiteral("\n• "));
+            if (!failed.isEmpty())
+                text += QStringLiteral("\n\n") + tr("Not done:") + QStringLiteral("\n• ") + failed.join(QStringLiteral("\n• "));
+            QMessageBox box(failed.isEmpty() ? QMessageBox::Information : QMessageBox::Warning, tr("Repair of %1").arg(repaired->name()),
+                            text, QMessageBox::NoButton, m_mainWindow);
+            QAbstractButton* startButton = start ? box.addButton(tr("Start"), QMessageBox::AcceptRole) : nullptr;
+            box.addButton(start ? tr("Not now") : tr("OK"), start ? QMessageBox::RejectRole : QMessageBox::AcceptRole);
+            box.exec();
+            if (!startButton || box.clickedButton() != startButton)
+                return;
+        }
+        launch(repaired, mode);
+    });
 }
 
 BasePageProvider* Application::globalSettingsProvider()

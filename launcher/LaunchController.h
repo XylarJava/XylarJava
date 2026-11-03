@@ -40,6 +40,10 @@ class LaunchController : public Task {
     /// True when the launch itself failed (downloads, Java, or the game quitting while still
     /// starting up), as opposed to the user cancelling or playing for a while before a crash.
     bool failedWhileStarting() const;
+    /// The game started and then stopped with an error (a crash), at any time.
+    bool failedAfterLaunch() const;
+    /// Milliseconds since the launch began.
+    qint64 elapsedMs() const { return m_startedAt.isValid() ? m_startedAt.elapsed() : -1; }
 
     bool abort() override;
 

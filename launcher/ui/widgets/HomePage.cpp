@@ -877,6 +877,17 @@ void HomePage::rebuildRecent()
         edit->setToolTip(tr("Edit instance"));
         connect(edit, &QPushButton::clicked, this, [this, id] { emit editInstanceRequested(id); });
         edit->setVisible(!needsSetup);
+        // Right click: the same actions plus Repair, for an instance that won't start or keeps crashing.
+        if (!needsSetup) {
+            row->setContextMenuPolicy(Qt::CustomContextMenu);
+            connect(row, &QWidget::customContextMenuRequested, this, [this, row, id, running = entry.running](const QPoint& pos) {
+                QMenu menu(row);
+                menu.addAction(tr("Edit instance"), this, [this, id] { emit editInstanceRequested(id); });
+                auto repair = menu.addAction(tr("Repair..."), this, [this, id] { emit repairInstanceRequested(id); });
+                repair->setEnabled(!running);
+                menu.exec(row->mapToGlobal(pos));
+            });
+        }
 
         auto layout = new QHBoxLayout(row);
         layout->setContentsMargins(14, 12, 14, 12);

@@ -87,6 +87,7 @@ class HomePage : public QWidget {
     void playInstanceRequested(const QString& id);
     void stopInstanceRequested(const QString& id);
     void editInstanceRequested(const QString& id);
+    void repairInstanceRequested(const QString& id);
     /// The pinned XylarJava Client row was clicked before the client instance exists.
     void setupClientRequested();
 

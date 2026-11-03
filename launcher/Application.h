@@ -3,6 +3,7 @@
 #include <memory>
 
 #include <QApplication>
+#include <QHash>
 #include <QSet>
 #include <QDateTime>
 #include <QDebug>
@@ -12,6 +13,10 @@
 #include <QUrl>
 
 #include "QObjectPtr.h"
+
+namespace InstanceRepair {
+struct Diagnosis;
+}
 
 #include "minecraft/auth/MinecraftAccount.h"
 
@@ -185,6 +190,8 @@ class Application : public QApplication {
 #endif
 
    public slots:
+    /// Looks at the instance's last log and offers to fix what it finds (from the instance's menu).
+    void repairInstance(BaseInstance* instance);
     bool launch(BaseInstance* instance,
                 LaunchMode mode = LaunchMode::Normal,
                 std::shared_ptr<MinecraftTarget> targetToJoin = nullptr,
@@ -197,10 +204,15 @@ class Application : public QApplication {
     void on_windowClose();
     void messageReceived(const QByteArray& message);
     void controllerFinished();
-    void offerAutoRepair(const QString& instanceId, LaunchMode mode, const QString& reason);
+    /// After a failed start or a crash: says what went wrong and offers to fix it. @p crashedLater: the game
+    /// was running a while, so it's only offered when the log shows a cause the repair knows.
+    void offerAutoRepair(const QString& instanceId, LaunchMode mode, const QString& reason, bool crashedLater = false);
     void setupWizardFinished(int status);
 
    private:
+    enum class RepairContext { FailedToStart, Crashed, Asked };
+    void showRepairDialog(BaseInstance* instance, const InstanceRepair::Diagnosis& diagnosis, LaunchMode mode, const QString& reason,
+                          RepairContext context);
     bool handleDataMigration(const QString& currentData, const QString& oldData, const QString& name, const QString& configFile) const;
     bool createSetupWizard();
     void performMainStartupAction();
@@ -258,8 +270,8 @@ class Application : public QApplication {
     };
     std::map<QString, InstanceXtras> m_instanceExtras;
     mutable QMutex m_instanceExtrasMutex;
-    /// Instances repaired after a failed start, so a second failure isn't offered another repair.
-    QSet<QString> m_repairedInstances;
+    /// Instances repaired after a failed start, with what was found, so the same problem isn't offered twice.
+    QHash<QString, QString> m_repairedInstances;
 
     // main state variables
     size_t m_openWindows = 0;
