@@ -873,7 +873,7 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
 
         // XylarJava Skin Backend
         m_settings->registerSetting("XylarSkinBackendUrl", "https://xylarjava-skin-backend.xylarinc.workers.dev");
-        m_settings->registerSetting("XylarSiteUrl", "https://corp.xylarinc.workers.dev");
+        m_settings->registerSetting("XylarSiteUrl", "https://xylarinc.xylarinc.workers.dev");
         m_settings->registerSetting("XylarSocialUrl", "https://xylarjava-social.xylarinc.workers.dev");
         m_settings->registerSetting("SocialPanelOpen", false);
         m_settings->registerSetting("XylarSkinToken", "8bfa4b2fe4fde8fb6caa3906280c598bc3fd9bc8c9d0e5def411ae3b5e61166f");
