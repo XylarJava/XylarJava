@@ -287,7 +287,8 @@ QString SocialClient::storedKey(const QString& uuid) const
     QFile file(keysFile());
     if (!file.open(QIODevice::ReadOnly))
         return {};
-    const QString stored = QJsonDocument::fromJson(file.readAll()).object().value(uuid).toString();
+    // Keys are kept per backend address, so a test server's keys never reach the real one.
+    const QString stored = QJsonDocument::fromJson(file.readAll()).object().value(m_backendUrl).toObject().value(uuid).toString();
     return stored.isEmpty() ? QString() : AccountTokenCipher::decrypt(stored);
 }
 
@@ -300,7 +301,9 @@ void SocialClient::storeKey(const QString& uuid, const QString& key)
         if (file.open(QIODevice::ReadOnly))
             keys = QJsonDocument::fromJson(file.readAll()).object();
     }
-    keys.insert(uuid, AccountTokenCipher::encrypt(key));
+    QJsonObject forBackend = keys.value(m_backendUrl).toObject();
+    forBackend.insert(uuid, AccountTokenCipher::encrypt(key));
+    keys.insert(m_backendUrl, forBackend);
     QSaveFile out(keysFile());
     if (!out.open(QIODevice::WriteOnly))
         return;
