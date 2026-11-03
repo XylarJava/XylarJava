@@ -1,6 +1,7 @@
 #include "LocalServer.h"
 
 #include <QCryptographicHash>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -39,6 +40,12 @@
 #include "UpnpPortMapper.h"
 
 namespace {
+QStringList& knownPlayers()
+{
+    static QStringList names;
+    return names;
+}
+
 const char* CONFIG_FILE = "xylarjava-server.json";
 const char* JAR_FILE = "server.jar";
 const int CONSOLE_LIMIT = 3000;
@@ -178,6 +185,20 @@ bool LocalServer::validPlayerName(const QString& name)
     return valid.match(name).hasMatch();
 }
 
+void LocalServer::setKnownPlayers(const QStringList& names)
+{
+    knownPlayers() = names;
+}
+
+QString LocalServer::knownSpelling(const QString& name)
+{
+    for (const QString& known : knownPlayers()) {
+        if (known.compare(name, Qt::CaseInsensitive) == 0)
+            return known;
+    }
+    return name;
+}
+
 QString LocalServer::offlineUuid(const QString& name)
 {
     // Java's UUID.nameUUIDFromBytes: MD5 of the bytes, then version 3 and the IETF variant.
@@ -202,6 +223,84 @@ bool writeWhitelist(const QString& folder, const QJsonArray& entries)
     QSaveFile file(QDir(folder).filePath(QStringLiteral("whitelist.json")));
     return file.open(QIODevice::WriteOnly) && file.write(QJsonDocument(entries).toJson()) >= 0 && file.commit();
 }
+
+/**
+ * In offline mode a player is known by the UUID made from their name, Microsoft accounts included.
+ * The server's own "whitelist add" and "op" look names up at Mojang first, so a name that also
+ * has a Microsoft account got its Mojang UUID and was then turned away. Put every list back on
+ * the offline UUIDs, and forget the Mojang ones the server cached.
+ */
+void useOfflineUuids(const QString& folder)
+{
+    for (const char* list : { "whitelist.json", "ops.json", "banned-players.json" }) {
+        const QString path = QDir(folder).filePath(QString::fromLatin1(list));
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly))
+            continue;
+        QJsonArray entries = QJsonDocument::fromJson(file.readAll()).array();
+        file.close();
+        bool changed = false;
+        for (int i = 0; i < entries.size(); i++) {
+            QJsonObject entry = entries.at(i).toObject();
+            // Earlier commands may have saved the name in lowercase: spell it the way the player does.
+            const QString name = LocalServer::knownSpelling(entry.value("name").toString());
+            if (name.isEmpty())
+                continue;
+            const QString uuid = LocalServer::offlineUuid(name);
+            if (entry.value("uuid").toString() != uuid || entry.value("name").toString() != name) {
+                entry.insert("name", name);
+                entry.insert("uuid", uuid);
+                entries.replace(i, entry);
+                changed = true;
+            }
+        }
+        if (!changed)
+            continue;
+        QSaveFile out(path);
+        if (out.open(QIODevice::WriteOnly) && out.write(QJsonDocument(entries).toJson()) >= 0)
+            out.commit();
+    }
+
+    // The server answers "op", "whitelist add" and "ban" from usercache.json before anything else,
+    // and without it an offline server writes the name in lowercase, which is another UUID.
+    // So it starts out knowing everyone on its lists and everyone the launcher knows, spelled right.
+    QStringList names = knownPlayers();
+    for (const char* list : { "whitelist.json", "ops.json", "banned-players.json" }) {
+        QFile file(QDir(folder).filePath(QString::fromLatin1(list)));
+        if (file.open(QIODevice::ReadOnly)) {
+            for (const QJsonValue& value : QJsonDocument::fromJson(file.readAll()).array())
+                names << value.toObject().value("name").toString();
+        }
+    }
+    const QString cachePath = QDir(folder).filePath(QStringLiteral("usercache.json"));
+    QJsonArray cached;
+    {
+        QFile cache(cachePath);
+        if (cache.open(QIODevice::ReadOnly))
+            cached = QJsonDocument::fromJson(cache.readAll()).array();
+    }
+    for (const QJsonValue& value : cached) {
+        const QJsonObject entry = value.toObject();
+        if (entry.value("uuid").toString() == LocalServer::offlineUuid(entry.value("name").toString()))
+            names << entry.value("name").toString();
+    }
+    // Same format the server writes: "2026-12-03 02:48:57 +0100".
+    const QDateTime later = QDateTime::currentDateTime().addMonths(1);
+    const int offset = later.offsetFromUtc() / 60;
+    const QString expires = later.toString(QStringLiteral("yyyy-MM-dd HH:mm:ss ")) +
+                            QStringLiteral("%1%2%3").arg(offset < 0 ? '-' : '+').arg(qAbs(offset) / 60, 2, 10, QLatin1Char('0')).arg(qAbs(offset) % 60, 2, 10, QLatin1Char('0'));
+    QJsonArray seeded;
+    QStringList seen;
+    for (const QString& name : names) {
+        if (!LocalServer::validPlayerName(name) || seen.contains(name, Qt::CaseInsensitive))
+            continue;
+        seen << name;
+        seeded.append(QJsonObject{ { "uuid", LocalServer::offlineUuid(name) }, { "name", name }, { "expiresOn", expires } });
+    }
+    QSaveFile out(cachePath);
+    if (out.open(QIODevice::WriteOnly) && out.write(QJsonDocument(seeded).toJson()) >= 0)
+        out.commit();
+}
 }  // namespace
 
 QStringList LocalServer::allowedPlayers() const
@@ -213,13 +312,15 @@ QStringList LocalServer::allowedPlayers() const
     return names;
 }
 
-void LocalServer::allowPlayer(const QString& name, std::function<void(const QString& error)> done)
+void LocalServer::allowPlayer(const QString& typed, std::function<void(const QString& error)> done)
 {
+    // "mrmariixx" and "Mrmariixx" are two players offline: use the spelling the launcher knows.
+    const QString name = m_config.onlineMode ? typed : knownSpelling(typed);
     if (!validPlayerName(name))
         return done(tr("\"%1\" isn't a Minecraft name: 1 to 16 letters, digits or _.").arg(name));
     if (allowedPlayers().contains(name, Qt::CaseInsensitive))
         return done(QString());
-    if (m_state == State::Running) {
+    if (m_state == State::Running && m_config.onlineMode) {
         // The running server keeps its own list: let it add the player (it writes whitelist.json).
         sendCommand(QStringLiteral("whitelist add %1").arg(name));
         QTimer::singleShot(800, this, [done] { done(QString()); });
@@ -228,7 +329,11 @@ void LocalServer::allowPlayer(const QString& name, std::function<void(const QStr
     auto write = [this, name, done](const QString& uuid) {
         QJsonArray entries = readWhitelist(m_folder);
         entries.append(QJsonObject{ { "uuid", uuid }, { "name", name } });
-        done(writeWhitelist(m_folder, entries) ? QString() : tr("Couldn't write the whitelist in %1.").arg(m_folder));
+        if (!writeWhitelist(m_folder, entries))
+            return done(tr("Couldn't write the whitelist in %1.").arg(m_folder));
+        if (m_state == State::Running)
+            sendCommand(QStringLiteral("whitelist reload"));
+        done(QString());
     };
     if (!m_config.onlineMode)
         return write(offlineUuid(name));
@@ -248,7 +353,7 @@ void LocalServer::allowPlayer(const QString& name, std::function<void(const QStr
 
 void LocalServer::disallowPlayer(const QString& name)
 {
-    if (m_state == State::Running) {
+    if (m_state == State::Running && m_config.onlineMode) {
         sendCommand(QStringLiteral("whitelist remove %1").arg(name));
         return;
     }
@@ -258,6 +363,9 @@ void LocalServer::disallowPlayer(const QString& name)
             kept.append(entry);
     }
     writeWhitelist(m_folder, kept);
+    // Reloading also turns away the player if they're on right now (enforce-whitelist).
+    if (m_state == State::Running)
+        sendCommand(QStringLiteral("whitelist reload"));
 }
 
 QString LocalServer::addonsPath() const
@@ -342,6 +450,9 @@ void LocalServer::install()
 
 void LocalServer::writeServerFiles()
 {
+    if (!m_config.onlineMode)
+        useOfflineUuids(m_folder);
+
     // eula.txt only says true when the user ticked the box in XylarJava.
     QFile eula(QDir(m_folder).filePath(QStringLiteral("eula.txt")));
     if (eula.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
@@ -368,6 +479,8 @@ void LocalServer::writeServerFiles()
         // Taking someone off the list while they play kicks them out too.
         { QStringLiteral("enforce-whitelist"), m_config.whitelist ? QStringLiteral("true") : QStringLiteral("false") },
         { QStringLiteral("motd"), motd },
+        // Offline accounts have no chat signing key: with this on they couldn't chat next to Microsoft ones.
+        { QStringLiteral("enforce-secure-profile"), m_config.onlineMode ? QStringLiteral("true") : QStringLiteral("false") },
     };
     for (const auto& kv : values) {
         bool found = false;
@@ -490,8 +603,16 @@ void LocalServer::start()
         });
     }
     m_process->setWorkingDirectory(m_folder);
-    const QStringList args = { QStringLiteral("-Xms%1M").arg(qMin(1024, m_config.memoryMb)), QStringLiteral("-Xmx%1M").arg(m_config.memoryMb),
-                               QStringLiteral("-jar"), QString::fromLatin1(JAR_FILE), QStringLiteral("nogui") };
+    QStringList args = { QStringLiteral("-Xms%1M").arg(qMin(1024, m_config.memoryMb)), QStringLiteral("-Xmx%1M").arg(m_config.memoryMb) };
+    if (!m_config.onlineMode) {
+        // In offline mode "whitelist add", "op" and "ban" would look names up at Mojang and use the
+        // Microsoft UUID, which isn't the one the player joins with. With no Mojang to ask, the server
+        // takes names from usercache.json (filled in by writeServerFiles) and gives everyone, offline
+        // and Microsoft accounts alike, the UUID they really join with.
+        for (const char* host : { "discovery", "auth", "account", "session", "services", "profiles" })
+            args << QStringLiteral("-Dminecraft.api.%1.host=https://nope.invalid").arg(QString::fromLatin1(host));
+    }
+    args << QStringLiteral("-jar") << QString::fromLatin1(JAR_FILE) << QStringLiteral("nogui");
     appendConsole(tr("[XylarJava] Starting with %1 (Java %2), %3 MB of memory").arg(java).arg(javaMajor(java)).arg(m_config.memoryMb));
     m_portOpen = false;
     m_publicIp.clear();
@@ -575,6 +696,28 @@ void LocalServer::sendCommand(const QString& command)
     QString text = command.trimmed();
     if (text.startsWith('/'))
         text.remove(0, 1);
+    if (!m_config.onlineMode) {
+        // The whitelist is kept by XylarJava offline (the server would lowercase new names, which
+        // changes their UUID), so typed "whitelist add/remove" go through the same path as the page.
+        static const QRegularExpression whitelistCommand(QStringLiteral("^whitelist\\s+(add|remove)\\s+([A-Za-z0-9_]{1,16})$"),
+                                                         QRegularExpression::CaseInsensitiveOption);
+        const auto match = whitelistCommand.match(text);
+        if (match.hasMatch()) {
+            appendConsole(QStringLiteral("> ") + text);
+            const QString name = match.captured(2);
+            if (match.captured(1).compare(QLatin1String("add"), Qt::CaseInsensitive) == 0) {
+                allowPlayer(name, [this, name](const QString& error) {
+                    appendConsole(error.isEmpty() ? tr("[XylarJava] %1 can join now.").arg(knownSpelling(name)) : tr("[XylarJava] %1").arg(error));
+                    emit whitelistChanged();
+                });
+            } else {
+                disallowPlayer(name);
+                appendConsole(tr("[XylarJava] %1 is off the whitelist.").arg(name));
+                emit whitelistChanged();
+            }
+            return;
+        }
+    }
     appendConsole(QStringLiteral("> ") + text);
     m_process->write(text.toUtf8() + '\n');
 }

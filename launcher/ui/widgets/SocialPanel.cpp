@@ -35,6 +35,8 @@
 namespace {
 constexpr int kPanelWidth = 304;
 constexpr int kAvatar = 36;
+// Friends change skins: faces are fetched again after this long, while the old one stays on screen.
+constexpr qint64 kSkinMaxAgeMs = 2 * 60 * 1000;
 
 QString rgba(const QColor& c, int alpha)
 {
@@ -496,7 +498,7 @@ QPixmap SocialPanel::avatarFor(const QString& name, const QString& state, int si
     canvas.fill(Qt::transparent);
 
     const QString key = name.toLower();
-    if (!m_skins.contains(key))
+    if (!m_skins.contains(key) || QDateTime::currentMSecsSinceEpoch() - m_skinTimes.value(key) > kSkinMaxAgeMs)
         loadSkin(name);
     const QImage skin = m_skins.value(key);
 
@@ -548,6 +550,7 @@ void SocialPanel::loadSkin(const QString& name)
     }
     QNetworkRequest request{ QUrl(base + QStringLiteral("/api/skin/") + uuid) };
     request.setTransferTimeout(10000);
+    request.setAttribute(QNetworkRequest::CacheLoadControlAttribute, QNetworkRequest::AlwaysNetwork);
     const QString token = APPLICATION->settings()->get("XylarSkinToken").toString();
     if (!token.isEmpty())
         request.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
@@ -569,11 +572,23 @@ void SocialPanel::loadSkin(const QString& name)
     });
 }
 
+void SocialPanel::refreshSkin(const QString& name)
+{
+    if (name.isEmpty())
+        return;
+    m_skinTimes.remove(name.toLower());
+    loadSkin(name);
+}
+
 void SocialPanel::skinLoaded(const QString& name, const QImage& skin)
 {
     const QString key = name.toLower();
     m_loading.remove(key);
+    m_skinTimes.insert(key, QDateTime::currentMSecsSinceEpoch());
+    const bool same = m_skins.contains(key) && m_skins.value(key) == skin;
     m_skins.insert(key, skin);
+    if (same)
+        return;  // nothing new to draw
     if (!m_rebuildPending) {
         m_rebuildPending = true;
         QTimer::singleShot(0, this, [this] {

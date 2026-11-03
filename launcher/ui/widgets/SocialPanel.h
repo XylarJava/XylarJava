@@ -34,6 +34,9 @@ class SocialPanel : public QFrame {
     /// 8x8 face plus hat layer of a skin texture, scaled with hard pixels to @p size.
     static QPixmap faceFrom(const QImage& skin, int size, qreal devicePixelRatio);
 
+    /// Fetch this player's skin again now (e.g. after they changed it here).
+    void refreshSkin(const QString& name);
+
    signals:
     void closeRequested();
 
@@ -66,6 +69,7 @@ class SocialPanel : public QFrame {
 
     QSet<QString> m_collapsed;
     QHash<QString, QImage> m_skins;  ///< lowercase name -> skin texture (null image: none found)
+    QHash<QString, qint64> m_skinTimes;  ///< lowercase name -> when its skin was fetched (ms since epoch)
     QSet<QString> m_loading;
     bool m_rebuildPending = false;
     QString m_appliedStyleSheet;

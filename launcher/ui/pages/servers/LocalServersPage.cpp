@@ -802,7 +802,7 @@ void LocalServersPage::managePlayers()
         status->setText(tr("Adding %1...").arg(name));
         server->allowPlayer(name, [nameEdit, add, status, refresh, name](const QString& error) {
             add->setEnabled(true);
-            status->setText(error.isEmpty() ? tr("%1 can join now.").arg(name) : error);
+            status->setText(error.isEmpty() ? tr("%1 can join now.").arg(LocalServer::knownSpelling(name)) : error);
             if (error.isEmpty())
                 nameEdit->clear();
             refresh();
@@ -819,6 +819,7 @@ void LocalServersPage::managePlayers()
         // A running server rewrites whitelist.json itself a moment later.
         QTimer::singleShot(server->state() == LocalServer::State::Running ? 800 : 0, list, refresh);
     });
+    connect(server, &LocalServer::whitelistChanged, list, refresh);
     refresh();
     dialog.exec();
 }

@@ -536,37 +536,38 @@ QStringList MinecraftInstance::javaArguments(const AuthSession* session)
 
     args << "-Duser.language=en";
 
-    // A Microsoft account playing online talks to the real Mojang services: that's what lets it join
-    // online-mode servers, and everyone sees its real skin. Offline players get their skin from
-    // XylarSkins instead: authlib-injector points the game's session server at the skin backend.
+    // Everyone plays through authlib-injector pointed at XylarSkins, Microsoft accounts included:
+    // that's how offline and Microsoft players see each other's XylarJava skins on the same server.
+    // A Microsoft account loses nothing: the backend passes joining a server and chat signing keys
+    // on to Mojang, and a player it doesn't know (or a Microsoft account with no XylarSkins skin)
+    // is looked up at Mojang, so online servers and real skins work as before.
     const bool onlineMicrosoft = session && session->user_type == QStringLiteral("msa") && session->launchMode == LaunchMode::Normal;
     if (!onlineMicrosoft) {
         args << "-Dminecraft.api.auth.host=https://nope.invalid";
         args << "-Dminecraft.api.account.host=https://nope.invalid";
-
-        QString skinBackendUrl = APPLICATION->settings()->get("XylarSkinBackendUrl").toString().trimmed();
-        while (skinBackendUrl.endsWith('/'))
-            skinBackendUrl.chop(1);
-        QString injectorJar = APPLICATION->getJarPath("authlib-injector.jar");
-        if (!skinBackendUrl.isEmpty() && !injectorJar.isEmpty() && QFile::exists(injectorJar)) {
-#ifdef Q_OS_WIN
-            injectorJar = FS::getPathNameInLocal8bit(injectorJar);
-#endif
-            args << QString("-javaagent:%1=%2").arg(injectorJar, skinBackendUrl);
-            // Keep the game window title as it is (authlib-injector would add the server name).
-            args << "-Dauthlibinjector.noShowServerName";
-            // Cloudflare blocks Java 8's default User-Agent ("Java/1.8.0_xxx") with error 1010, so
-            // authlib-injector got a 403 from the skin backend and the game quit before starting.
-            // With http.agent set Java sends "XylarJava Java/1.8.0_xxx", which gets through.
-            args << "-Dhttp.agent=XylarJava";
-        } else {
-            args << "-Dminecraft.api.session.host=https://nope.invalid";
-            args << "-Dminecraft.api.services.host=https://nope.invalid";
-        }
-        // With authlib-injector the services host must stay Mojang's: authlib-injector answers its
-        // "/publickeys" itself and adds the skin backend's key, which lets the game trust the
-        // backend's signed skins. Since 1.20.2 other players' unsigned skins show as Steve/Alex.
     }
+    QString skinBackendUrl = APPLICATION->settings()->get("XylarSkinBackendUrl").toString().trimmed();
+    while (skinBackendUrl.endsWith('/'))
+        skinBackendUrl.chop(1);
+    QString injectorJar = APPLICATION->getJarPath("authlib-injector.jar");
+    if (!skinBackendUrl.isEmpty() && !injectorJar.isEmpty() && QFile::exists(injectorJar)) {
+#ifdef Q_OS_WIN
+        injectorJar = FS::getPathNameInLocal8bit(injectorJar);
+#endif
+        args << QString("-javaagent:%1=%2").arg(injectorJar, skinBackendUrl);
+        // Keep the game window title as it is (authlib-injector would add the server name).
+        args << "-Dauthlibinjector.noShowServerName";
+        // Cloudflare blocks Java 8's default User-Agent ("Java/1.8.0_xxx") with error 1010, so
+        // authlib-injector got a 403 from the skin backend and the game quit before starting.
+        // With http.agent set Java sends "XylarJava Java/1.8.0_xxx", which gets through.
+        args << "-Dhttp.agent=XylarJava";
+    } else if (!onlineMicrosoft) {
+        args << "-Dminecraft.api.session.host=https://nope.invalid";
+        args << "-Dminecraft.api.services.host=https://nope.invalid";
+    }
+    // With authlib-injector the services host must stay Mojang's: authlib-injector answers its
+    // "/publickeys" itself and adds the skin backend's key, which lets the game trust the
+    // backend's signed skins. Since 1.20.2 other players' unsigned skins show as Steve/Alex.
 
     // custom args go first. we want to override them if we have our own here.
     args.append(extraArguments());

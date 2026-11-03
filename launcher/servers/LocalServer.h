@@ -77,6 +77,11 @@ class LocalServer : public QObject {
     /// The UUID an offline-mode server gives this name ("OfflinePlayer:<name>", like the game).
     static QString offlineUuid(const QString& name);
     static bool validPlayerName(const QString& name);
+    /// Names the launcher knows with their real capitals (its accounts, Social friends). An offline
+    /// server learns them before it starts, so "op" and "whitelist add" give the right UUID.
+    static void setKnownPlayers(const QStringList& names);
+    /// The name as the player really writes it when the launcher knows it, else as typed.
+    static QString knownSpelling(const QString& name);
     /// Folder for mods (Fabric) or plugins (Paper); empty for Vanilla.
     QString addonsPath() const;
 
@@ -101,6 +106,8 @@ class LocalServer : public QObject {
     void installProgress(qint64 done, qint64 total);
     void addressesChanged();
     void failed(const QString& message);
+    /// Someone was put on or taken off the whitelist from the console.
+    void whitelistChanged();
 
    private:
     void setState(State state);

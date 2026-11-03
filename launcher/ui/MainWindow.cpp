@@ -87,6 +87,7 @@
 #include "ui/widgets/SideBar.h"
 #include "ui/widgets/SocialPanel.h"
 #include "social/SocialClient.h"
+#include "servers/LocalServer.h"
 #include "MemoryTrim.h"
 #include "ui/widgets/SkinPreview.h"
 #include "ui/widgets/LabeledToolButton.h"
@@ -406,7 +407,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
             APPLICATION->settings()->set("SocialPanelOpen", open);
         });
         connect(m_socialPanel, &SocialPanel::closeRequested, m_socialButton, [this] { m_socialButton->setChecked(false); });
-        connect(m_social, &SocialClient::changed, m_socialButton, [this] { m_socialButton->setBadge(m_social->incoming().size()); });
+        connect(m_social, &SocialClient::changed, m_socialButton, [this] {
+            m_socialButton->setBadge(m_social->incoming().size());
+            updateKnownPlayers();
+        });
         m_sideBar->addActionButton(ui->actionFoldersButton);
         if (qgetenv("XDG_CURRENT_DESKTOP") == "gamescope")
             m_sideBar->addActionButton(ui->actionCloseWindow);
@@ -1058,6 +1062,9 @@ void MainWindow::updateHomePlayer()
     }
 
     m_homePage->showPlayer(name, note, skin, slim);
+    // The skin may have just changed: show the new face in Social too.
+    if (m_socialPanel)
+        m_socialPanel->refreshSkin(name);
 }
 
 void MainWindow::watchInstancesForPresence()
@@ -1102,6 +1109,24 @@ void MainWindow::updateDiscordPresence()
         m_playingInstance = nullptr;
         m_discord->showIdle();
     }
+}
+
+void MainWindow::updateKnownPlayers()
+{
+    // Servers in offline mode learn these names, spelled right, before they start.
+    QStringList names;
+    auto accounts = APPLICATION->accounts();
+    for (int i = 0; i < accounts->count(); i++) {
+        if (auto account = accounts->at(i))
+            names << (account->profileName().isEmpty() ? account->displayName() : account->profileName());
+    }
+    if (m_social) {
+        for (const auto& person : m_social->friends())
+            names << person.name;
+        for (const auto& request : m_social->incoming())
+            names << request.name;
+    }
+    LocalServer::setKnownPlayers(names);
 }
 
 void MainWindow::updateSocialVisibility()
@@ -1438,6 +1463,8 @@ void MainWindow::defaultAccountChanged()
     updateHomePlayer();
 
     MinecraftAccountPtr account = APPLICATION->accounts()->defaultAccount();
+
+    updateKnownPlayers();
 
     // Social follows the active account, by its Minecraft name (offline or Microsoft).
     if (m_social)
