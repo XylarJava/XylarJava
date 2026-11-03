@@ -40,6 +40,7 @@ class LocalServersPage : public QWidget {
    protected:
     void changeEvent(QEvent* event) override;
     void showEvent(QShowEvent* event) override;
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
    private:
     /// "Create server": links playit.gg first when it isn't, then proposes a ready-made server.
@@ -88,6 +89,9 @@ class LocalServersPage : public QWidget {
     QToolButton* m_addonsButton = nullptr;
     QPushButton* m_settingsButton = nullptr;
     QPushButton* m_deleteButton = nullptr;
+    QWidget* m_actionsCard = nullptr;
+    /// When the window is narrow the secondary buttons show only their icon (the name stays as tooltip).
+    void fitActions();
     QProgressBar* m_progress = nullptr;
     QLabel* m_playitName = nullptr;
     QLabel* m_playitValue = nullptr;

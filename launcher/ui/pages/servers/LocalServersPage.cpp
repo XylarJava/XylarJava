@@ -232,6 +232,8 @@ LocalServersPage::LocalServersPage(LocalServerList* servers, QNetworkAccessManag
     actions->addStretch(1);
     actions->addWidget(m_deleteButton);
     topLayout->addLayout(actions);
+    m_actionsCard = top;
+    top->installEventFilter(this);
     m_progress = new QProgressBar(top);
     m_progress->setTextVisible(false);
     m_progress->setFixedHeight(6);
@@ -447,7 +449,9 @@ void LocalServersPage::updateDetails()
     m_deleteButton->setEnabled(!m_current->isRunning());
     const QString addons = ServerSoftware::addonsFolder(config.software);
     m_addonsButton->setVisible(!addons.isEmpty());
-    m_addonsButton->setText(QStringLiteral(" ") + (config.software == ServerSoftware::Kind::Paper ? tr("Plugins") : tr("Mods")));
+    m_addonsButton->setProperty("fullText", QStringLiteral(" ") + (config.software == ServerSoftware::Kind::Paper ? tr("Plugins") : tr("Mods")));
+    m_addonsButton->setText(m_addonsButton->property("fullText").toString());
+    fitActions();
     m_progress->setVisible(state == LocalServer::State::Installing);
     m_command->setEnabled(m_current->isRunning());
 }
@@ -464,6 +468,37 @@ void LocalServersPage::copyAddress(QPushButton* button)
         clipboard->setText(address, QClipboard::Selection);
     button->setText(tr("Copied!"));
     QTimer::singleShot(1500, button, [button] { button->setText(tr("Copy")); });
+}
+
+bool LocalServersPage::eventFilter(QObject* watched, QEvent* event)
+{
+    if (watched == m_actionsCard && event->type() == QEvent::Resize)
+        fitActions();
+    return QWidget::eventFilter(watched, event);
+}
+
+void LocalServersPage::fitActions()
+{
+    if (!m_actionsCard)
+        return;
+    const QList<QAbstractButton*> buttons = { m_folderButton, m_playersButton, m_addonsButton, m_settingsButton, m_deleteButton };
+    // Width with every name shown: text, icon, padding and border of each button, plus the spacing.
+    const QFontMetrics metrics(m_folderButton->font());
+    const QMargins margins = m_actionsCard->layout()->contentsMargins();
+    int needed = qMax(m_startButton->minimumWidth(), m_startButton->sizeHint().width()) + margins.left() + margins.right();
+    for (QAbstractButton* button : buttons) {
+        if (button->isHidden())
+            continue;
+        if (!button->property("fullText").isValid())
+            button->setProperty("fullText", button->text());
+        needed += metrics.horizontalAdvance(button->property("fullText").toString()) + button->iconSize().width() + 2 * 14 + 2 + 8;
+    }
+    const bool compact = needed > m_actionsCard->width();
+    for (QAbstractButton* button : buttons) {
+        const QString full = button->property("fullText").toString();
+        button->setText(compact ? QString() : full);
+        button->setToolTip(compact ? full.trimmed() : (button == m_playersButton ? tr("Who can join this server") : QString()));
+    }
 }
 
 void LocalServersPage::updateAddresses()
