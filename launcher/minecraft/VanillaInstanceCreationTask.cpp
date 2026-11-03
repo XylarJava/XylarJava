@@ -17,7 +17,8 @@ VanillaCreationTask::VanillaCreationTask(BaseVersion::Ptr version, QString loade
 
 std::unique_ptr<MinecraftInstance> VanillaCreationTask::createInstance()
 {
-    setStatus(tr("Creating instance from version %1").arg(m_version->name()));
+    const QString versionId = m_version ? m_version->descriptor() : m_versionId;
+    setStatus(tr("Creating instance from version %1").arg(m_version ? m_version->name() : m_versionId));
 
     auto inst = std::make_unique<MinecraftInstance>(m_globalSettings, std::make_unique<INISettingsObject>(FS::PathCombine(m_stagingPath, "instance.cfg")),
                            m_stagingPath);
@@ -25,7 +26,7 @@ std::unique_ptr<MinecraftInstance> VanillaCreationTask::createInstance()
 
     auto components = inst->getPackProfile();
     components->buildingFromScratch();
-    components->setComponentVersion("net.minecraft", m_version->descriptor(), true);
+    components->setComponentVersion("net.minecraft", versionId, true);
     if (m_using_loader)
         components->setComponentVersion(m_loader, m_loader_version->descriptor());
 

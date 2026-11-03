@@ -1,8 +1,10 @@
 #include "DiscordPresence.h"
 
 #include <QCoreApplication>
+#include <QDebug>
 #include <QDir>
 #include <QFileInfo>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QLocalSocket>
 #include <QTimer>
@@ -17,10 +19,13 @@ constexpr int kOpClose = 2;
 
 constexpr int kMaxPipes = 10;
 constexpr int kRetryMsecs = 15000;
+// Discord takes about five activity updates every 20 seconds; quick changes are sent together.
+constexpr int kPushDelayMsecs = 1500;
 }  // namespace
 
 DiscordPresence::DiscordPresence(QObject* parent) : QObject(parent)
 {
+    m_clientId = defaultClientId();
     m_socket = new QLocalSocket(this);
     connect(m_socket, &QLocalSocket::connected, this, &DiscordPresence::onConnected);
     connect(m_socket, &QLocalSocket::readyRead, this, &DiscordPresence::onReadyRead);
@@ -44,7 +49,13 @@ DiscordPresence::DiscordPresence(QObject* parent) : QObject(parent)
     m_retryTimer->setInterval(kRetryMsecs);
     connect(m_retryTimer, &QTimer::timeout, this, &DiscordPresence::tryConnect);
 
-    showIdle();
+    m_pushTimer = new QTimer(this);
+    m_pushTimer->setSingleShot(true);
+    m_pushTimer->setInterval(kPushDelayMsecs);
+    connect(m_pushTimer, &QTimer::timeout, this, &DiscordPresence::pushActivity);
+
+    // Connect once the caller had a chance to change the ID or turn it off.
+    QTimer::singleShot(0, this, &DiscordPresence::tryConnect);
 }
 
 DiscordPresence::~DiscordPresence()
@@ -53,9 +64,16 @@ DiscordPresence::~DiscordPresence()
         m_socket->abort();
 }
 
+QString DiscordPresence::defaultClientId()
+{
+    return QStringLiteral("1567170281498222704");
+}
+
 void DiscordPresence::setClientId(const QString& clientId)
 {
-    const QString trimmed = clientId.trimmed();
+    QString trimmed = clientId.trimmed();
+    if (trimmed.isEmpty())
+        trimmed = defaultClientId();
     if (trimmed == m_clientId)
         return;
     m_clientId = trimmed;
@@ -70,11 +88,18 @@ void DiscordPresence::setEnabled(bool enabled)
     restart();
 }
 
+void DiscordPresence::setButton(const QString& label, const QString& url)
+{
+    m_buttonLabel = label;
+    m_buttonUrl = url;
+}
+
 void DiscordPresence::restart()
 {
     m_retryTimer->stop();
     m_ready = false;
     m_buffer.clear();
+    m_sentActivity = {};
     if (m_socket->state() != QLocalSocket::UnconnectedState)
         m_socket->abort();
     m_pipeIndex = 0;
@@ -143,9 +168,15 @@ void DiscordPresence::onReadyRead()
             m_socket->disconnectFromServer();
             return;
         }
-        if (opcode == kOpFrame && message.value(QStringLiteral("evt")).toString() == QLatin1String("READY")) {
+        if (opcode != kOpFrame)
+            continue;
+        const QString event = message.value(QStringLiteral("evt")).toString();
+        if (event == QLatin1String("READY")) {
             m_ready = true;
+            m_sentActivity = {};
             pushActivity();
+        } else if (event == QLatin1String("ERROR")) {
+            qWarning() << "Discord Rich Presence:" << message.value(QStringLiteral("data")).toObject().value(QStringLiteral("message")).toString();
         }
     }
 }
@@ -154,6 +185,7 @@ void DiscordPresence::onDisconnected()
 {
     m_ready = false;
     m_buffer.clear();
+    m_sentActivity = {};
     if (isActive())
         m_retryTimer->start();
 }
@@ -169,42 +201,35 @@ void DiscordPresence::sendFrame(int opcode, const QJsonObject& payload)
     m_socket->flush();
 }
 
-void DiscordPresence::showIdle()
+void DiscordPresence::show(const QString& details, const QString& state, qint64 startedAtSecs)
 {
     QJsonObject assets;
     assets.insert(QStringLiteral("large_image"), QStringLiteral("logo"));
     assets.insert(QStringLiteral("large_text"), QStringLiteral("XylarJava"));
 
     QJsonObject activity;
-    activity.insert(QStringLiteral("details"), tr("In the launcher"));
-    activity.insert(QStringLiteral("state"), tr("Picking what to play"));
+    // Discord wants 2 to 128 characters in each line.
+    if (details.size() >= 2)
+        activity.insert(QStringLiteral("details"), details.left(128));
+    if (state.size() >= 2)
+        activity.insert(QStringLiteral("state"), state.left(128));
+    if (startedAtSecs > 0)
+        activity.insert(QStringLiteral("timestamps"), QJsonObject{ { QStringLiteral("start"), startedAtSecs } });
     activity.insert(QStringLiteral("assets"), assets);
+    if (!m_buttonUrl.isEmpty() && !m_buttonLabel.isEmpty()) {
+        activity.insert(QStringLiteral("buttons"),
+                        QJsonArray{ QJsonObject{ { QStringLiteral("label"), m_buttonLabel.left(32) }, { QStringLiteral("url"), m_buttonUrl } } });
+    }
+    if (activity == m_activity)
+        return;
     m_activity = activity;
-    pushActivity();
-}
-
-void DiscordPresence::showPlaying(const QString& instanceName, const QString& details, qint64 startedAtSecs)
-{
-    QJsonObject assets;
-    assets.insert(QStringLiteral("large_image"), QStringLiteral("logo"));
-    assets.insert(QStringLiteral("large_text"), QStringLiteral("XylarJava"));
-
-    QJsonObject timestamps;
-    timestamps.insert(QStringLiteral("start"), startedAtSecs);
-
-    QJsonObject activity;
-    activity.insert(QStringLiteral("details"), tr("Playing %1").arg(instanceName));
-    if (!details.isEmpty())
-        activity.insert(QStringLiteral("state"), details);
-    activity.insert(QStringLiteral("timestamps"), timestamps);
-    activity.insert(QStringLiteral("assets"), assets);
-    m_activity = activity;
-    pushActivity();
+    if (!m_pushTimer->isActive())
+        m_pushTimer->start();
 }
 
 void DiscordPresence::pushActivity()
 {
-    if (!m_ready || m_socket->state() != QLocalSocket::ConnectedState)
+    if (!m_ready || m_socket->state() != QLocalSocket::ConnectedState || m_activity.isEmpty() || m_activity == m_sentActivity)
         return;
 
     QJsonObject args;
@@ -216,4 +241,5 @@ void DiscordPresence::pushActivity()
     command.insert(QStringLiteral("args"), args);
     command.insert(QStringLiteral("nonce"), QUuid::createUuid().toString(QUuid::WithoutBraces));
     sendFrame(kOpFrame, command);
+    m_sentActivity = m_activity;
 }

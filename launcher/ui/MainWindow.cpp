@@ -37,6 +37,8 @@
 #include <QWidgetAction>
 #include <QDateTime>
 #include <QMessageBox>
+#include <QPointer>
+#include <QSet>
 #include <algorithm>
 #include <memory>
 
@@ -87,6 +89,10 @@
 #include "ui/widgets/SideBar.h"
 #include "ui/widgets/SocialPanel.h"
 #include "social/SocialClient.h"
+#include "social/DesktopNotifier.h"
+#include "social/GameActivity.h"
+#include "minecraft/VanillaInstanceCreationTask.h"
+#include "minecraft/launch/MinecraftTarget.h"
 #include "servers/LocalServer.h"
 #include "MemoryTrim.h"
 #include "ui/widgets/SkinPreview.h"
@@ -408,9 +414,16 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         });
         connect(m_socialPanel, &SocialPanel::closeRequested, m_socialButton, [this] { m_socialButton->setChecked(false); });
         connect(m_social, &SocialClient::changed, m_socialButton, [this] {
-            m_socialButton->setBadge(m_social->incoming().size());
+            m_socialButton->setBadge(m_social->incoming().size() + m_social->invites().size());
             updateKnownPlayers();
         });
+        connect(m_socialPanel, &SocialPanel::inviteRequested, this, &MainWindow::inviteFriend);
+        connect(m_socialPanel, &SocialPanel::joinRequested, this, &MainWindow::joinServer);
+        // Friend requests, invites and friends coming online, also while the launcher is hidden.
+        m_notifier = new DesktopNotifier(APPLICATION->logo(), FS::PathCombine(APPLICATION->dataRoot(), QStringLiteral("cache")), this);
+        connect(m_notifier, &DesktopNotifier::clicked, this, &MainWindow::showSocialPanel);
+        connect(m_social, &SocialClient::notice, this,
+                [this](SocialClient::Notice kind, const QString& name, const QString& detail) { showSocialNotice(int(kind), name, detail); });
         m_sideBar->addActionButton(ui->actionFoldersButton);
         if (qgetenv("XDG_CURRENT_DESKTOP") == "gamescope")
             m_sideBar->addActionButton(ui->actionCloseWindow);
@@ -529,8 +542,17 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
             updateHomePlayer();
     });
 
-    // Discord Rich Presence (off until an application ID is set in Settings)
+    // Discord Rich Presence: time in the launcher, then in game, with where the player is.
+    m_launcherStartedAt = QDateTime::currentSecsSinceEpoch();
     m_discord = new DiscordPresence(this);
+    m_game = new GameActivity(this);
+    connect(m_game, &GameActivity::changed, this, [this] {
+        updateDiscordPresence();
+        updateSocialActivity();
+    });
+    watchLocalServers();
+    if (m_localServers)
+        connect(m_localServers, &LocalServerList::listChanged, this, &MainWindow::watchLocalServers);
     watchInstancesForPresence();
     connect(APPLICATION->instances(), &InstanceList::rowsInserted, this, [this] { watchInstancesForPresence(); });
     connect(APPLICATION->instances(), &InstanceList::modelReset, this, [this] { watchInstancesForPresence(); });
@@ -1085,6 +1107,8 @@ void MainWindow::onInstanceRunningChanged(bool running)
         m_playingInstance = instance;
     else if (instance == m_playingInstance)
         m_playingInstance = nullptr;
+    if (m_game)
+        m_game->watch(m_playingInstance && m_playingInstance->isRunning() ? m_playingInstance : nullptr);
     updateDiscordPresence();
     updateSocialActivity();
     updateHomeRecent();
@@ -1102,13 +1126,222 @@ void MainWindow::updateDiscordPresence()
     auto settings = APPLICATION->settings();
     m_discord->setClientId(settings->get("DiscordClientId").toString());
     m_discord->setEnabled(settings->get("DiscordRichPresence").toBool());
+    const QString site = settings->get("XylarSiteUrl").toString().trimmed();
+    m_discord->setButton(tr("Get XylarJava"), site.startsWith(QLatin1String("https://")) ? site : QString());
 
     if (m_playingInstance && m_playingInstance->isRunning()) {
-        m_discord->showPlaying(m_playingInstance->name(), describeInstance(m_playingInstance), QDateTime::currentSecsSinceEpoch());
+        const QString what = describeInstance(m_playingInstance);
+        QString state;
+        switch (m_game ? m_game->where() : GameActivity::Where::Menus) {
+            case GameActivity::Where::Menus: state = tr("In the menus"); break;
+            case GameActivity::Where::Singleplayer: state = tr("Singleplayer"); break;
+            case GameActivity::Where::Server: state = tr("On %1").arg(gameServerLabel()); break;
+        }
+        const qint64 started = m_game && m_game->startedAt() > 0 ? m_game->startedAt() : QDateTime::currentSecsSinceEpoch();
+        m_discord->show(tr("Playing %1").arg(what.isEmpty() ? m_playingInstance->name() : what), state, started);
     } else {
         m_playingInstance = nullptr;
-        m_discord->showIdle();
+        const LocalServer* hosting = hostedServer();
+        m_discord->show(tr("In the launcher"), hosting ? tr("Hosting %1").arg(hosting->config().name) : tr("Picking what to play"),
+                        m_launcherStartedAt);
     }
+}
+
+void MainWindow::watchLocalServers()
+{
+    if (!m_localServers)
+        return;
+    for (LocalServer* server : m_localServers->servers()) {
+        connect(server, &LocalServer::stateChanged, this, &MainWindow::onLocalServerChanged, Qt::UniqueConnection);
+        connect(server, &LocalServer::addressesChanged, this, &MainWindow::onLocalServerChanged, Qt::UniqueConnection);
+    }
+    onLocalServerChanged();
+}
+
+void MainWindow::onLocalServerChanged()
+{
+    if (m_socialPanel) {
+        LocalServer* server = hostedServer();
+        m_socialPanel->setInviteTarget(server && server->state() == LocalServer::State::Running ? server->config().name : QString());
+    }
+    updateDiscordPresence();
+    updateSocialActivity();
+}
+
+LocalServer* MainWindow::hostedServer() const
+{
+    if (!m_localServers)
+        return nullptr;
+    for (LocalServer* server : m_localServers->servers()) {
+        if (server->isRunning())
+            return server;
+    }
+    return nullptr;
+}
+
+QString MainWindow::friendAddress(LocalServer* server) const
+{
+    if (!server)
+        return {};
+    const QString playit = server->playitAddress();
+    if (!playit.isEmpty())
+        return playit;
+    return server->publicIp().isEmpty() ? QString() : server->joinAddress(server->publicIp());
+}
+
+QString MainWindow::sharedGameServer() const
+{
+    if (!m_game || m_game->where() != GameActivity::Where::Server)
+        return {};
+    const QString host = m_game->host();
+    if (GameActivity::isLocalHost(host)) {
+        // Our own server, joined on this computer: friends use its playit.gg address.
+        LocalServer* server = hostedServer();
+        return server ? server->playitAddress() : QString();
+    }
+    // Raw IP addresses stay private: they may be someone's home.
+    if (GameActivity::isIpAddress(host))
+        return {};
+    return m_game->address();
+}
+
+QString MainWindow::gameServerLabel() const
+{
+    if (!m_game)
+        return {};
+    const QString host = m_game->host();
+    LocalServer* server = hostedServer();
+    if (server && (GameActivity::isLocalHost(host) || (!server->playitAddress().isEmpty() &&
+                                                       server->playitAddress().startsWith(host, Qt::CaseInsensitive))))
+        return server->config().name;
+    if (GameActivity::isLocalHost(host) || GameActivity::isIpAddress(host))
+        return tr("a server");
+    return host;
+}
+
+void MainWindow::inviteFriend(const QString& name)
+{
+    QPointer<LocalServer> server = hostedServer();
+    if (!server || !m_social)
+        return;
+    const QString address = friendAddress(server);
+    if (address.isEmpty()) {
+        QMessageBox::information(this, tr("Invite"),
+                                 tr("%1 doesn't have an address friends can reach yet. Turn on playit.gg in its settings, or wait "
+                                    "until it shows a public address.")
+                                     .arg(server->config().name));
+        return;
+    }
+    // On the whitelist first, so the invite works the moment they click Join.
+    server->allowPlayer(name, [this, server, name, address](const QString& error) {
+        if (!server || !m_social)
+            return;
+        if (!error.isEmpty()) {
+            QMessageBox::warning(this, tr("Invite"), tr("Couldn't add %1 to the whitelist: %2").arg(name, error));
+            return;
+        }
+        m_social->invite(name, address, server->config().minecraftVersion, server->config().name);
+    });
+}
+
+void MainWindow::joinServer(const QString& server, const QString& version, const QString& friendName)
+{
+    if (server.isEmpty())
+        return;
+    if (m_playingInstance && m_playingInstance->isRunning()) {
+        QMessageBox::information(this, tr("Join %1").arg(friendName),
+                                 tr("Close the game first, then press Join again. XylarJava will start the right version and connect to "
+                                    "%1.")
+                                     .arg(server));
+        return;
+    }
+
+    // An instance of the same Minecraft version, the most recently played first.
+    auto instances = APPLICATION->instances();
+    auto findInstance = [&](const QSet<QString>& skip) -> BaseInstance* {
+        BaseInstance* best = nullptr;
+        for (int i = 0; i < instances->count(); i++) {
+            auto minecraft = dynamic_cast<MinecraftInstance*>(instances->at(i));
+            if (!minecraft || skip.contains(minecraft->id()) || !minecraft->canLaunch() || !minecraft->getPackProfile())
+                continue;
+            if (!version.isEmpty() && minecraft->getPackProfile()->getComponentVersion(QStringLiteral("net.minecraft")) != version)
+                continue;
+            if (!best || minecraft->lastLaunch() > best->lastLaunch())
+                best = minecraft;
+        }
+        return best;
+    };
+
+    BaseInstance* instance = nullptr;
+    if (version.isEmpty())
+        instance = m_selectedInstance && m_selectedInstance->canLaunch() ? m_selectedInstance : findInstance({});
+    else
+        instance = findInstance({});
+
+    if (!instance) {
+        if (version.isEmpty())
+            return;
+        const auto answer = QMessageBox::question(
+            this, tr("Join %1").arg(friendName),
+            tr("%1 plays Minecraft %2, and you don't have an instance of it yet. Make one and join?").arg(friendName, version),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+        if (answer != QMessageBox::Yes)
+            return;
+        QSet<QString> before;
+        for (int i = 0; i < instances->count(); i++)
+            before.insert(instances->at(i)->id());
+        auto task = new VanillaCreationTask(version);
+        task->setName(tr("Minecraft %1").arg(version));
+        task->setIcon(QStringLiteral("default"));
+        task->setGroup(APPLICATION->settings()->get("LastUsedGroupForNewInstance").toString());
+        instanceFromInstanceTask(task);
+        instance = findInstance(before);
+        if (!instance)
+            return;  // creation failed or was cancelled; the task already said why
+    }
+
+    setSelectedInstanceById(instance->id());
+    updateHomePage();
+    APPLICATION->launch(instance, LaunchMode::Normal, std::make_shared<MinecraftTarget>(MinecraftTarget::parse(server, false)));
+}
+
+void MainWindow::showSocialNotice(int kind, const QString& name, const QString& detail)
+{
+    if (!m_notifier || !APPLICATION->settings()->get("SocialNotifications").toBool())
+        return;
+    const auto notice = static_cast<SocialClient::Notice>(kind);
+    // With the launcher in front and Social open, the panel already shows it.
+    const bool watching = isActiveWindow() && m_socialPanel && m_socialPanel->isOpen();
+    switch (notice) {
+        case SocialClient::Notice::FriendRequest:
+            if (!watching)
+                m_notifier->notify(tr("Friend request"), tr("%1 wants to be your friend.").arg(name));
+            break;
+        case SocialClient::Notice::RequestAccepted:
+            if (!watching)
+                m_notifier->notify(tr("New friend"), tr("%1 accepted your friend request.").arg(name));
+            break;
+        case SocialClient::Notice::FriendOnline:
+            if (!isActiveWindow())
+                m_notifier->notify(tr("%1 is online").arg(name), tr("Say hi, or invite them to play."));
+            break;
+        case SocialClient::Notice::Invite:
+            if (!watching)
+                m_notifier->notify(tr("%1 invited you").arg(name), tr("Join them on %1 from XylarJava.").arg(detail));
+            break;
+    }
+}
+
+void MainWindow::showSocialPanel()
+{
+    if (isMinimized())
+        showNormal();
+    show();
+    raise();
+    activateWindow();
+    switchToPage(Page::Home);
+    if (m_socialButton)
+        m_socialButton->setChecked(true);
 }
 
 void MainWindow::updateKnownPlayers()
@@ -1145,8 +1378,15 @@ void MainWindow::updateSocialActivity()
     if (!m_social)
         return;
     if (m_playingInstance && m_playingInstance->isRunning()) {
-        const QString what = describeInstance(m_playingInstance);
-        m_social->setActivity(QStringLiteral("playing"), what.isEmpty() ? m_playingInstance->name() : what);
+        QString what = describeInstance(m_playingInstance);
+        if (what.isEmpty())
+            what = m_playingInstance->name();
+        const auto where = m_game ? m_game->where() : GameActivity::Where::Menus;
+        if (where == GameActivity::Where::Server)
+            what = tr("%1  ·  on %2").arg(what, gameServerLabel());
+        else if (where == GameActivity::Where::Singleplayer)
+            what = tr("%1  ·  singleplayer").arg(what);
+        m_social->setActivity(QStringLiteral("playing"), what, sharedGameServer(), m_game ? m_game->minecraftVersion() : QString());
     } else if (m_away) {
         m_social->setActivity(QStringLiteral("away"));
     } else {

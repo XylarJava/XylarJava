@@ -32,6 +32,7 @@ QVariant LogModel::data(const QModelIndex& index, int role) const
 
 void LogModel::append(MessageLevel level, QString line)
 {
+    emit lineAdded(level, line);
     if (m_suspended) {
         return;
     }

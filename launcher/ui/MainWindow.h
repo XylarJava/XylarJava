@@ -182,6 +182,8 @@ class MainWindow : public QMainWindow {
 
     /// Any instance started or stopped: keeps Discord Rich Presence in sync.
     void onInstanceRunningChanged(bool running);
+    /// A hosted server started, stopped or got its address.
+    void onLocalServerChanged();
 
    private:
     void retranslateUi();
@@ -216,6 +218,24 @@ class MainWindow : public QMainWindow {
     void updateSocialVisibility();
     /// Tell XylarJava Social what the player is doing (launcher, playing, away).
     void updateSocialActivity();
+    /// Watch every hosted server so Social and Discord know when one runs.
+    void watchLocalServers();
+    /// The first server this computer hosts right now, or nullptr.
+    class LocalServer* hostedServer() const;
+    /// The address friends join @p server with (its playit.gg address, else the public one); empty when there's none yet.
+    QString friendAddress(class LocalServer* server) const;
+    /// The server the game is on, when friends may see it (hostnames only; our own server by its playit address).
+    QString sharedGameServer() const;
+    /// The server the game is on, as Social and Discord show it ("My server", "play.example.com", "a server").
+    QString gameServerLabel() const;
+    /// Whitelists the friend on the hosted server and sends them an invite.
+    void inviteFriend(const QString& name);
+    /// Starts an instance of @p version (made when there's none) straight onto @p server.
+    void joinServer(const QString& server, const QString& version, const QString& friendName);
+    /// Shows a desktop notification for something that happened in Social.
+    void showSocialNotice(int kind, const QString& name, const QString& detail);
+    /// Brings the window up with the Social panel open.
+    void showSocialPanel();
     /// Window state with the instance toolbar's user-chosen visibility, regardless of the current page.
 
     void addInstance(const QString& url = QString(), const QMap<QString, QString>& extra_info = {});
@@ -260,6 +280,9 @@ class MainWindow : public QMainWindow {
     PageContainer* m_settingsContainer = nullptr;
     std::unique_ptr<SettingsObjectLockHolder> m_settingsLock;
     BaseInstance* m_playingInstance = nullptr;
+    class GameActivity* m_game = nullptr;
+    class DesktopNotifier* m_notifier = nullptr;
+    qint64 m_launcherStartedAt = 0;  ///< seconds since the epoch, for Discord's "elapsed"
     Page m_currentPage = Page::Home;
     QString m_appliedChromeStyle;
 

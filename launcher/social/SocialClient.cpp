@@ -12,6 +12,9 @@
 #include <QSaveFile>
 #include <QUrl>
 
+#include <algorithm>
+#include <tuple>
+
 #include "minecraft/auth/AccountTokenCipher.h"
 #include "minecraft/skins/XylarSkinClient.h"
 
@@ -74,6 +77,7 @@ void SocialClient::setPlayer(const QString& name)
     m_friends.clear();
     m_incoming.clear();
     m_outgoing.clear();
+    m_invites.clear();
     m_presenceTimer.stop();
     m_refreshTimer.stop();
     emit changed();
@@ -91,12 +95,14 @@ void SocialClient::setPlayer(const QString& name)
         m_refreshTimer.start();
 }
 
-void SocialClient::setActivity(const QString& state, const QString& detail)
+void SocialClient::setActivity(const QString& state, const QString& detail, const QString& server, const QString& version)
 {
-    if (state == m_state && detail == m_detail)
+    if (state == m_state && detail == m_detail && server == m_server && version == m_version)
         return;
     m_state = state;
     m_detail = detail;
+    m_server = server;
+    m_version = version;
     emit changed();
     if (ready())
         sendPresence();
@@ -179,11 +185,17 @@ void SocialClient::sendPresence()
     QJsonObject body{ { "state", m_state } };
     if (!m_detail.isEmpty())
         body.insert("detail", m_detail.left(80));
+    if (!m_server.isEmpty())
+        body.insert("server", m_server);
+    if (!m_version.isEmpty())
+        body.insert("version", m_version.left(32));
     call("POST", QStringLiteral("/v1/presence"), body, [this](int status, const QJsonObject& reply) {
         if (status == 401)
             setError(tr("This install's XylarJava Social key for %1 no longer works.").arg(m_name));
         else if (status != 200 && status != 429)
             setError(messageFor(status, reply));
+        else if (status == 200 && reply.contains("friends"))
+            applyList(reply);  // the heartbeat brings the friend list along
     });
 }
 
@@ -197,24 +209,70 @@ void SocialClient::refresh()
                 setError(messageFor(status, body));
             return;
         }
-        m_friends.clear();
-        for (const auto& value : body.value("friends").toArray()) {
-            const QJsonObject row = value.toObject();
-            Friend person;
-            person.uuid = row.value("uuid").toString();
-            person.name = row.value("name").toString();
-            person.state = row.value("state").toString(QStringLiteral("offline"));
-            person.detail = row.value("detail").toString();
-            person.server = row.value("server").toString();
-            person.seenAt = qint64(row.value("seen_at").toDouble());
-            m_friends.append(person);
-        }
-        m_incoming = requestsFrom(body.value("incoming").toArray());
-        m_outgoing = requestsFrom(body.value("outgoing").toArray());
-        m_loaded = true;
-        m_error.clear();
-        emit changed();
+        applyList(body);
     });
+}
+
+void SocialClient::applyList(const QJsonObject& body)
+{
+    QList<Friend> friends;
+    for (const auto& value : body.value("friends").toArray()) {
+        const QJsonObject row = value.toObject();
+        Friend person;
+        person.uuid = row.value("uuid").toString();
+        person.name = row.value("name").toString();
+        person.state = row.value("state").toString(QStringLiteral("offline"));
+        person.detail = row.value("detail").toString();
+        person.server = row.value("server").toString();
+        person.version = row.value("version").toString();
+        person.seenAt = qint64(row.value("seen_at").toDouble());
+        friends.append(person);
+    }
+    QList<Invite> invites;
+    for (const auto& value : body.value("invites").toArray()) {
+        const QJsonObject row = value.toObject();
+        invites.append({ row.value("name").toString(), row.value("server").toString(), row.value("version").toString(),
+                         row.value("title").toString(), qint64(row.value("created_at").toDouble()) });
+    }
+    const QList<Request> incoming = requestsFrom(body.value("incoming").toArray());
+    const QList<Request> outgoing = requestsFrom(body.value("outgoing").toArray());
+
+    // Notices only for what changed since the last answer, never for the first one.
+    QList<std::tuple<Notice, QString, QString>> notices;
+    if (m_loaded) {
+        auto has = [](const auto& list, const QString& uuid) {
+            return std::any_of(list.begin(), list.end(), [&](const auto& item) { return item.uuid == uuid; });
+        };
+        for (const auto& request : incoming)
+            if (!has(m_incoming, request.uuid))
+                notices.append({ Notice::FriendRequest, request.name, QString() });
+        for (const auto& person : friends) {
+            const auto before = std::find_if(m_friends.begin(), m_friends.end(), [&](const Friend& f) { return f.uuid == person.uuid; });
+            if (before == m_friends.end()) {
+                if (has(m_outgoing, person.uuid))
+                    notices.append({ Notice::RequestAccepted, person.name, QString() });
+            } else if (before->state == QLatin1String("offline") && person.state != QLatin1String("offline")) {
+                notices.append({ Notice::FriendOnline, person.name, QString() });
+            }
+        }
+        for (const auto& invite : invites) {
+            const bool seen = std::any_of(m_invites.begin(), m_invites.end(), [&](const Invite& old) {
+                return old.name == invite.name && old.createdAt == invite.createdAt;
+            });
+            if (!seen)
+                notices.append({ Notice::Invite, invite.name, invite.title.isEmpty() ? invite.server : invite.title });
+        }
+    }
+
+    m_friends = friends;
+    m_incoming = incoming;
+    m_outgoing = outgoing;
+    m_invites = invites;
+    m_loaded = true;
+    m_error.clear();
+    emit changed();
+    for (const auto& [kind, name, detail] : notices)
+        emit notice(kind, name, detail);
 }
 
 void SocialClient::friendAction(const QByteArray& method, const QString& path, const QString& name, const QString& okMessage)
@@ -254,6 +312,29 @@ void SocialClient::remove(const QString& name)
 {
     friendAction("DELETE", QStringLiteral("/v1/friends/") + QString::fromLatin1(QUrl::toPercentEncoding(name)), name,
                  tr("%1 is no longer your friend.").arg(name));
+}
+
+void SocialClient::invite(const QString& name, const QString& server, const QString& version, const QString& title)
+{
+    if (!ready()) {
+        emit actionFinished(false, m_error.isEmpty() ? tr("XylarJava Social isn't ready yet.") : m_error);
+        return;
+    }
+    QJsonObject body{ { "name", name }, { "server", server }, { "title", title.left(40) } };
+    if (!version.isEmpty())
+        body.insert("version", version);
+    call("POST", QStringLiteral("/v1/invites"), body, [this, name](int status, const QJsonObject& reply) {
+        const bool ok = status == 201;
+        emit actionFinished(ok, ok ? tr("%1 is invited. They can join from their launcher.").arg(name) : messageFor(status, reply));
+    });
+}
+
+void SocialClient::dismissInvite(const QString& name)
+{
+    m_invites.erase(std::remove_if(m_invites.begin(), m_invites.end(), [&](const Invite& i) { return i.name == name; }), m_invites.end());
+    emit changed();
+    if (ready())
+        call("POST", QStringLiteral("/v1/invites/dismiss"), { { "name", name } }, nullptr);
 }
 
 void SocialClient::goOfflineNow(int timeoutMs)

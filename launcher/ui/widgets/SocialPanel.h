@@ -37,8 +37,15 @@ class SocialPanel : public QFrame {
     /// Fetch this player's skin again now (e.g. after they changed it here).
     void refreshSkin(const QString& name);
 
+    /// The server you host right now, by name, so friends can be invited to it; empty: none runs.
+    void setInviteTarget(const QString& serverTitle);
+
    signals:
     void closeRequested();
+    /// Join a friend's server (from an invite or from a friend who's playing there).
+    void joinRequested(const QString& server, const QString& version, const QString& friendName);
+    /// Invite this friend to the server set with setInviteTarget().
+    void inviteRequested(const QString& name);
 
    protected:
     void changeEvent(QEvent* event) override;
@@ -49,8 +56,10 @@ class SocialPanel : public QFrame {
     void addFriend();
     void showNote(const QString& text, bool bad);
     QWidget* makeSection(const QString& key, const QString& title, int count);
-    QWidget* makePersonRow(const QString& name, const QString& state, const QString& status, bool self);
+    QWidget* makePersonRow(const QString& name, const QString& state, const QString& status, bool self,
+                           const QString& server = QString(), const QString& version = QString());
     QWidget* makeRequestRow(const QString& name, bool incoming);
+    QWidget* makeInviteRow(const QString& name, const QString& server, const QString& version, const QString& title);
     QPixmap avatarFor(const QString& name, const QString& state, int size);
     void loadSkin(const QString& name);
     void skinLoaded(const QString& name, const QImage& skin);
@@ -73,6 +82,7 @@ class SocialPanel : public QFrame {
     QSet<QString> m_loading;
     bool m_rebuildPending = false;
     QString m_appliedStyleSheet;
+    QString m_inviteTitle;
 };
 
 /**

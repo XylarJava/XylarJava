@@ -422,6 +422,10 @@ set(MINECRAFT_SOURCES
     MemoryTrim.h
     social/SocialClient.cpp
     social/SocialClient.h
+    social/GameActivity.cpp
+    social/GameActivity.h
+    social/DesktopNotifier.cpp
+    social/DesktopNotifier.h
     discord/DiscordPresence.cpp
     discord/DiscordPresence.h
     minecraft/skins/XylarSkinClient.h

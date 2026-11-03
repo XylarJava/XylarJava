@@ -242,6 +242,20 @@ void SocialPanel::setOpen(bool open, bool animate)
     m_slide->start();
 }
 
+void SocialPanel::setInviteTarget(const QString& serverTitle)
+{
+    if (serverTitle == m_inviteTitle)
+        return;
+    m_inviteTitle = serverTitle;
+    if (!m_rebuildPending) {
+        m_rebuildPending = true;
+        QTimer::singleShot(0, this, [this] {
+            m_rebuildPending = false;
+            rebuild();
+        });
+    }
+}
+
 void SocialPanel::addFriend()
 {
     const QString name = m_addField->text().trimmed();
@@ -300,6 +314,13 @@ void SocialPanel::rebuild()
         m_list->addWidget(retry, 0, Qt::AlignLeft);
     }
 
+    if (!m_client->invites().isEmpty()) {
+        m_list->addWidget(makeSection(QStringLiteral("invites"), tr("Invites"), m_client->invites().size()));
+        if (!m_collapsed.contains(QStringLiteral("invites")))
+            for (const auto& invite : m_client->invites())
+                m_list->addWidget(makeInviteRow(invite.name, invite.server, invite.version, invite.title));
+    }
+
     if (!m_client->incoming().isEmpty()) {
         m_list->addWidget(makeSection(QStringLiteral("incoming"), tr("Requests"), m_client->incoming().size()));
         if (!m_collapsed.contains(QStringLiteral("incoming")))
@@ -333,7 +354,8 @@ void SocialPanel::rebuild()
         if (m_collapsed.contains(key))
             continue;
         for (const auto& person : group.people)
-            m_list->addWidget(makePersonRow(person.name, person.state, statusLine(person.state, person.detail, person.seenAt), false));
+            m_list->addWidget(makePersonRow(person.name, person.state, statusLine(person.state, person.detail, person.seenAt), false,
+                                            person.state == QLatin1String("playing") ? person.server : QString(), person.version));
     }
 
     if (m_client->loaded() && m_client->friends().isEmpty() && m_client->incoming().isEmpty()) {
@@ -371,7 +393,8 @@ QWidget* SocialPanel::makeSection(const QString& key, const QString& title, int 
     return button;
 }
 
-QWidget* SocialPanel::makePersonRow(const QString& name, const QString& state, const QString& status, bool self)
+QWidget* SocialPanel::makePersonRow(const QString& name, const QString& state, const QString& status, bool self, const QString& server,
+                                    const QString& version)
 {
     auto row = new QWidget(m_list->parentWidget());
     row->setObjectName(self ? QStringLiteral("socialSelf") : QStringLiteral("socialRow"));
@@ -402,6 +425,22 @@ QWidget* SocialPanel::makePersonRow(const QString& name, const QString& state, c
     text->addWidget(statusLabel);
     layout->addLayout(text, 1);
 
+    if (!self && !server.isEmpty()) {
+        auto join = new QPushButton(tr("Join"), row);
+        join->setObjectName(QStringLiteral("socialAccept"));
+        join->setCursor(Qt::PointingHandCursor);
+        join->setToolTip(tr("Play on %1 with %2").arg(server, name));
+        connect(join, &QPushButton::clicked, this, [this, server, version, name] { emit joinRequested(server, version, name); });
+        layout->addWidget(join);
+    } else if (!self && !m_inviteTitle.isEmpty() && isOnline(state)) {
+        auto invite = new QPushButton(tr("Invite"), row);
+        invite->setObjectName(QStringLiteral("socialQuietButton"));
+        invite->setCursor(Qt::PointingHandCursor);
+        invite->setToolTip(tr("Invite %1 to %2").arg(name, m_inviteTitle));
+        connect(invite, &QPushButton::clicked, this, [this, name] { emit inviteRequested(name); });
+        layout->addWidget(invite);
+    }
+
     if (!self) {
         auto more = new QToolButton(row);
         more->setObjectName(QStringLiteral("socialMore"));
@@ -411,6 +450,8 @@ QWidget* SocialPanel::makePersonRow(const QString& name, const QString& state, c
         more->setPopupMode(QToolButton::InstantPopup);
         auto menu = new QMenu(more);
         menu->addAction(tr("Copy name"), this, [name] { QGuiApplication::clipboard()->setText(name); });
+        if (!m_inviteTitle.isEmpty())
+            menu->addAction(tr("Invite to %1").arg(m_inviteTitle), this, [this, name] { emit inviteRequested(name); });
         menu->addSeparator();
         menu->addAction(tr("Remove friend"), this, [this, name] {
             const auto answer = QMessageBox::question(this, tr("Remove friend"), tr("Remove %1 from your friends?").arg(name),
@@ -467,6 +508,56 @@ QWidget* SocialPanel::makeRequestRow(const QString& name, bool incoming)
     decline->setCursor(Qt::PointingHandCursor);
     connect(decline, &QToolButton::clicked, this, [this, name] { m_client->decline(name); });
     layout->addWidget(decline);
+    return row;
+}
+
+QWidget* SocialPanel::makeInviteRow(const QString& name, const QString& server, const QString& version, const QString& title)
+{
+    auto row = new QWidget(m_list->parentWidget());
+    row->setObjectName(QStringLiteral("socialRow"));
+    row->setAttribute(Qt::WA_StyledBackground, true);
+    row->setAttribute(Qt::WA_Hover, true);
+    auto layout = new QHBoxLayout(row);
+    layout->setContentsMargins(8, 6, 6, 6);
+    layout->setSpacing(8);
+
+    auto avatar = new QLabel(row);
+    avatar->setFixedSize(kAvatar + 4, kAvatar + 4);
+    avatar->setPixmap(avatarFor(name, QString(), kAvatar));
+    layout->addWidget(avatar);
+
+    auto text = new QVBoxLayout;
+    text->setSpacing(1);
+    auto nameLabel = new QLabel(name, row);
+    nameLabel->setObjectName(QStringLiteral("socialName"));
+    const QString where = title.isEmpty() ? server : title;
+    const QString status = version.isEmpty() ? tr("Invites you to %1").arg(where) : tr("Invites you to %1 (%2)").arg(where, version);
+    auto statusLabel = new QLabel(row);
+    statusLabel->setObjectName(QStringLiteral("socialStatusOn"));
+    statusLabel->setToolTip(QStringLiteral("%1\n%2").arg(status, server));
+    statusLabel->setText(statusLabel->fontMetrics().elidedText(status, Qt::ElideRight, kPanelWidth - kAvatar - 150));
+    nameLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    statusLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    text->addWidget(nameLabel);
+    text->addWidget(statusLabel);
+    layout->addLayout(text, 1);
+
+    auto join = new QPushButton(tr("Join"), row);
+    join->setObjectName(QStringLiteral("socialAccept"));
+    join->setCursor(Qt::PointingHandCursor);
+    connect(join, &QPushButton::clicked, this, [this, server, version, name] {
+        emit joinRequested(server, version, name);
+        m_client->dismissInvite(name);
+    });
+    layout->addWidget(join);
+
+    auto dismiss = new QToolButton(row);
+    dismiss->setObjectName(QStringLiteral("socialMore"));
+    dismiss->setText(QStringLiteral("✕"));
+    dismiss->setToolTip(tr("Not now"));
+    dismiss->setCursor(Qt::PointingHandCursor);
+    connect(dismiss, &QToolButton::clicked, this, [this, name] { m_client->dismissInvite(name); });
+    layout->addWidget(dismiss);
     return row;
 }
 

@@ -35,6 +35,10 @@ class LogModel : public QAbstractListModel {
 
     enum Roles { LevelRole = Qt::UserRole };
 
+   signals:
+    /// Every line given to append(), also when it isn't kept (suspended or full).
+    void lineAdded(MessageLevel level, const QString& line);
+
    private /* types */:
     struct entry {
         MessageLevel level = MessageLevel::Unknown;

@@ -49,16 +49,22 @@ LauncherPage::LauncherPage(QWidget* parent) : QWidget(parent), ui(new Ui::Launch
         auto discordLayout = new QVBoxLayout(discordBox);
         m_discordEnabled = new QCheckBox(tr("Show what I'm playing on Discord"), discordBox);
         m_discordClientId = new QLineEdit(discordBox);
-        m_discordClientId->setPlaceholderText(tr("Discord application ID"));
-        auto discordHelp = new QLabel(tr("Create an application at <a href=\"https://discord.com/developers/applications\">discord.com/developers</a> "
-                                         "and paste its Application ID here. Upload an image called \"logo\" under Rich Presence > Art Assets "
-                                         "if you want a picture next to your status."),
+        m_discordClientId->setPlaceholderText(tr("XylarJava (default)"));
+        auto discordHelp = new QLabel(tr("Discord shows how long you've been in the launcher, then in game, and where you play. "
+                                         "To show your own app instead of XylarJava, paste its Application ID from "
+                                         "<a href=\"https://discord.com/developers/applications\">discord.com/developers</a> "
+                                         "(with an image called \"logo\" under Rich Presence > Art Assets)."),
                                       discordBox);
         discordHelp->setWordWrap(true);
         discordHelp->setOpenExternalLinks(true);
         discordLayout->addWidget(m_discordEnabled);
         discordLayout->addWidget(m_discordClientId);
         discordLayout->addWidget(discordHelp);
+
+        auto socialBox = new QGroupBox(tr("Social"), ui->scrollAreaWidgetContents);
+        auto socialLayout = new QVBoxLayout(socialBox);
+        m_socialNotifications = new QCheckBox(tr("Notify me about friend requests, invites and friends coming online"), socialBox);
+        socialLayout->addWidget(m_socialNotifications);
 
         auto updatesBox = new QGroupBox(tr("XylarJava updates"), ui->scrollAreaWidgetContents);
         auto updatesLayout = new QVBoxLayout(updatesBox);
@@ -72,9 +78,11 @@ LauncherPage::LauncherPage(QWidget* parent) : QWidget(parent), ui(new Ui::Launch
             if (at > 0 && box->itemAt(at - 1)->spacerItem())
                 at--;
             box->insertWidget(at, updatesBox);
+            box->insertWidget(at, socialBox);
             box->insertWidget(at, discordBox);
         } else if (contentLayout) {
             contentLayout->addWidget(discordBox);
+            contentLayout->addWidget(socialBox);
             contentLayout->addWidget(updatesBox);
         }
     }
@@ -256,6 +264,7 @@ void LauncherPage::applySettings()
 
     s->set("DiscordRichPresence", m_discordEnabled->isChecked());
     s->set("DiscordClientId", m_discordClientId->text().trimmed());
+    s->set("SocialNotifications", m_socialNotifications->isChecked());
     s->set("XylarAutoUpdate", m_autoUpdate->isChecked());
 }
 void LauncherPage::loadSettings()
@@ -310,6 +319,7 @@ void LauncherPage::loadSettings()
 
     m_discordEnabled->setChecked(s->get("DiscordRichPresence").toBool());
     m_discordClientId->setText(s->get("DiscordClientId").toString());
+    m_socialNotifications->setChecked(s->get("SocialNotifications").toBool());
     m_autoUpdate->setChecked(s->get("XylarAutoUpdate").toBool());
 }
 
