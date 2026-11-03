@@ -5,9 +5,11 @@
   "refmap": "mixins.xylarjava.refmap.json",
   "compatibilityLevel": "JAVA_8",
   "client": [
+    "EntityRendererAccessor",
     "GuiMainMenuAccessor",
     "MinecraftAccessor",
     "MixinAbstractClientPlayer",
+    "MixinActiveRenderInfo",
     "MixinEffectRenderer",
     "MixinEntityRenderer",
     "MixinFontRenderer",
@@ -27,10 +29,13 @@
     "MixinRenderGlobal",
     "MixinRenderItem",
     "MixinRenderManager",
+    "MixinRenderTNTPrimed",
     "MixinRendererLivingEntity",
+    "MixinScreenShotHelper",
     "MixinSoundManager",
     "MixinTextureMap",
     "MixinTileEntityRendererDispatcher",
-    "MixinWorld"
+    "MixinWorld",
+    "ShaderGroupAccessor"
   ]
 }

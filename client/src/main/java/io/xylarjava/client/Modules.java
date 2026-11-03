@@ -6,16 +6,21 @@ import java.util.List;
 
 import io.xylarjava.client.module.Module;
 import io.xylarjava.client.module.impl.ArmorModule;
+import io.xylarjava.client.module.impl.CameraModules;
 import io.xylarjava.client.module.impl.ChatModules;
 import io.xylarjava.client.module.impl.CoordinatesModule;
+import io.xylarjava.client.module.impl.EffectModules;
+import io.xylarjava.client.module.impl.ExtraHudModules;
 import io.xylarjava.client.module.impl.HudModules;
 import io.xylarjava.client.module.impl.HudStyle;
 import io.xylarjava.client.module.impl.KeystrokesModule;
 import io.xylarjava.client.module.impl.PerformanceModules;
 import io.xylarjava.client.module.impl.PvpModules;
+import io.xylarjava.client.module.impl.ServerModules;
 import io.xylarjava.client.module.impl.ToggleSprintModule;
 import io.xylarjava.client.module.impl.UtilityModules;
 import io.xylarjava.client.module.impl.VisualModules;
+import io.xylarjava.client.module.impl.WaypointsModule;
 import io.xylarjava.client.module.impl.ZoomModule;
 
 /**
@@ -68,6 +73,9 @@ public final class Modules {
     public static final HudModules.Saturation SATURATION = new HudModules.Saturation();
     public static final HudModules.HeldItem HELD_ITEM = new HudModules.HeldItem();
     public static final HudModules.SprintStatus SPRINT_STATUS = new HudModules.SprintStatus();
+    public static final ExtraHudModules.ItemCounter ITEM_COUNTER = new ExtraHudModules.ItemCounter();
+    public static final ExtraHudModules.PackDisplay PACK_DISPLAY = new ExtraHudModules.PackDisplay();
+    public static final ExtraHudModules.Stopwatch STOPWATCH = new ExtraHudModules.Stopwatch();
 
     // Visual
     public static final ZoomModule ZOOM = new ZoomModule();
@@ -92,6 +100,12 @@ public final class Modules {
     public static final VisualModules.HideTitles HIDE_TITLES = new VisualModules.HideTitles();
     public static final VisualModules.HideBossBar HIDE_BOSS_BAR = new VisualModules.HideBossBar();
     public static final VisualModules.NoBobbingHand NO_BOBBING = new VisualModules.NoBobbingHand();
+    public static final EffectModules.MenuBlur MENU_BLUR = new EffectModules.MenuBlur();
+    public static final EffectModules.MotionBlur MOTION_BLUR = new EffectModules.MotionBlur();
+    public static final EffectModules.GlintColorizer GLINT_COLOR = new EffectModules.GlintColorizer();
+    public static final EffectModules.TntCountdown TNT_COUNTDOWN = new EffectModules.TntCountdown();
+    public static final EffectModules.ItemPhysics ITEM_PHYSICS = new EffectModules.ItemPhysics();
+    public static final EffectModules.FogCustomizer FOG_CUSTOMIZER = new EffectModules.FogCustomizer();
 
     // Chat
     public static final ChatModules.Timestamps TIMESTAMPS = new ChatModules.Timestamps();
@@ -99,12 +113,16 @@ public final class Modules {
     public static final ChatModules.ChatHistory CHAT_HISTORY = new ChatModules.ChatHistory();
     public static final ChatModules.NameHider NAME_HIDER = new ChatModules.NameHider();
     public static final ChatModules.MentionPing MENTION_PING = new ChatModules.MentionPing();
+    public static final ServerModules.AutoGG AUTO_GG = new ServerModules.AutoGG();
 
     // PvP
     public static final ToggleSprintModule TOGGLE_SPRINT = new ToggleSprintModule();
     public static final PvpModules.ToggleSneak TOGGLE_SNEAK = new PvpModules.ToggleSneak();
     public static final PvpModules.TabPing TAB_PING = new PvpModules.TabPing();
     public static final PvpModules.HitParticles HIT_PARTICLES = new PvpModules.HitParticles();
+    public static final CameraModules.Freelook FREELOOK = new CameraModules.Freelook();
+    public static final CameraModules.Snaplook SNAPLOOK = new CameraModules.Snaplook();
+    public static final EffectModules.HitColor HIT_COLOR = new EffectModules.HitColor();
 
     // Utility
     public static final UtilityModules.BorderlessFullscreen BORDERLESS = new UtilityModules.BorderlessFullscreen();
@@ -112,6 +130,9 @@ public final class Modules {
     public static final UtilityModules.ArmorWarning ARMOR_WARNING = new UtilityModules.ArmorWarning();
     public static final UtilityModules.CustomMainMenu CUSTOM_MAIN_MENU = new UtilityModules.CustomMainMenu();
     public static final UtilityModules.PauseOnLostFocus PAUSE_ON_LOST_FOCUS = new UtilityModules.PauseOnLostFocus();
+    public static final UtilityModules.ScreenshotHelper SCREENSHOTS = new UtilityModules.ScreenshotHelper();
+    public static final WaypointsModule WAYPOINTS = new WaypointsModule();
+    public static final ServerModules.Quickplay QUICKPLAY = new ServerModules.Quickplay();
 
     private static final List<Module> ALL;
 
@@ -120,13 +141,15 @@ public final class Modules {
         Collections.addAll(all, OPTIMIZED_SETTINGS, ENTITY_CULLING, TILE_ENTITY_CULLING, PARTICLE_LIMIT, BLOCK_PARTICLES, WEATHER_EFFECTS,
                 UNFOCUSED_FPS, COMPACT_ITEMS, NO_GLINT, NO_SKY, NO_FOG, STATIC_TEXTURES, MEMORY_CLEANER);
         Collections.addAll(all, HUD_STYLE, FPS, CPS, COORDINATES, KEYSTROKES, ARMOR, POTIONS, PING, CLOCK, MEMORY, SERVER, DIRECTION, BIOME,
-                SPEED, REACH, COMBO, DAY, ARROWS, LIGHT, SESSION, PLAYERS, ROTATION, CHUNK, SATURATION, HELD_ITEM, SPRINT_STATUS);
+                SPEED, REACH, COMBO, DAY, ARROWS, LIGHT, SESSION, PLAYERS, ROTATION, CHUNK, SATURATION, HELD_ITEM, SPRINT_STATUS,
+                ITEM_COUNTER, PACK_DISPLAY, STOPWATCH);
         Collections.addAll(all, ZOOM, CROSSHAIR, BLOCK_OUTLINE, FULLBRIGHT, TIME_CHANGER, CLEAR_WEATHER, LOW_FIRE, NO_HURT_CAM, STATIC_FOV,
                 NO_PUMPKIN, NO_VIGNETTE, NO_PORTAL, HIDE_ENTITY_FIRE, HITBOXES, OLD_ANIMATIONS, OWN_NAMETAG, NO_ACHIEVEMENTS, CLEAN_INVENTORY,
-                SCOREBOARD, HIDE_TITLES, HIDE_BOSS_BAR, NO_BOBBING);
-        Collections.addAll(all, TIMESTAMPS, COMPACT_CHAT, CHAT_HISTORY, NAME_HIDER, MENTION_PING);
-        Collections.addAll(all, TOGGLE_SPRINT, TOGGLE_SNEAK, TAB_PING, HIT_PARTICLES);
-        Collections.addAll(all, BORDERLESS, WINDOW_TITLE, ARMOR_WARNING, CUSTOM_MAIN_MENU, PAUSE_ON_LOST_FOCUS);
+                SCOREBOARD, HIDE_TITLES, HIDE_BOSS_BAR, NO_BOBBING, MENU_BLUR, MOTION_BLUR, GLINT_COLOR, TNT_COUNTDOWN, ITEM_PHYSICS,
+                FOG_CUSTOMIZER);
+        Collections.addAll(all, TIMESTAMPS, COMPACT_CHAT, CHAT_HISTORY, NAME_HIDER, MENTION_PING, AUTO_GG);
+        Collections.addAll(all, TOGGLE_SPRINT, TOGGLE_SNEAK, TAB_PING, HIT_PARTICLES, FREELOOK, SNAPLOOK, HIT_COLOR);
+        Collections.addAll(all, BORDERLESS, WINDOW_TITLE, ARMOR_WARNING, CUSTOM_MAIN_MENU, PAUSE_ON_LOST_FOCUS, SCREENSHOTS, WAYPOINTS, QUICKPLAY);
         ALL = Collections.unmodifiableList(all);
     }
 

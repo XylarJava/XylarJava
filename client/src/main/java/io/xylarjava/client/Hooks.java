@@ -3,6 +3,7 @@ package io.xylarjava.client;
 import org.lwjgl.opengl.GL11;
 
 import io.xylarjava.client.util.CombatTracker;
+import io.xylarjava.client.util.ShaderEffects;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.client.Minecraft;
@@ -11,10 +12,14 @@ import net.minecraft.client.gui.GuiNewChat;
 import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.client.renderer.ActiveRenderInfo;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.EntityRenderer;
 import net.minecraft.client.renderer.RenderGlobal;
+import net.minecraft.client.renderer.block.model.ItemTransformVec3f;
+import net.minecraft.client.resources.model.IBakedModel;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.potion.Potion;
 import net.minecraft.util.BlockPos;
@@ -39,19 +44,84 @@ public final class Hooks {
 
     /** After vanilla set up the fog: push it out of sight, except underwater, in lava or when blind. */
     public static void afterSetupFog(int startCoords, float partialTicks) {
-        if (!Modules.NO_FOG.isEnabled())
+        boolean noFog = Modules.NO_FOG.isEnabled();
+        boolean custom = Modules.FOG_CUSTOMIZER.isEnabled() && Modules.FOG_CUSTOMIZER.distance() != 1f;
+        if ((!noFog && !custom) || !normalFog(partialTicks))
             return;
+        if (noFog) {
+            GlStateManager.setFogStart(1000000f);
+            GlStateManager.setFogEnd(1000001f);
+            return;
+        }
+        // Same shape as vanilla's overworld fog (sky starts at 0, terrain at 3/4), only further or closer.
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.theWorld.provider.doesXZShowFog(0, 0))
+            return;  // the nether's thick fog stays
+        float far = mc.gameSettings.renderDistanceChunks * 16f * Modules.FOG_CUSTOMIZER.distance();
+        GlStateManager.setFogStart(startCoords == -1 ? 0f : far * 0.75f);
+        GlStateManager.setFogEnd(far);
+    }
+
+    /** Fog colour after vanilla picked it; null keeps it. */
+    public static float[] fogColor(float red, float green, float blue, float partialTicks) {
+        if (!Modules.FOG_CUSTOMIZER.isEnabled() || !normalFog(partialTicks))
+            return null;
+        float[] rgb = Modules.FOG_CUSTOMIZER.tint(red, green, blue);
+        if (rgb != null)
+            GlStateManager.clearColor(rgb[0], rgb[1], rgb[2], 0f);
+        return rgb;
+    }
+
+    /** True outside water and lava, and when not blind: the fog the fog modules may change. */
+    private static boolean normalFog(float partialTicks) {
         Minecraft mc = Minecraft.getMinecraft();
         Entity view = mc.getRenderViewEntity();
         if (view == null || mc.theWorld == null)
-            return;
+            return false;
         if (view instanceof EntityLivingBase && ((EntityLivingBase) view).isPotionActive(Potion.blindness))
-            return;
+            return false;
         Material material = ActiveRenderInfo.getBlockAtEntityViewpoint(mc.theWorld, view, partialTicks).getMaterial();
-        if (material == Material.water || material == Material.lava)
-            return;
-        GlStateManager.setFogStart(1000000f);
-        GlStateManager.setFogEnd(1000001f);
+        return material != Material.water && material != Material.lava;
+    }
+
+    // ---- frame and world ----------------------------------------------------
+
+    public static void beforeFrame(EntityRenderer renderer) {
+        ShaderEffects.update(renderer);
+    }
+
+    /** Inside the world pass, before the hand. */
+    public static void renderWorldOverlays(float partialTicks) {
+        if (Modules.WAYPOINTS.isEnabled())
+            Modules.WAYPOINTS.render(partialTicks);
+    }
+
+    // ---- dropped items --------------------------------------------------------
+
+    /**
+     * Item Physics: places a dropped item for drawing, lying flat (or upright for blocks) and turned
+     * a fixed way, instead of bobbing and spinning. Returns how many copies to draw, like vanilla.
+     */
+    public static int placeDroppedItem(EntityItem item, double x, double y, double z, float partialTicks, IBakedModel model, int count) {
+        boolean block = model.isGui3d();
+        ItemTransformVec3f ground = model.getItemCameraTransforms().ground;
+        float yaw = item.hoverStart * (180f / (float) Math.PI);
+        boolean falling = !item.onGround && !item.isInWater() && Modules.ITEM_PHYSICS.tumble();
+        float spin = falling ? (item.getAge() + partialTicks) * 18f + yaw : 0f;
+        if (block) {
+            GlStateManager.translate((float) x, (float) y + 0.25f * ground.scale.y, (float) z);
+            GlStateManager.rotate(yaw, 0f, 1f, 0f);
+            if (falling)
+                GlStateManager.rotate(spin, 1f, 0f, 1f);
+        } else {
+            GlStateManager.translate((float) x, (float) y + 0.02f, (float) z);
+            GlStateManager.rotate(yaw, 0f, 1f, 0f);
+            GlStateManager.rotate(-90f + spin, 1f, 0f, 0f);
+            // The ground transform lifts items by its translation; flat on the ground that would push them sideways.
+            GlStateManager.translate(0f, -ground.translation.y, 0f);
+        }
+        GlStateManager.color(1f, 1f, 1f, 1f);
+        return count;
     }
 
     // ---- block outline ------------------------------------------------------
@@ -94,6 +164,7 @@ public final class Hooks {
             return false;
         Minecraft mc = Minecraft.getMinecraft();
         String plain = message.getUnformattedText();
+        Modules.AUTO_GG.onChat(plain);
 
         if (Modules.MENTION_PING.isEnabled() && mc.thePlayer != null) {
             String name = mc.getSession().getUsername();

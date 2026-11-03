@@ -4,6 +4,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -15,6 +16,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiMainMenu;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.multiplayer.WorldClient;
+import net.minecraft.util.Session;
 
 @Mixin(Minecraft.class)
 public abstract class MixinMinecraft {
@@ -31,6 +33,15 @@ public abstract class MixinMinecraft {
             ci.cancel();
             ((Minecraft) (Object) this).displayGuiScreen(new XylarMainMenu());
         }
+    }
+
+    /**
+     * Vanilla 1.8.9 writes the account's session token into latest.log, and logs get shared when
+     * asking for help. The token lets anyone play as you, so the log says "hidden" instead.
+     */
+    @Redirect(method = "<init>", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Session;getSessionID()Ljava/lang/String;"))
+    private String xylar$hideSessionId(Session session) {
+        return "hidden";
     }
 
     @Inject(method = "runTick", at = @At("RETURN"))

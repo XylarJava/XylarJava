@@ -34,15 +34,22 @@ public class ArmorModule extends HudModule {
 
     @Override
     protected void draw(boolean editing) {
-        drawBackground(width(), height());
         EntityPlayerSP player = mc().thePlayer;
+        ItemStack[] stacks = new ItemStack[5];
+        boolean any = false;
+        if (player != null) {
+            for (int i = 0; i < 4; i++)
+                stacks[i] = player.inventory.armorInventory[3 - i];
+            stacks[4] = held.on() ? player.getHeldItem() : null;
+            for (ItemStack stack : stacks)
+                any |= stack != null;
+        }
+        // Nothing worn or held: no empty box on screen (the HUD editor still shows where it is).
+        if (!any && !editing)
+            return;
+        drawBackground(width(), height());
         if (player == null)
             return;
-
-        ItemStack[] stacks = new ItemStack[5];
-        for (int i = 0; i < 4; i++)
-            stacks[i] = player.inventory.armorInventory[3 - i];
-        stacks[4] = held.on() ? player.getHeldItem() : null;
 
         RenderHelper.enableGUIStandardItemLighting();
         for (int i = 0; i < stacks.length; i++) {

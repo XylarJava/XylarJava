@@ -4,7 +4,7 @@ A standalone client for Minecraft **1.8.9**: vanilla + LaunchWrapper + Mixin, no
 
 ## Features
 
-**75 mods and 73 options** (148 things you can switch or tune), grouped in the Right Shift menu
+**91 mods and 113 options** (204 things you can switch or tune), grouped in the Right Shift menu
 by category, with search. Click a card to switch a mod on or off; click its slider icon (or
 right-click the card) for its options. *FPS boost preset* in the menu applies the fastest video
 settings in one click and puts yours back when you click it again.
@@ -14,6 +14,13 @@ Nothing here gives an unfair advantage: no reach, no auto-clicker, no x-ray.
 Also: the **XYLARJAVA title screen** (drawn with the game's own font), a **HUD editor** (drag
 elements anywhere, scroll to resize) and a shared **HUD style** (background, opacity, shadow,
 brackets, colour).
+
+Default keys: **Right Shift** mod menu, **C** zoom, **F** freelook, **V** snaplook, **B** add a
+waypoint, **N** waypoint list, **M** Hypixel quickplay, **K / L** stopwatch start-stop / reset.
+Every key can be changed in the mod's options.
+
+The game's log no longer contains your session token (vanilla 1.8.9 writes it to
+`latest.log`, and logs get shared when asking for help).
 
 ### Performance (13)
 
@@ -31,7 +38,7 @@ brackets, colour).
 - **Static Textures** - Stop animating water, lava and fire.
 - **Memory Cleaner** - Free unused memory now and then. *Options: Every.*
 
-### HUD (26)
+### HUD (29)
 
 - **HUD Style** - Background, shadow and colours of the HUD. *Options: Background, Background opacity, Text shadow, Brackets, Text colour.*
 - **FPS** - Frames per second.
@@ -59,8 +66,11 @@ brackets, colour).
 - **Saturation** - Your hidden hunger saturation.
 - **Held Item Durability** - Uses left on the item in your hand.
 - **Sprint Status** - Shows when toggle sprint or sneak is on.
+- **Item Counter** - Golden apples, pearls, potions and blocks you have left. *Options: Golden apples, Ender pearls, Arrows, Splash potions, Blocks, Hide what you don't have.*
+- **Pack Display** - The resource pack you're using.
+- **Stopwatch** - Press K to start or stop, L to reset. *Options: Start / stop key, Reset key.*
 
-### Visual (22)
+### Visual (28)
 
 - **Zoom** - Hold C to zoom in. *Options: Zoom key, Mode, Zoom, Smooth camera, Scroll to adjust.*
 - **Custom Crosshair** - Your own crosshair shape and colour. *Options: Style, Size, Gap, Thickness, Colour, Outline, Show in third person.*
@@ -84,29 +94,42 @@ brackets, colour).
 - **Hide Titles** - No big titles in the middle of the screen.
 - **Hide Boss Bar** - Remove the boss health bar.
 - **No View Bobbing** - Keep the camera steady while walking.
+- **Menu Blur** - Blur the world behind menus. *Options: Strength, Fade in, Also behind chat.*
+- **Motion Blur** - Smooth trails when you turn quickly. *Options: Amount.*
+- **Glint Colorizer** - Pick the colour of the enchantment shine. *Options: Colour, Rainbow.*
+- **TNT Countdown** - Time left before lit TNT explodes. *Options: Show.*
+- **Item Physics** - Dropped items lie flat on the ground. *Options: Spin while falling.*
+- **Fog Customizer** - Change how far away the fog starts and its colour. *Options: Distance, Tint the fog, Tint colour, Tint strength.*
 
-### Chat (5)
+### Chat (6)
 
 - **Chat Timestamps** - The time next to every message. *Options: Format, Show seconds.*
 - **Compact Chat** - Repeated messages stack as (x2), (x3)...
 - **Longer Chat History** - Keep more than 100 chat lines. *Options: Lines kept.*
 - **Name Hider** - Hide your name in chat, tab and nametags (for videos). *Options: Show as.*
 - **Mention Sound** - A sound when someone writes your name.
+- **Auto GG** - Says gg when a game ends. *Options: Message, Delay, Only on Hypixel.*
 
-### PvP (4)
+### PvP (7)
 
 - **Toggle Sprint** - Sprint without holding the key.
 - **Toggle Sneak** - Tap sneak once to keep sneaking.
 - **Numeric Ping** - Ping as a number in the player list.
 - **Hit Particles** - More particles when you hit something. *Options: Always sharpness particles, Always crit particles, Multiplier.*
+- **Freelook** - Hold F to look around you without turning. *Options: Freelook key, Mode, View, Invert up and down.*
+- **Snaplook** - Hold V to see yourself from the front. *Options: Snaplook key, View.*
+- **Hit Color** - Colour of the hurt flash on players and mobs. *Options: Colour, Strength.*
 
-### Utility (5)
+### Utility (8)
 
 - **Borderless Fullscreen** - Instant alt-tab: F11 makes a borderless window.
 - **Window Title** - Name the window XylarJava Client 1.8.9.
 - **Low Armour Warning** - Tells you when armour is about to break. *Options: Warn below.*
 - **XylarJava Title Screen** - Use the XylarJava title screen.
 - **Focus Pause** - Choose whether alt-tab opens the pause menu. *Options: Pause when tabbed out.*
+- **Screenshot Helper** - Copy screenshots to the clipboard and open them from chat. *Options: Copy to clipboard, Open and Folder links.*
+- **Waypoints** - Mark places with B, see them through walls, list them with N. *Options: Add waypoint key, Waypoint list key, Mark where you die, Beam, Label size, Colour for new ones.*
+- **Quickplay** - Press M to pick a Hypixel game and join it. *Options: Menu key.*
 
 ## Build
 
