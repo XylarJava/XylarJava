@@ -1078,10 +1078,19 @@ void MainWindow::updateHomePlayer()
             skin = fallback.texture;
             slim = fallback.slim;
             note = tr("No custom skin, so the game gives you this default one.");
+        } else if (!m_defaultSkinDownloadTried && !DefaultSkin::haveClientJar()) {
+            // Fresh install: nothing to read the default skins from yet. Fetch them now
+            // instead of showing a placeholder until the first game.
+            m_defaultSkinDownloadTried = true;
+            DefaultSkin::downloadClientJar(APPLICATION->network(), this, [this](bool ok) {
+                if (ok)
+                    updateHomePlayer();
+            });
+            note = tr("Getting your default skin...");
         }
     }
 
-    if (skin.isNull()) {
+    if (skin.isNull() && note.isEmpty()) {
         note = isMsa ? tr("We couldn't load your skin yet. It will show up after the next sign-in.")
                      : tr("No custom skin yet. Play once and your default game skin shows up here.");
     }

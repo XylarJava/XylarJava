@@ -1,10 +1,16 @@
 #include "DefaultSkin.h"
 
 #include <QCollator>
-#include <algorithm>
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFileInfo>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QPointer>
+#include <QSaveFile>
 #include <QStringList>
+#include <algorithm>
 
 #include "archive/ArchiveReader.h"
 
@@ -14,6 +20,14 @@ namespace {
 
 // Order used by the game since 1.19.3: the nine characters as slim models,
 // then the same nine as classic ("wide") models.
+// Minecraft 1.8.9's client jar, as listed in Mojang's version data.
+constexpr auto kJarVersion = "1.8.9";
+constexpr auto kJarSha1 = "3870888a6c3d349d3771a3e9d16c9bf5e076b908";
+constexpr auto kJarUrl = "https://launcher.mojang.com/v1/objects/3870888a6c3d349d3771a3e9d16c9bf5e076b908/client.jar";
+
+QList<std::pair<QPointer<QObject>, std::function<void(bool)>>> g_waiting;
+bool g_downloading = false;
+
 const char* const kModernNames[] = { "alex", "ari", "efe", "kai", "makena", "noor", "steve", "sunny", "zuri" };
 constexpr int kModernCount = 9;
 
@@ -121,6 +135,49 @@ Result forUuid(const QString& uuid, const QString& preferredVersion)
         }
     }
     return result;
+}
+
+bool haveClientJar()
+{
+    return !candidateJars(QString()).isEmpty();
+}
+
+void downloadClientJar(QNetworkAccessManager* network, QObject* context, std::function<void(bool ok)> done)
+{
+    g_waiting.append({ QPointer<QObject>(context), std::move(done) });
+    if (g_downloading)
+        return;
+    g_downloading = true;
+
+    auto finish = [](bool ok) {
+        g_downloading = false;
+        const auto waiting = std::exchange(g_waiting, {});
+        for (const auto& [target, callback] : waiting) {
+            if (target && callback)
+                callback(ok);
+        }
+    };
+
+    QNetworkRequest request{ QUrl(QString::fromLatin1(kJarUrl)) };
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    QNetworkReply* reply = network->get(request);
+    QObject::connect(reply, &QNetworkReply::finished, reply, [reply, finish] {
+        reply->deleteLater();
+        const QByteArray data = reply->error() == QNetworkReply::NoError ? reply->readAll() : QByteArray();
+        if (data.isEmpty() || QCryptographicHash::hash(data, QCryptographicHash::Sha1).toHex() != kJarSha1) {
+            qWarning() << "Couldn't download the Minecraft client jar for default skins:" << reply->errorString();
+            finish(false);
+            return;
+        }
+        const QDir base(QDir(QStringLiteral("libraries")).absoluteFilePath(QStringLiteral("com/mojang/minecraft")));
+        const QString path = clientJarFor(base, QString::fromLatin1(kJarVersion));
+        QSaveFile file(path);  // written whole or not at all, so the launcher never sees half a jar
+        const bool ok = QDir().mkpath(QFileInfo(path).absolutePath()) && file.open(QIODevice::WriteOnly) && file.write(data) == data.size() &&
+                        file.commit();
+        if (!ok)
+            qWarning() << "Couldn't save" << path << file.errorString();
+        finish(ok);
+    });
 }
 
 }  // namespace DefaultSkin

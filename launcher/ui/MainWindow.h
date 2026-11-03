@@ -275,6 +275,7 @@ class MainWindow : public QMainWindow {
     class SocialButton* m_socialButton = nullptr;
     QTimer* m_awayTimer = nullptr;
     bool m_away = false;
+    bool m_defaultSkinDownloadTried = false;  // fetched the default skins once this session
     QString m_homeSkinKey;  // Mojang lookup the Home screen is waiting for
     QWidget* m_settingsPage = nullptr;
     class LocalServerList* m_localServers = nullptr;

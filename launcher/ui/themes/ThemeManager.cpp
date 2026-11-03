@@ -123,7 +123,11 @@ void ThemeManager::initializeIcons()
 
 void ThemeManager::installBundledThemes()
 {
-    const QDir bundled(QDir(QCoreApplication::applicationDirPath()).filePath("themes"));
+    // Next to the program on Windows; one folder up (prefix/themes beside prefix/bin) on Linux.
+    const QDir appDir(QCoreApplication::applicationDirPath());
+    QDir bundled(appDir.filePath("themes"));
+    if (!bundled.exists())
+        bundled.setPath(appDir.filePath("../themes"));
     if (!bundled.exists()) {
         themeDebugLog() << "No bundled themes folder next to the executable.";
         return;

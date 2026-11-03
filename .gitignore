@@ -69,3 +69,4 @@ flatbuild
 /tools/SingleExePacker/payload.zip
 /tools/SingleExePacker/bin/
 /tools/SingleExePacker/obj/
+*.AppImage
