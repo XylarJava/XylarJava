@@ -4,6 +4,7 @@
 #include <QLabel>
 #include <QPixmap>
 #include <QPointer>
+#include <QPushButton>
 #include <QString>
 
 #include "minecraft/auth/MinecraftAccount.h"
@@ -42,6 +43,8 @@ class XylarSkinsPage : public QDialog, public SkinProvider {
     void onSkinUploaded(const QString& uuid, const QString& skinHash, const QString& model);
     void onSkinDeleted(const QString& uuid);
     void onRequestFailed(const QString& action, const QString& errorMessage, int httpStatusCode);
+    void manageOnWebsite();
+    void onSiteLinkReady(const QString& uuid, const QString& code);
 
    private:
     void setupSkinClient();
@@ -68,4 +71,5 @@ class XylarSkinsPage : public QDialog, public SkinProvider {
     SkinModel* m_previewSkin = nullptr;
     SkinOpenGLWindow* m_skinPreview = nullptr;
     QLabel* m_skinPreviewLabel = nullptr;
+    QPushButton* m_websiteBtn = nullptr;
 };

@@ -3,7 +3,10 @@
 #include <QCryptographicHash>
 #include <QDebug>
 #include <QJsonArray>
+#include <QSaveFile>
 #include <QUuid>
+
+#include "minecraft/auth/AccountTokenCipher.h"
 
 XylarSkinClient::XylarSkinClient(QObject* parent)
     : QObject(parent),
@@ -168,10 +171,17 @@ QString XylarSkinClient::computeSha256(const QByteArray& data)
     return QCryptographicHash::hash(data, QCryptographicHash::Sha256).toHex();
 }
 
-QNetworkRequest XylarSkinClient::makeRequest(const QString& endpoint, bool json) const
+QNetworkRequest XylarSkinClient::makeRequest(const QString& endpoint, bool json, const QString& playerUuid) const
 {
     QString urlStr = m_backendUrl + endpoint;
     QNetworkRequest req{ QUrl(urlStr) };
+
+    if (!playerUuid.isEmpty()) {
+        const QString key = playerKey(playerUuid);
+        if (!key.isEmpty()) {
+            req.setRawHeader("X-Player-Key", key.toLatin1());
+        }
+    }
 
     if (!m_authToken.isEmpty()) {
         req.setRawHeader("Authorization", ("Bearer " + m_authToken).toUtf8());
@@ -284,6 +294,11 @@ void XylarSkinClient::registerPlayer(const QString& username, const QString& msa
         QString uuid = player["uuid"].toString();
         QString skinHash = player["skin_hash"].toString();
         QString skinModel = player["skin_model"].toString("classic");
+
+        // Keep this player's skin ours: ask for its key the first time we see it.
+        if (!uuid.isEmpty() && playerKey(uuid).isEmpty()) {
+            claimPlayer(uuid);
+        }
 
         emit playerRegistered(uuid, username, skinHash, skinModel);
     });
@@ -439,7 +454,7 @@ void XylarSkinClient::uploadSkinData(const QString& uuid, const QByteArray& pngD
     body["model"] = skinModel;
     body["skin_data"] = QString::fromLatin1(pngData.toBase64());
 
-    QNetworkRequest req = makeRequest("/api/skin");
+    QNetworkRequest req = makeRequest("/api/skin", true, uuid);
     QNetworkReply* reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
 
     connect(reply, &QNetworkReply::finished, this, [this, reply, uuid, pngData, skinModel]() {
@@ -474,7 +489,7 @@ void XylarSkinClient::deleteSkin(const QString& uuid)
         return;
     }
 
-    QNetworkRequest req = makeRequest("/api/skin/" + uuid, false);
+    QNetworkRequest req = makeRequest("/api/skin/" + uuid, false, uuid);
     QNetworkReply* reply = m_nam->deleteResource(req);
 
     connect(reply, &QNetworkReply::finished, this, [this, reply, uuid]() {
@@ -492,5 +507,118 @@ void XylarSkinClient::deleteSkin(const QString& uuid)
         deleteCachedSkin(uuid);
 
         emit skinDeleted(uuid);
+    });
+}
+
+// ─── Ownership ────────────────────────────────────────────────────────────────
+
+QString XylarSkinClient::keysFile() const
+{
+    return QDir(m_cacheDir).filePath(".player-keys.json");
+}
+
+QString XylarSkinClient::playerKey(const QString& uuid) const
+{
+    QFile f(keysFile());
+    if (!f.open(QIODevice::ReadOnly)) {
+        return QString();
+    }
+    const QJsonObject keys = QJsonDocument::fromJson(f.readAll()).object();
+    return AccountTokenCipher::decrypt(keys.value(uuid.toLower()).toString());
+}
+
+void XylarSkinClient::setPlayerKey(const QString& uuid, const QString& key)
+{
+    QJsonObject keys;
+    {
+        QFile f(keysFile());
+        if (f.open(QIODevice::ReadOnly)) {
+            keys = QJsonDocument::fromJson(f.readAll()).object();
+        }
+    }
+    keys[uuid.toLower()] = AccountTokenCipher::encrypt(key);
+    QDir().mkpath(m_cacheDir);
+    QSaveFile out(keysFile());
+    if (out.open(QIODevice::WriteOnly)) {
+        out.write(QJsonDocument(keys).toJson(QJsonDocument::Indented));
+        out.commit();
+        QFile::setPermissions(keysFile(), QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+    }
+}
+
+void XylarSkinClient::claimPlayer(const QString& uuid)
+{
+    if (m_backendUrl.isEmpty() || uuid.isEmpty()) {
+        return;
+    }
+    QJsonObject body;
+    body["uuid"] = uuid;
+    QNetworkReply* reply = m_nam->post(makeRequest("/api/player/claim"), QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, uuid]() {
+        reply->deleteLater();
+        const QByteArray data = reply->readAll();
+        const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (statusCode == 201) {
+            const QString key = QJsonDocument::fromJson(data).object().value("key").toString();
+            if (!key.isEmpty()) {
+                setPlayerKey(uuid, key);
+            }
+        } else if (statusCode == 409) {
+            // Claimed from another computer or an older install: skins still change from the website.
+            qWarning() << "XylarSkins: player" << uuid << "is already claimed elsewhere";
+        } else {
+            qWarning() << "XylarSkins: claiming player failed:" << parseErrorMessage(reply, data);
+        }
+    });
+}
+
+void XylarSkinClient::startSiteLink(const QString& uuid)
+{
+    if (m_backendUrl.isEmpty()) {
+        emit requestFailed("siteLink", tr("Backend URL is not configured."), 0);
+        return;
+    }
+    if (!playerKey(uuid).isEmpty()) {
+        requestLinkCode(uuid);
+        return;
+    }
+    // Not claimed from here yet: claim, then ask for the code.
+    QJsonObject body;
+    body["uuid"] = uuid;
+    QNetworkReply* reply = m_nam->post(makeRequest("/api/player/claim"), QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, uuid]() {
+        reply->deleteLater();
+        const QByteArray data = reply->readAll();
+        const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (statusCode == 201) {
+            setPlayerKey(uuid, QJsonDocument::fromJson(data).object().value("key").toString());
+            requestLinkCode(uuid);
+            return;
+        }
+        if (statusCode == 409) {
+            emit requestFailed("siteLink",
+                               tr("This player was claimed from another XylarJava install. Link it from there, or from a website "
+                                  "account it's already linked to."),
+                               statusCode);
+            return;
+        }
+        emit requestFailed("siteLink", parseErrorMessage(reply, data), statusCode);
+    });
+}
+
+void XylarSkinClient::requestLinkCode(const QString& uuid)
+{
+    QJsonObject body;
+    body["uuid"] = uuid;
+    QNetworkReply* reply = m_nam->post(makeRequest("/api/link/start", true, uuid), QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, uuid]() {
+        reply->deleteLater();
+        const QByteArray data = reply->readAll();
+        const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (reply->error() != QNetworkReply::NoError || statusCode >= 400) {
+            emit requestFailed("siteLink", parseErrorMessage(reply, data), statusCode);
+            return;
+        }
+        emit siteLinkReady(uuid, QJsonDocument::fromJson(data).object().value("code").toString());
     });
 }

@@ -6,8 +6,11 @@
 #include <QMimeDatabase>
 #include <QPalette>
 #include <QSizePolicy>
+#include <QUrlQuery>
 
 #include "Application.h"
+#include "DesktopServices.h"
+#include "settings/SettingsObject.h"
 #include "minecraft/skins/SkinModel.h"
 #include "minecraft/skins/XylarSkinClient.h"
 #include "ui/dialogs/skins/draw/SkinOpenGLWindow.h"
@@ -23,6 +26,14 @@ XylarSkinsPage::XylarSkinsPage(QWidget* parent, MinecraftAccountPtr acct)
 
     setupSkinClient();
     setupPreviewWidget();
+
+    // Same skin, managed from the Xylar website: linking opens the site with a one-time code.
+    m_websiteBtn = new QPushButton(tr("Manage on the Xylar website"), this);
+    m_websiteBtn->setToolTip(tr("Opens the website signed in to your Xylar account, where you can change or remove this skin."));
+    m_websiteBtn->setEnabled(false);
+    if (auto* layout = m_ui->deleteBtn->parentWidget()->layout())
+        layout->addWidget(m_websiteBtn);
+    connect(m_websiteBtn, &QPushButton::clicked, this, &XylarSkinsPage::manageOnWebsite);
 
     // Connect model toggle buttons
     connect(m_ui->steveBtn, &QRadioButton::toggled, this, &XylarSkinsPage::on_steveBtn_toggled);
@@ -82,6 +93,7 @@ void XylarSkinsPage::setupSkinClient()
     connect(m_client, &XylarSkinClient::skinUploaded, this, &XylarSkinsPage::onSkinUploaded);
     connect(m_client, &XylarSkinClient::skinDeleted, this, &XylarSkinsPage::onSkinDeleted);
     connect(m_client, &XylarSkinClient::requestFailed, this, &XylarSkinsPage::onRequestFailed);
+    connect(m_client, &XylarSkinClient::siteLinkReady, this, &XylarSkinsPage::onSiteLinkReady);
 }
 
 void XylarSkinsPage::setupPreviewWidget()
@@ -279,6 +291,8 @@ void XylarSkinsPage::setStatusMessage(const QString& msg, bool isError)
 
 void XylarSkinsPage::setUIEnabled(bool enabled)
 {
+    if (m_websiteBtn)
+        m_websiteBtn->setEnabled(enabled && !m_currentUuid.isEmpty() && m_client && !m_client->backendUrl().isEmpty());
     m_ui->uploadBtn->setEnabled(enabled && !m_selectedFilePath.isEmpty());
     m_ui->selectFileBtn->setEnabled(enabled);
     m_ui->steveBtn->setEnabled(enabled);
@@ -574,10 +588,40 @@ void XylarSkinsPage::onRequestFailed(const QString& action, const QString& error
         if (m_client && m_client->hasCachedSkin(m_currentUuid)) {
             refreshFromCache();
         }
+    } else if (action == "siteLink") {
+        msg = tr("Couldn't open the website: %1").arg(errorMessage);
+        setStatusMessage(msg, true);
     } else {
         msg = tr("Error (%1): %2").arg(action, errorMessage);
         setStatusMessage(msg, true);
     }
 
+    setUIEnabled(true);
+}
+
+// ─── Xylar website ────────────────────────────────────────────────────────────
+
+void XylarSkinsPage::manageOnWebsite()
+{
+    if (!m_client || m_currentUuid.isEmpty())
+        return;
+    setStatusMessage(tr("Opening the Xylar website…"));
+    setUIEnabled(false);
+    m_client->startSiteLink(m_currentUuid);
+}
+
+void XylarSkinsPage::onSiteLinkReady(const QString& uuid, const QString& code)
+{
+    if (uuid != m_currentUuid)
+        return;
+    QString site = APPLICATION->settings()->get("XylarSiteUrl").toString().trimmed();
+    while (site.endsWith('/'))
+        site.chop(1);
+    QUrl url(site + QStringLiteral("/skins/link"));
+    QUrlQuery query;
+    query.addQueryItem(QStringLiteral("code"), code);
+    url.setQuery(query);
+    DesktopServices::openUrl(url);
+    setStatusMessage(tr("Finish on the website: sign in and confirm. The code works for 10 minutes."));
     setUIEnabled(true);
 }

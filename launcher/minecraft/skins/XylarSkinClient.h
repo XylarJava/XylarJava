@@ -54,6 +54,12 @@ class XylarSkinClient : public QObject {
     void deleteSkin(const QString& uuid);
     void checkHealth();
 
+    // Ownership: a claimed player's skin changes only with its key, which is kept here.
+    QString playerKey(const QString& uuid) const;
+    void claimPlayer(const QString& uuid);
+    /// Asks for a short code to link this player to a Xylar website account (claims it first if needed).
+    void startSiteLink(const QString& uuid);
+
    signals:
     void playerRegistered(const QString& uuid, const QString& username, const QString& skinHash, const QString& skinModel);
     void playerFetched(const QString& uuid, const QString& username, const QString& skinHash, const QString& skinModel);
@@ -62,10 +68,14 @@ class XylarSkinClient : public QObject {
     void skinUploaded(const QString& uuid, const QString& skinHash, const QString& model);
     void skinDeleted(const QString& uuid);
     void healthChecked(bool ok, const QString& service);
+    void siteLinkReady(const QString& uuid, const QString& code);
     void requestFailed(const QString& action, const QString& errorMessage, int httpStatusCode);
 
    private:
-    QNetworkRequest makeRequest(const QString& endpoint, bool json = true) const;
+    QNetworkRequest makeRequest(const QString& endpoint, bool json = true, const QString& playerUuid = QString()) const;
+    QString keysFile() const;
+    void setPlayerKey(const QString& uuid, const QString& key);
+    void requestLinkCode(const QString& uuid);
     QString parseErrorMessage(QNetworkReply* reply, const QByteArray& responseBody) const;
 
    private:
