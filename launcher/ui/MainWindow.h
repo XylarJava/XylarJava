@@ -210,6 +210,8 @@ class MainWindow : public QMainWindow {
     void updateDiscordPresence();
     /// Watch every instance so Discord knows when one is running.
     void watchInstancesForPresence();
+    /// The Social button and panel only show on the Home screen.
+    void updateSocialVisibility();
     /// Tell XylarJava Social what the player is doing (launcher, playing, away).
     void updateSocialActivity();
     /// Window state with the instance toolbar's user-chosen visibility, regardless of the current page.

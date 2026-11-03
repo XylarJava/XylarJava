@@ -87,6 +87,7 @@
 #include "ui/widgets/SideBar.h"
 #include "ui/widgets/SocialPanel.h"
 #include "social/SocialClient.h"
+#include "MemoryTrim.h"
 #include "ui/widgets/SkinPreview.h"
 #include "ui/widgets/LabeledToolButton.h"
 
@@ -546,11 +547,21 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
                 m_away = false;
                 updateSocialActivity();
             }
-        } else if (!m_awayTimer->isActive() && !m_away) {
-            m_awayTimer->start();
+        } else {
+            if (!m_awayTimer->isActive() && !m_away)
+                m_awayTimer->start();
+            // The launcher went to the background: give freed memory back to the system.
+            QTimer::singleShot(1500, this, [] { MemoryTrim::release(); });
         }
     });
     updateSocialActivity();
+
+    // Startup loads and throws away a lot (instances, icons, news): trim once it has settled,
+    // then now and then while the launcher stays open.
+    QTimer::singleShot(8000, this, [] { MemoryTrim::release(); });
+    auto trimTimer = new QTimer(this);
+    connect(trimTimer, &QTimer::timeout, this, [] { MemoryTrim::release(); });
+    trimTimer->start(5 * 60 * 1000);
 
     // GitHub release updater
     m_updater = new XylarUpdater(this, this);
@@ -670,6 +681,7 @@ void MainWindow::switchToPage(Page page)
     if (page == Page::Settings && !m_settingsContainer)
         openSettings(QStringLiteral("global-settings"));
     m_currentPage = page;
+    updateSocialVisibility();
     if (m_pages)
         m_pages->setCurrentIndexAnimated(static_cast<int>(page));
     if (m_sideBar)
@@ -1069,6 +1081,8 @@ void MainWindow::onInstanceRunningChanged(bool running)
     updateDiscordPresence();
     updateSocialActivity();
     updateHomeRecent();
+    // A game just started or stopped: what the launcher loaded for it can go back to the system.
+    QTimer::singleShot(3000, this, [] { MemoryTrim::release(); });
     // The selected instance's skin source (default skin jar) may only exist after a first launch.
     if (!running)
         updateHomePlayer();
@@ -1088,6 +1102,17 @@ void MainWindow::updateDiscordPresence()
         m_playingInstance = nullptr;
         m_discord->showIdle();
     }
+}
+
+void MainWindow::updateSocialVisibility()
+{
+    if (!m_socialButton)
+        return;
+    // Social belongs to the Home screen only; the other pages get the full width.
+    const bool home = m_currentPage == Page::Home;
+    m_socialButton->setVisible(home);
+    if (m_socialPanel->isOpen() != (home && m_socialButton->isChecked()))
+        m_socialPanel->setOpen(home && m_socialButton->isChecked());
 }
 
 void MainWindow::updateSocialActivity()

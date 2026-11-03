@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include "Application.h"
+#include "MemoryTrim.h"
 
 #if defined Q_OS_WIN32
 #include "console/WindowsConsole.h"
@@ -12,6 +13,8 @@ int main(int argc, char* argv[])
     // used on Windows to attach the standard IO streams
     console::WindowsConsoleGuard _consoleGuard;
 #endif
+
+    MemoryTrim::configure();
 
     // initialize Qt
     Application app(argc, argv);

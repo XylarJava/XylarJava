@@ -416,6 +416,8 @@ set(MINECRAFT_SOURCES
     minecraft/skins/DefaultSkin.h
     minecraft/skins/MojangSkinFetcher.cpp
     minecraft/skins/MojangSkinFetcher.h
+    MemoryTrim.cpp
+    MemoryTrim.h
     social/SocialClient.cpp
     social/SocialClient.h
     discord/DiscordPresence.cpp

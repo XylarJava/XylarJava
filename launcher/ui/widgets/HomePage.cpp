@@ -172,10 +172,14 @@ class HeroScene : public QWidget {
 
     void setAnimating(bool on)
     {
-        if (on)
+        if (on) {
             m_timer->start();
-        else
+        } else {
             m_timer->stop();
+            // Nothing is drawn while the scene is still, so hand its buffer back until it is.
+            m_backdrop = QPixmap();
+            m_dirty = true;
+        }
     }
 
     void invalidate()
@@ -190,7 +194,11 @@ class HeroScene : public QWidget {
         const qreal dpr = devicePixelRatioF();
         const QSize pixelSize = size() * dpr;
         if (m_dirty || m_backdrop.size() != pixelSize || m_backdropParallax != m_parallax) {
-            m_backdrop = QPixmap(pixelSize);
+            // Repaint into the same buffer: a new one per frame churns megabytes while the mouse moves.
+            if (m_backdrop.size() != pixelSize) {
+                m_backdrop = QPixmap();
+                m_backdrop = QPixmap(pixelSize);
+            }
             m_backdrop.setDevicePixelRatio(dpr);
             m_backdrop.fill(Qt::transparent);
             QPainter bp(&m_backdrop);
@@ -989,6 +997,21 @@ void HomePage::changeEvent(QEvent* event)
             m_hero->setAnimating(isActiveWindow() && isVisible());
     }
     QWidget::changeEvent(event);
+}
+
+void HomePage::showEvent(QShowEvent* event)
+{
+    if (m_hero)
+        m_hero->setAnimating(isActiveWindow());
+    QWidget::showEvent(event);
+}
+
+void HomePage::hideEvent(QHideEvent* event)
+{
+    // Another page (or a minimised window): stop the scene and free its buffer.
+    if (m_hero)
+        m_hero->setAnimating(false);
+    QWidget::hideEvent(event);
 }
 
 void HomePage::updateStyle()

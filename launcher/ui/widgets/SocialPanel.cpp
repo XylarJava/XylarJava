@@ -653,8 +653,6 @@ SocialButton::SocialButton(QWidget* host) : QToolButton(host)
     setCheckable(true);
     setCursor(Qt::PointingHandCursor);
     setFixedSize(44, 44);
-    setIcon(QIcon::fromTheme(QStringLiteral("accounts")));
-    setIconSize(QSize(22, 22));
     setToolTip(tr("Social"));
     setAccessibleName(tr("Social"));
     host->installEventFilter(this);
@@ -720,9 +718,29 @@ void SocialButton::paintEvent(QPaintEvent*)
     painter.setBrush(fill);
     painter.drawRoundedRect(box, 14, 14);
 
-    const QSize glyph = iconSize();
-    const QRect iconRect(QPoint((width() - glyph.width()) / 2, (height() - glyph.height()) / 2), glyph);
-    icon().paint(&painter, iconRect, Qt::AlignCenter, isEnabled() ? QIcon::Normal : QIcon::Disabled);
+    // Two friends side by side: drawn here so it follows the theme colours at any scale.
+    const QColor ink = isChecked() ? accent : fg;
+    const QPointF c = QRectF(rect()).center();
+    auto person = [&painter](QPointF head, qreal r, const QColor& color, const QColor& gap) {
+        QPainterPath shape;
+        shape.addEllipse(head, r, r);
+        const QRectF shoulders(head.x() - r * 2.05, head.y() + r * 1.45, r * 4.1, r * 4.2);
+        QPainterPath body;
+        body.moveTo(shoulders.left(), shoulders.center().y());
+        body.arcTo(shoulders, 180, -180);
+        body.closeSubpath();
+        shape.addPath(body);
+        painter.setPen(QPen(gap, 2.2));
+        painter.setBrush(color);
+        painter.drawPath(shape.simplified());
+    };
+    QColor back = ink;
+    back.setAlphaF(0.55);
+    painter.save();
+    painter.setClipRect(QRectF(rect()).adjusted(4, 4, -4, -11));
+    person(c + QPointF(4.5, -4.5), 3.4, back, Qt::transparent);
+    person(c + QPointF(-2.5, -3), 4.2, ink, fill);
+    painter.restore();
 
     if (m_badge > 0) {
         const QString text = m_badge > 9 ? QStringLiteral("9+") : QString::number(m_badge);
