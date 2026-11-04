@@ -880,9 +880,6 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
         m_settings->registerSetting("XylarSiteUrl", "https://xylarinc.xylarinc.workers.dev");
         m_settings->registerSetting("XylarSocialUrl", "https://xylarjava-social.xylarinc.workers.dev");
         m_settings->registerSetting("XylarProfilesUrl", "https://xylarjava-profiles.xylarinc.workers.dev");
-        m_settings->registerSetting("XylarBackupsUrl", "https://xylarjava-backups.xylarinc.workers.dev");
-        // Played worlds go to the cloud when the game closes.
-        m_settings->registerSetting("XylarAutoWorldBackup", true);
         // The time played in this install's instances was sent to Profiles (once, for the first player).
         m_settings->registerSetting("XylarProfileBaselineSent", false);
         m_settings->registerSetting("SocialPanelOpen", false);

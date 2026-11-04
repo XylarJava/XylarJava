@@ -240,9 +240,6 @@ class MainWindow : public QMainWindow {
     void showSocialPanel();
     /// Opens @p name's XylarJava profile (yours or a friend's).
     void showPlayerProfile(const QString& name);
-    /// Queues a cloud backup of every world of @p instance that was saved since it was launched.
-    void backUpPlayedWorlds(BaseInstance* instance);
-    void runNextWorldBackup();
     /// Window state with the instance toolbar's user-chosen visibility, regardless of the current page.
 
     void addInstance(const QString& url = QString(), const QMap<QString, QString>& extra_info = {});
@@ -279,15 +276,6 @@ class MainWindow : public QMainWindow {
     class SocialPanel* m_socialPanel = nullptr;
     class SocialButton* m_socialButton = nullptr;
     class ProfileClient* m_profiles = nullptr;
-    struct PendingWorldBackup {
-        QString instanceId;
-        QString instanceName;
-        QString worldDir;
-        QString worldName;
-    };
-    QList<PendingWorldBackup> m_worldBackups;
-    shared_qobject_ptr<class WorldBackupUpload> m_worldBackup;
-    bool m_backupSpaceNoticeShown = false;
     QTimer* m_awayTimer = nullptr;
     bool m_away = false;
     bool m_defaultSkinDownloadTried = false;  // fetched the default skins once this session

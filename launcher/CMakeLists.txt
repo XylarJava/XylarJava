@@ -426,8 +426,6 @@ set(MINECRAFT_SOURCES
     social/XylarService.h
     social/ProfileClient.cpp
     social/ProfileClient.h
-    social/WorldBackups.cpp
-    social/WorldBackups.h
     social/GameActivity.cpp
     social/GameActivity.h
     social/DesktopNotifier.cpp
@@ -1138,8 +1136,6 @@ SET(LAUNCHER_SOURCES
     ui/pagedialog/PageDialog.h
     ui/dialogs/PlayerProfileDialog.cpp
     ui/dialogs/PlayerProfileDialog.h
-    ui/dialogs/WorldBackupsDialog.cpp
-    ui/dialogs/WorldBackupsDialog.h
     ui/dialogs/ProgressDialog.cpp
     ui/dialogs/ProgressDialog.h
     ui/dialogs/ReviewMessageBox.cpp

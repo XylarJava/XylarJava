@@ -91,7 +91,6 @@
    <addaction name="actionMCEdit"/>
    <addaction name="actionData_Packs"/>
    <addaction name="actionReset_Icon"/>
-   <addaction name="actionCloud_Backups"/>
    <addaction name="separator"/>
    <addaction name="actionCopy_Seed"/>
    <addaction name="actionRefresh"/>
@@ -148,14 +147,6 @@
    </property>
    <property name="toolTip">
     <string>Remove world icon to make the game re-generate it on next load.</string>
-   </property>
-  </action>
-  <action name="actionCloud_Backups">
-   <property name="text">
-    <string>Cloud Backups</string>
-   </property>
-   <property name="toolTip">
-    <string>Back up worlds to XylarJava's cloud, or get one back.</string>
    </property>
   </action>
   <action name="actionData_Packs">

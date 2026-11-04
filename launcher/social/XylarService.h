@@ -11,8 +11,8 @@ class QNetworkReply;
 class QObject;
 
 /**
- * Calls to the XylarJava services that sign requests as the Social player (profiles, world
- * backups): JSON in and out, with the player's headers from SocialClient::current().
+ * Calls to the XylarJava services that sign requests as the Social player (profiles):
+ * JSON in and out, with the player's headers from SocialClient::current().
  */
 namespace XylarService {
 using Done = std::function<void(int status, const QJsonObject& body)>;
@@ -26,6 +26,6 @@ QString baseUrl(const QString& url);
 QNetworkReply* call(QNetworkAccessManager* network, const QString& url, const QByteArray& method, const QByteArray& payload,
                     QObject* context, Done done, const QByteArray& contentType = "application/json", int timeoutMs = 20000);
 
-/// What to tell the player about a failed call to @p service ("XylarJava Profiles", ...).
+/// What to tell the player about a failed call to @p service (e.g. "XylarJava Profiles").
 QString messageFor(const QString& service, int status, const QJsonObject& body);
 }  // namespace XylarService
