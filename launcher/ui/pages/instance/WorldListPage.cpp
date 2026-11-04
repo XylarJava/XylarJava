@@ -24,6 +24,7 @@
 
 #include "Application.h"
 #include "DataPackPage.h"
+#include "ui/dialogs/WorldBackupsDialog.h"
 
 class WorldListProxyModel : public QSortFilterProxyModel {
     Q_OBJECT
@@ -377,6 +378,23 @@ bool WorldListPage::worldSafetyNagQuestion(const QString& actionType)
         }
     }
     return true;
+}
+
+void WorldListPage::on_actionCloud_Backups_triggered()
+{
+    QString worldDir, worldName;
+    QModelIndex index = getSelectedWorld();
+    if (index.isValid()) {
+        auto world = (World*)m_worlds->data(index, WorldList::ObjectRole).value<void*>();
+        // Worlds inside a zip in the folder are already a copy.
+        if (world && world->isOnFS()) {
+            worldDir = world->container().absoluteFilePath();
+            worldName = world->name();
+        }
+    }
+    WorldBackupsDialog dialog(m_inst, worldDir, worldName, this);
+    dialog.exec();
+    m_worlds->update();
 }
 
 void WorldListPage::on_actionCopy_triggered()

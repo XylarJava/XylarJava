@@ -52,6 +52,7 @@
 #include <java/JavaUtils.h>
 #include <launch/LaunchTask.h>
 #include <minecraft/MinecraftInstance.h>
+#include <minecraft/World.h>
 #include <minecraft/auth/AccountList.h>
 #include <minecraft/skins/XylarSkinClient.h>
 #include <net/ApiDownload.h>
@@ -90,6 +91,9 @@
 #include "ui/widgets/SideBar.h"
 #include "ui/widgets/SocialPanel.h"
 #include "social/SocialClient.h"
+#include "social/ProfileClient.h"
+#include "social/WorldBackups.h"
+#include "ui/dialogs/PlayerProfileDialog.h"
 #include "social/DesktopNotifier.h"
 #include "social/GameActivity.h"
 #include "minecraft/VanillaInstanceCreationTask.h"
@@ -420,6 +424,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         });
         connect(m_socialPanel, &SocialPanel::inviteRequested, this, &MainWindow::inviteFriend);
         connect(m_socialPanel, &SocialPanel::joinRequested, this, &MainWindow::joinServer);
+        // Profiles: time played and favourite versions, counted from the Social presence.
+        m_profiles = new ProfileClient(APPLICATION->network(), m_social, this);
+        m_profiles->setBackendUrl(APPLICATION->settings()->get("XylarProfilesUrl").toString());
+        connect(m_socialPanel, &SocialPanel::profileRequested, this, &MainWindow::showPlayerProfile);
         // Friend requests, invites and friends coming online, also while the launcher is hidden.
         m_notifier = new DesktopNotifier(APPLICATION->logo(), FS::PathCombine(APPLICATION->dataRoot(), QStringLiteral("cache")), this);
         connect(m_notifier, &DesktopNotifier::clicked, this, &MainWindow::showSocialPanel);
@@ -1146,8 +1154,79 @@ void MainWindow::onInstanceRunningChanged(bool running)
     // A game just started or stopped: what the launcher loaded for it can go back to the system.
     QTimer::singleShot(3000, this, [] { MemoryTrim::release(); });
     // The selected instance's skin source (default skin jar) may only exist after a first launch.
-    if (!running)
+    if (!running) {
         updateHomePlayer();
+        backUpPlayedWorlds(instance);
+    }
+}
+
+void MainWindow::showPlayerProfile(const QString& name)
+{
+    if (!m_profiles || name.isEmpty())
+        return;
+    auto dialog = new PlayerProfileDialog(m_profiles, name, m_socialPanel ? m_socialPanel->skinFor(name) : QImage(), this);
+    if (m_socialPanel) {
+        connect(m_socialPanel, &SocialPanel::skinChanged, dialog, [dialog, name](const QString& who, const QImage& skin) {
+            if (who.compare(name, Qt::CaseInsensitive) == 0)
+                dialog->setSkin(skin);
+        });
+    }
+    dialog->show();
+}
+
+void MainWindow::backUpPlayedWorlds(BaseInstance* instance)
+{
+    auto minecraft = dynamic_cast<MinecraftInstance*>(instance);
+    if (!minecraft || !APPLICATION->settings()->get("XylarAutoWorldBackup").toBool() || !WorldBackups::available())
+        return;
+    const qint64 launchedAt = minecraft->lastLaunch();
+    if (launchedAt <= 0)
+        return;
+    const QDir saves(minecraft->worldDir());
+    for (const QFileInfo& folder : saves.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+        // The game writes level.dat whenever it saves the world, so it tells which ones were played.
+        const QFileInfo levelDat(QDir(folder.absoluteFilePath()).filePath(QStringLiteral("level.dat")));
+        if (!levelDat.isFile() || levelDat.lastModified().toMSecsSinceEpoch() < launchedAt)
+            continue;
+        World world(folder);
+        if (!world.isValid())
+            continue;
+        const bool queued = std::any_of(m_worldBackups.cbegin(), m_worldBackups.cend(),
+                                        [&](const PendingWorldBackup& pending) { return pending.worldDir == folder.absoluteFilePath(); });
+        if (!queued)
+            m_worldBackups.append({ instance->id(), instance->name(), folder.absoluteFilePath(), world.name() });
+    }
+    runNextWorldBackup();
+}
+
+void MainWindow::runNextWorldBackup()
+{
+    if (m_worldBackup || m_worldBackups.isEmpty())
+        return;
+    const PendingWorldBackup next = m_worldBackups.takeFirst();
+    // Played again before its turn came: it's backed up when that game closes.
+    if (auto instance = APPLICATION->instances()->getInstanceById(next.instanceId); !instance || instance->isRunning())
+        return runNextWorldBackup();
+
+    qDebug() << "Cloud backup of" << next.worldName << "from" << next.instanceName;
+    m_worldBackup.reset(new WorldBackupUpload(next.worldDir, next.instanceName, next.worldName));
+    WorldBackupUpload* task = m_worldBackup.get();
+    connect(task, &Task::succeeded, this, [next] { qDebug() << "Cloud backup of" << next.worldName << "done"; });
+    connect(task, &Task::failed, this, [this, task, next](const QString& reason) {
+        qWarning() << "Cloud backup of" << next.worldName << "failed:" << reason;
+        // Running out of space is worth saying once; the player can make room in Cloud Backups.
+        if (task->outOfSpace() && !m_backupSpaceNoticeShown && m_notifier) {
+            m_backupSpaceNoticeShown = true;
+            m_notifier->notify(tr("Cloud backup skipped"), reason);
+        }
+    });
+    connect(task, &Task::finished, this, [this] {
+        QTimer::singleShot(0, this, [this] {
+            m_worldBackup.reset();
+            runNextWorldBackup();
+        });
+    });
+    task->start();
 }
 
 void MainWindow::updateDiscordPresence()

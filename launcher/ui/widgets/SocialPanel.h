@@ -37,6 +37,9 @@ class SocialPanel : public QFrame {
     /// Fetch this player's skin again now (e.g. after they changed it here).
     void refreshSkin(const QString& name);
 
+    /// The skin found for @p name so far (null when none is loaded yet); skinChanged() tells when it changes.
+    QImage skinFor(const QString& name) const { return m_skins.value(name.toLower()); }
+
     /// The server you host right now, by name, so friends can be invited to it; empty: none runs.
     void setInviteTarget(const QString& serverTitle);
 
@@ -46,6 +49,9 @@ class SocialPanel : public QFrame {
     void joinRequested(const QString& server, const QString& version, const QString& friendName);
     /// Invite this friend to the server set with setInviteTarget().
     void inviteRequested(const QString& name);
+    /// Show this player's profile (yours or a friend's).
+    void profileRequested(const QString& name);
+    void skinChanged(const QString& name, const QImage& skin);
 
    protected:
     void changeEvent(QEvent* event) override;

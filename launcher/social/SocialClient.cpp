@@ -19,6 +19,8 @@
 #include "minecraft/skins/XylarSkinClient.h"
 
 namespace {
+SocialClient* s_current = nullptr;
+
 constexpr int kPresenceIntervalMs = 60 * 1000;
 constexpr int kRefreshIntervalMs = 30 * 1000;
 
@@ -50,6 +52,27 @@ SocialClient::SocialClient(QNetworkAccessManager* network, const QString& dataDi
     connect(&m_presenceTimer, &QTimer::timeout, this, &SocialClient::sendPresence);
     m_refreshTimer.setInterval(kRefreshIntervalMs);
     connect(&m_refreshTimer, &QTimer::timeout, this, &SocialClient::refresh);
+    s_current = this;
+}
+
+SocialClient::~SocialClient()
+{
+    if (s_current == this)
+        s_current = nullptr;
+}
+
+SocialClient* SocialClient::current()
+{
+    return s_current;
+}
+
+bool SocialClient::authorize(QNetworkRequest& request) const
+{
+    if (m_key.isEmpty() || m_uuid.isEmpty())
+        return false;
+    request.setRawHeader("X-Player", m_uuid.toLatin1());
+    request.setRawHeader("X-Player-Key", m_key.toLatin1());
+    return true;
 }
 
 void SocialClient::setBackendUrl(const QString& url)
@@ -129,10 +152,7 @@ void SocialClient::call(const QByteArray& method, const QString& path, const QJs
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     request.setRawHeader("Accept", "application/json");
     request.setTransferTimeout(15000);
-    if (!m_key.isEmpty()) {
-        request.setRawHeader("X-Player", m_uuid.toLatin1());
-        request.setRawHeader("X-Player-Key", m_key.toLatin1());
-    }
+    authorize(request);
     const QByteArray payload = body.isEmpty() ? QByteArray() : QJsonDocument(body).toJson(QJsonDocument::Compact);
     QNetworkReply* reply = m_network->sendCustomRequest(request, method, payload);
     const int generation = m_generation;

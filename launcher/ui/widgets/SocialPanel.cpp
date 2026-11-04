@@ -441,15 +441,16 @@ QWidget* SocialPanel::makePersonRow(const QString& name, const QString& state, c
         layout->addWidget(invite);
     }
 
+    auto more = new QToolButton(row);
+    more->setObjectName(QStringLiteral("socialMore"));
+    more->setText(QStringLiteral("⋯"));
+    more->setToolTip(tr("More"));
+    more->setCursor(Qt::PointingHandCursor);
+    more->setPopupMode(QToolButton::InstantPopup);
+    auto menu = new QMenu(more);
+    menu->addAction(self ? tr("View my profile") : tr("View profile"), this, [this, name] { emit profileRequested(name); });
+    menu->addAction(tr("Copy name"), this, [name] { QGuiApplication::clipboard()->setText(name); });
     if (!self) {
-        auto more = new QToolButton(row);
-        more->setObjectName(QStringLiteral("socialMore"));
-        more->setText(QStringLiteral("⋯"));
-        more->setToolTip(tr("More"));
-        more->setCursor(Qt::PointingHandCursor);
-        more->setPopupMode(QToolButton::InstantPopup);
-        auto menu = new QMenu(more);
-        menu->addAction(tr("Copy name"), this, [name] { QGuiApplication::clipboard()->setText(name); });
         if (!m_inviteTitle.isEmpty())
             menu->addAction(tr("Invite to %1").arg(m_inviteTitle), this, [this, name] { emit inviteRequested(name); });
         menu->addSeparator();
@@ -459,9 +460,9 @@ QWidget* SocialPanel::makePersonRow(const QString& name, const QString& state, c
             if (answer == QMessageBox::Yes)
                 m_client->remove(name);
         });
-        more->setMenu(menu);
-        layout->addWidget(more);
     }
+    more->setMenu(menu);
+    layout->addWidget(more);
     return row;
 }
 
@@ -680,6 +681,7 @@ void SocialPanel::skinLoaded(const QString& name, const QImage& skin)
     m_skins.insert(key, skin);
     if (same)
         return;  // nothing new to draw
+    emit skinChanged(name, skin);
     if (!m_rebuildPending) {
         m_rebuildPending = true;
         QTimer::singleShot(0, this, [this] {

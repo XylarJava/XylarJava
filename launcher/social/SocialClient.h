@@ -11,6 +11,7 @@
 
 class QNetworkAccessManager;
 class QNetworkReply;
+class QNetworkRequest;
 
 /**
  * XylarJava Social: friends and online status, from its own backend (kept apart from XylarSkins).
@@ -50,6 +51,11 @@ class SocialClient : public QObject {
     Q_ENUM(Notice)
 
     explicit SocialClient(QNetworkAccessManager* network, const QString& dataDir, QObject* parent = nullptr);
+    ~SocialClient() override;
+
+    /// The launcher's client (the main window's), for the other XylarJava services that sign
+    /// requests as the same player; null when there's none.
+    static SocialClient* current();
 
     void setBackendUrl(const QString& url);
 
@@ -80,6 +86,10 @@ class SocialClient : public QObject {
     void goOfflineNow(int timeoutMs = 1500);
 
     bool ready() const { return !m_key.isEmpty(); }
+    QString uuid() const { return m_uuid; }
+    /// Adds the player's headers to @p request, which the profile and backup services check
+    /// with this backend. False (and nothing added) while there's no key yet.
+    bool authorize(QNetworkRequest& request) const;
     bool loaded() const { return m_loaded; }
     QString lastError() const { return m_error; }
     const QList<Friend>& friends() const { return m_friends; }
