@@ -48,10 +48,6 @@ run/
 
 .cache/
 
-# Flatpak
-.flatpak-builder
-flatbuild
-
 # Snap
 *.snap
 

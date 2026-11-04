@@ -7,7 +7,6 @@
 
 #include "Application.h"
 #include "BuildConfig.h"
-#include "EmbeddedSecrets.h"
 
 #include "net/ApiDownload.h"
 
@@ -132,8 +131,5 @@ QString LegacyFMLLibrariesTask::baseUrl()
         return urlOverride;
     }
 
-    if (!BuildConfig.LEGACY_FMLLIBS_BASE_URL.isEmpty()) {
-        return BuildConfig.LEGACY_FMLLIBS_BASE_URL;
-    }
-    return EmbeddedSecrets::legacyFmlLibsUrl();
+    return BuildConfig.LEGACY_FMLLIBS_BASE_URL;
 }

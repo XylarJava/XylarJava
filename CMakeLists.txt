@@ -182,7 +182,7 @@ set(Launcher_NEWS_OPEN_URL "" CACHE STRING "URL that gets opened when the user c
 set(Launcher_WIKI_URL "" CACHE STRING "URL that gets opened when the user clicks 'Launcher Help'")
 set(Launcher_HELP_URL "" CACHE STRING "URL (with arg %1 to be substituted with page-id) that gets opened when the user requests help in a dialog window")
 set(Launcher_LOGIN_CALLBACK_URL "about:blank" CACHE STRING "URL that gets opened when the user successfully logins.")
-set(Launcher_LEGACY_FMLLIBS_BASE_URL "" CACHE STRING "URL for legacy (<=1.5.2) FML Libraries.")
+set(Launcher_LEGACY_FMLLIBS_BASE_URL "https://xylarjava-meta.xylarinc.workers.dev/files/fmllibs/" CACHE STRING "URL for legacy (<=1.5.2) FML Libraries.")
 
 ######## Set version numbers ########
 set(Launcher_VERSION_MAJOR 0)
@@ -204,7 +204,7 @@ set(Launcher_UPDATER_GITHUB_REPO "" CACHE STRING "Base github URL for the update
 set(Launcher_BUILD_ARTIFACT "" CACHE STRING "Artifact name to help the updater identify valid artifacts.")
 
 # The metadata server
-set(Launcher_META_URL "" CACHE STRING "URL to fetch Launcher's meta files from.")
+set(Launcher_META_URL "https://xylarjava-meta.xylarinc.workers.dev/v1/" CACHE STRING "URL to fetch Launcher's meta files from.")
 
 # Imgur API Client ID
 set(Launcher_IMGUR_CLIENT_ID "5b97b0713fba4a3" CACHE STRING "Client ID you can get from Imgur when you register an application")

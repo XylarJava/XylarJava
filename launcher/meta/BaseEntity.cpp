@@ -13,7 +13,6 @@
 #include "Application.h"
 #include "settings/SettingsObject.h"
 #include "BuildConfig.h"
-#include "EmbeddedSecrets.h"
 #include "tasks/Task.h"
 
 namespace Meta {
@@ -63,8 +62,7 @@ QUrl BaseEntity::url() const
     auto s = APPLICATION->settings();
     QString metaOverride = s->get("MetaURLOverride").toString();
     if (metaOverride.isEmpty()) {
-        const QString metaBase = BuildConfig.META_URL.isEmpty() ? EmbeddedSecrets::metaBaseUrl() : BuildConfig.META_URL;
-        return QUrl(metaBase).resolved(localFilename());
+        return QUrl(BuildConfig.META_URL).resolved(localFilename());
     }
     return QUrl(metaOverride).resolved(localFilename());
 }

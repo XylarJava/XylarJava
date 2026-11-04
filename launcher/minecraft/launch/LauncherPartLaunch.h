@@ -32,4 +32,6 @@ class LauncherPartLaunch : public LaunchStep {
     MinecraftTarget::Ptr m_targetToJoin;
 
     bool mayProceed = false;
+    // Applet era versions start through NewLaunch, which reads the launch script on stdin.
+    bool m_viaNewLaunch = false;
 };

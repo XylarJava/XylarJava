@@ -838,8 +838,6 @@ SET(LAUNCHER_SOURCES
     # Application base
     Application.h
     Application.cpp
-    EmbeddedSecrets.cpp
-    EmbeddedSecrets.h
     DataMigrationTask.h
     DataMigrationTask.cpp
     ApplicationMessage.h

@@ -38,6 +38,22 @@ void LauncherPartLaunch::executeTask()
 {
     auto instance = m_parent->instance();
 
+    // Versions up to 1.5.2 are applets: NewLaunch's legacy launcher hosts them in a window.
+    m_viaNewLaunch = instance->getLauncher() == "legacy";
+    QStringList newLaunchJars;
+    if (m_viaNewLaunch) {
+        for (const char* jar : { "NewLaunchLegacy.jar", "NewLaunch.jar" }) {
+            const QString path = APPLICATION->getJarPath(jar);
+            if (path.isEmpty()) {
+                const char* reason = QT_TR_NOOP("Launcher library could not be found. Please check your installation.");
+                emit logLine(tr(reason), MessageLevel::Fatal);
+                emitFailed(tr(reason));
+                return;
+            }
+            newLaunchJars << path;
+        }
+    }
+
     m_launchScript = instance->createLaunchScript(m_session, m_targetToJoin);
     QStringList args = instance->javaArguments(m_session.get());
     QString allArgs = args.join(" ");
@@ -50,7 +66,7 @@ void LauncherPartLaunch::executeTask()
     // make detachable - this will keep the process running even if the object is destroyed
     m_process.setDetachable(true);
 
-    auto classPath = instance->getClassPath();
+    auto classPath = newLaunchJars + instance->getClassPath();
 
     auto natPath = instance->getNativePath();
 #ifdef Q_OS_WIN
@@ -69,22 +85,27 @@ void LauncherPartLaunch::executeTask()
     args << classPath.join(':');
 #endif
 
-    QString mainClass = instance->getMainClass();
-    if (mainClass.isEmpty()) {
-        mainClass = "net.minecraft.client.main.Main";
-    }
-    args << mainClass;
-
-    auto mcArgs = instance->processMinecraftArgs(m_session, m_targetToJoin);
-    if (!mcArgs.contains("--width") && !mcArgs.contains("-width")) {
-        int width = instance->settings()->get("MinecraftWinWidth").toInt();
-        int height = instance->settings()->get("MinecraftWinHeight").toInt();
-        if (width > 0 && height > 0) {
-            mcArgs << "--width" << QString::number(width);
-            mcArgs << "--height" << QString::number(height);
+    if (m_viaNewLaunch) {
+        // Main class, arguments and window settings all come from the launch script.
+        args << "io.xylarjava.newlaunch.EntryPoint";
+    } else {
+        QString mainClass = instance->getMainClass();
+        if (mainClass.isEmpty()) {
+            mainClass = "net.minecraft.client.main.Main";
         }
+        args << mainClass;
+
+        auto mcArgs = instance->processMinecraftArgs(m_session, m_targetToJoin);
+        if (!mcArgs.contains("--width") && !mcArgs.contains("-width")) {
+            int width = instance->settings()->get("MinecraftWinWidth").toInt();
+            int height = instance->settings()->get("MinecraftWinHeight").toInt();
+            if (width > 0 && height > 0) {
+                mcArgs << "--width" << QString::number(width);
+                mcArgs << "--height" << QString::number(height);
+            }
+        }
+        args << mcArgs;
     }
-    args << mcArgs;
 
     qDebug() << args.join(' ');
 
@@ -157,6 +178,8 @@ void LauncherPartLaunch::on_state(LoggedProcess::State state)
             emit logLine(QString("Minecraft process ID: %1\n\n").arg(m_process.processId()), MessageLevel::Launcher);
             m_parent->setPid(m_process.processId());
             m_parent->instance()->setMinecraftRunning(true);
+            if (m_viaNewLaunch)
+                m_process.write(m_launchScript.toUtf8());
             mayProceed = true;
             emit readyForLaunch();
             break;
@@ -174,6 +197,8 @@ void LauncherPartLaunch::proceed()
 {
     if (mayProceed) {
         m_parent->instance()->setMinecraftRunning(true);
+        if (m_viaNewLaunch)
+            m_process.write(QByteArray("launch\n"));
         mayProceed = false;
     }
 }
@@ -182,6 +207,10 @@ bool LauncherPartLaunch::abort()
 {
     if (mayProceed) {
         mayProceed = false;
+        if (m_viaNewLaunch) {
+            m_process.write(QByteArray("abort\n"));
+            return true;
+        }
     }
     auto state = m_process.state();
     if (state == LoggedProcess::Running || state == LoggedProcess::Starting) {
