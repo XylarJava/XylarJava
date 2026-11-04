@@ -204,9 +204,9 @@ set(MAC_UPDATE_SOURCES
     updater/MacSparkleUpdater.mm
 )
 
-set(PRISM_UPDATE_SOURCES
-    updater/PrismExternalUpdater.h
-    updater/PrismExternalUpdater.cpp
+set(EXTERNAL_UPDATE_SOURCES
+    updater/LauncherExternalUpdater.h
+    updater/LauncherExternalUpdater.cpp
 )
 
 # Backend for the news bar... there's usually no news.
@@ -651,13 +651,13 @@ set(LINKEXE_SOURCES
     DesktopServices.cpp
 )
 
-set(PRISMUPDATER_SOURCES
-    updater/prismupdater/PrismUpdater.h
-    updater/prismupdater/PrismUpdater.cpp
-    updater/prismupdater/UpdaterDialogs.h
-    updater/prismupdater/UpdaterDialogs.cpp
-    updater/prismupdater/GitHubRelease.h
-    updater/prismupdater/GitHubRelease.cpp
+set(UPDATER_SOURCES
+    updater/standalone/UpdaterApp.h
+    updater/standalone/UpdaterApp.cpp
+    updater/standalone/UpdaterDialogs.h
+    updater/standalone/UpdaterDialogs.cpp
+    updater/standalone/GitHubRelease.h
+    updater/standalone/GitHubRelease.cpp
 
     Json.h
     Json.cpp
@@ -712,10 +712,10 @@ set(PRISMUPDATER_SOURCES
 )
 
 if(WIN32)
-    set(PRISMUPDATER_SOURCES
+    set(UPDATER_SOURCES
         console/WindowsConsole.h
         console/WindowsConsole.cpp
-        ${PRISMUPDATER_SOURCES}
+        ${UPDATER_SOURCES}
     )
 endif()
 
@@ -831,7 +831,7 @@ set(LOGIC_SOURCES
 if(APPLE AND Launcher_ENABLE_UPDATER)
     set (LOGIC_SOURCES ${LOGIC_SOURCES} ${MAC_UPDATE_SOURCES})
 else()
-    set (LOGIC_SOURCES ${LOGIC_SOURCES} ${PRISM_UPDATE_SOURCES})
+    set (LOGIC_SOURCES ${LOGIC_SOURCES} ${EXTERNAL_UPDATE_SOURCES})
 endif()
 
 SET(LAUNCHER_SOURCES
@@ -1339,12 +1339,12 @@ qt_wrap_ui(LAUNCHER_UI
     ui/dialogs/ChooseOfflineNameDialog.ui
 )
 
-qt_wrap_ui(PRISM_UPDATE_UI
+qt_wrap_ui(EXTERNAL_UPDATE_UI
     ui/dialogs/UpdateAvailableDialog.ui
 )
 
 if (NOT Apple)
-    set (LAUNCHER_UI ${LAUNCHER_UI} ${PRISM_UPDATE_UI})
+    set (LAUNCHER_UI ${LAUNCHER_UI} ${EXTERNAL_UPDATE_UI})
 endif()
 
 qt_add_resources(LAUNCHER_RESOURCES
@@ -1365,8 +1365,8 @@ qt_add_resources(LAUNCHER_RESOURCES
     "${CMAKE_CURRENT_BINARY_DIR}/../${Launcher_Branding_LogoQRC}"
 )
 
-qt_wrap_ui(PRISMUPDATER_UI
-    updater/prismupdater/SelectReleaseDialog.ui
+qt_wrap_ui(UPDATER_UI
+    updater/standalone/SelectReleaseDialog.ui
     ui/widgets/SubTaskProgressBar.ui
     ui/dialogs/ProgressDialog.ui
 )
@@ -1532,45 +1532,32 @@ if(CMAKE_CXX_LINKER_SUPPORTS_PDB)
     install(FILES $<TARGET_PDB_FILE:${Launcher_Name}> DESTINATION ${BINARY_DEST_DIR} OPTIONAL)
 endif()
 
-# Generate/copy Windows .exe and auth-settings.ini alongside Linux build.
-# Both files are optional: auth-settings.ini is git-ignored (it holds your own client ID),
-# so CI checkouts and fresh clones don't have it.
+# Copy auth-settings.ini next to the build. It's optional and git-ignored (it holds your own
+# client ID), so CI checkouts and fresh clones don't have it.
 set(_xylar_post_build_commands "")
 if(EXISTS "${CMAKE_SOURCE_DIR}/auth-settings.ini")
     list(APPEND _xylar_post_build_commands
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${CMAKE_SOURCE_DIR}/auth-settings.ini"
                 "${PROJECT_BINARY_DIR}/auth-settings.ini")
-    if(EXISTS "${CMAKE_SOURCE_DIR}/dist-windows")
-        list(APPEND _xylar_post_build_commands
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    "${CMAKE_SOURCE_DIR}/auth-settings.ini"
-                    "${CMAKE_SOURCE_DIR}/dist-windows/auth-settings.ini")
-    endif()
-endif()
-if(EXISTS "${CMAKE_SOURCE_DIR}/dist-windows/XylarJava.exe")
-    list(APPEND _xylar_post_build_commands
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${CMAKE_SOURCE_DIR}/dist-windows/XylarJava.exe"
-                "${PROJECT_BINARY_DIR}/XylarJava.exe")
 endif()
 if(_xylar_post_build_commands)
     add_custom_command(TARGET ${Launcher_Name} POST_BUILD
         ${_xylar_post_build_commands}
-        COMMENT "Copying auth-settings.ini and the Windows .exe next to the build"
+        COMMENT "Copying auth-settings.ini next to the build"
     )
 endif()
 
 if(Launcher_BUILD_UPDATER)
     # Updater
-    add_library(prism_updater_logic STATIC ${PRISMUPDATER_SOURCES} ${TASKS_SOURCES} ${PRISMUPDATER_UI})
-    target_include_directories(prism_updater_logic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+    add_library(updater_logic STATIC ${UPDATER_SOURCES} ${TASKS_SOURCES} ${UPDATER_UI})
+    target_include_directories(updater_logic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
     if(${Launcher_USE_PCH})
-        target_precompile_headers(prism_updater_logic PRIVATE ${PRECOMPILED_HEADERS})
+        target_precompile_headers(updater_logic PRIVATE ${PRECOMPILED_HEADERS})
     endif()
 
-    target_link_libraries(prism_updater_logic
+    target_link_libraries(updater_logic
         ${ZLIB_LIBRARIES}
         BuildConfig
         Qt${QT_VERSION_MAJOR}::Widgets
@@ -1580,17 +1567,17 @@ if(Launcher_BUILD_UPDATER)
         ${Launcher_CMARK_TARGET}
     )
     if(TARGET PkgConfig::libarchive)
-        target_link_libraries(prism_updater_logic PkgConfig::libarchive)
+        target_link_libraries(updater_logic PkgConfig::libarchive)
     else()
-        target_link_libraries(prism_updater_logic LibArchive::LibArchive)
+        target_link_libraries(updater_logic LibArchive::LibArchive)
     endif()
 
-    add_executable("${Launcher_Name}_updater" WIN32 updater/prismupdater/updater_main.cpp)
-    target_sources("${Launcher_Name}_updater" PRIVATE updater/prismupdater/updater.exe.manifest)
-    target_link_libraries("${Launcher_Name}_updater" prism_updater_logic)
+    add_executable("${Launcher_Name}_updater" WIN32 updater/standalone/updater_main.cpp)
+    target_sources("${Launcher_Name}_updater" PRIVATE updater/standalone/updater.exe.manifest)
+    target_link_libraries("${Launcher_Name}_updater" updater_logic)
 
     if(${Launcher_USE_PCH})
-        target_precompile_headers("${Launcher_Name}_updater" REUSE_FROM prism_updater_logic)
+        target_precompile_headers("${Launcher_Name}_updater" REUSE_FROM updater_logic)
     endif()
 
     if(DEFINED Launcher_APP_BINARY_NAME)
@@ -1831,7 +1818,7 @@ if(CLANG_FORMAT)
     message(STATUS "Creating clang-format target")
     add_custom_target(
         clang-format
-        COMMAND ${CLANG_FORMAT} -i --style=file:${CMAKE_SOURCE_DIR}/.clang-format ${LOGIC_SOURCES} ${LAUNCHER_SOURCES} ${PRISMUPDATER_SOURCES} ${LINKEXE_SOURCES} ${PRECOMPILED_HEADERS}
+        COMMAND ${CLANG_FORMAT} -i --style=file:${CMAKE_SOURCE_DIR}/.clang-format ${LOGIC_SOURCES} ${LAUNCHER_SOURCES} ${UPDATER_SOURCES} ${LINKEXE_SOURCES} ${PRECOMPILED_HEADERS}
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     )
 else()

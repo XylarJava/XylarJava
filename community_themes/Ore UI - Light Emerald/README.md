@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Ore UI - Light Emerald
 ---
-Minecraft-inspired light theme for Prism Launcher with rich emerald-green accents.
+Minecraft-inspired light theme with rich emerald-green accents.
 
 ## Preview
 ![Ore UI - Light Emerald Preview](preview.png)

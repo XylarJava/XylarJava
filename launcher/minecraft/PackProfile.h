@@ -55,7 +55,7 @@ class PackProfile : public QAbstractListModel {
     /// install a jar/zip as a replacement for the main jar
     void installCustomJar(QString selectedFile);
 
-    /// install MMC/Prism component files
+    /// install MultiMC-format component files
     bool installComponents(QStringList selectedFiles);
 
     /// install Java agent files

@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Kanagawa
 ---
-[Kanagawa](https://github.com/rebelot/kanagawa.nvim) theme for Prism Launcher.
+[Kanagawa](https://github.com/rebelot/kanagawa.nvim) theme.
 
 ## Preview
 ![Kanagawa Preview](preview.png)

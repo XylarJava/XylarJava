@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Renoise
 ---
-A Renoise inspired Prism Launcher theme, with specially made assets and QSS for a better feel.
+A Renoise inspired theme, with specially made assets and QSS for a better feel.
 
 ## Preview
 ![Renoise Preview](preview.png)

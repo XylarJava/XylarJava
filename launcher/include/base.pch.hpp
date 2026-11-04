@@ -1,6 +1,6 @@
 #pragma once
-#ifndef PRISM_PRECOMPILED_BASE_HEADERS_H
-#define PRISM_PRECOMPILED_BASE_HEADERS_H
+#ifndef LAUNCHER_PRECOMPILED_BASE_HEADERS_H
+#define LAUNCHER_PRECOMPILED_BASE_HEADERS_H
 
 #include <algorithm>
 #include <cstddef>
@@ -14,4 +14,4 @@
 #include <Json.h>
 #include <Version.h>
 
-#endif  // PRISM_PRECOMPILED_BASE_HEADERS_H
+#endif  // LAUNCHER_PRECOMPILED_BASE_HEADERS_H

@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Jvne
 ---
-Theme for Prism Launcher to fit that Sewerslvt aesthetic
+Theme to fit that Sewerslvt aesthetic
 
 ## Preview
 ![Jvne Preview](preview.png)

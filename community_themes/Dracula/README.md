@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Dracula
 ---
-[Dracula](https://github.com/dracula/dracula-theme) theme for Prism Launcher.
+[Dracula](https://github.com/dracula/dracula-theme) theme.
 
 ## Preview
 ![Dracula Preview](preview.png)

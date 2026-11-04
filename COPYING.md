@@ -1,3 +1,20 @@
+## XylarJava
+
+     XylarJava - Minecraft Launcher
+     Copyright (C) 2025-2026 XylarJava Contributors
+
+     This program is free software: you can redistribute it and/or modify
+     it under the terms of the GNU General Public License as published by
+     the Free Software Foundation, version 3.
+
+     This program is distributed in the hope that it will be useful,
+     but WITHOUT ANY WARRANTY; without even the implied warranty of
+     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+     GNU General Public License for more details.
+
+     You should have received a copy of the GNU General Public License
+     along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 ## Prism Launcher
 
      Prism Launcher - Minecraft Launcher
@@ -184,6 +201,14 @@
     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+## Instance icons (`launcher/resources/multimc/scalable/instances`)
+
+    Copyright (C) 2022 AutiOne, Boba, ely, Fulmine, gon sawa, Pankakes, tobimori, Zeke
+    Source: https://github.com/PrismLauncher/PrismLauncher
+
+    Licensed under the Creative Commons Attribution-ShareAlike 4.0 International
+    License (https://creativecommons.org/licenses/by-sa/4.0/). See program_info/LICENSE.
 
 ## Batch icon set
 

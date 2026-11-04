@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Fluent-Dark
 ---
-Microsoft Fluent Design inspired dark theme for Prism Launcher.
+Microsoft Fluent Design inspired dark theme.
 
 ## Preview
 ![Fluent-Dark Preview](preview.png)

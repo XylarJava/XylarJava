@@ -5,7 +5,7 @@ SPDX-License-Identifier: MIT
 -->
 
 
-PrismLauncher theme made with the [everforest](https://github.com/sainnhe/everforest) color-scheme with medium contrast.
+Theme made with the [everforest](https://github.com/sainnhe/everforest) color-scheme with medium contrast.
 
 ## Preview
 ![Everforest preview](preview.png)

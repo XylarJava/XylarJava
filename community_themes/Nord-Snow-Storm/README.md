@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Nord Snow Storm
 ---
-Nord (Snow Storm) theme for Prism Launcher
+Nord (Snow Storm) theme
 
 ## Preview
 ![Nord Snow Storm Preview](preview.png)

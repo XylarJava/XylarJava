@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Mellow
 ---
-Colorscheme by Rohit K Viswanath. Applied to Prismlauncher by me, Squibid.
+Colorscheme by Rohit K Viswanath. Applied to the launcher by Squibid.
 
 ## Preview
 ![Mellow Preview](preview.png)

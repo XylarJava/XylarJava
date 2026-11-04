@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2023 lunofe
 SPDX-License-Identifier: Unlicense
 -->
 
-# Mod Labyrinth Dark Theme for PrismLauncher
+# Mod Labyrinth Dark Theme
 
 ## Preview
 ![Preview](preview.png)

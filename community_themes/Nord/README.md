@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Nord
 ---
-[Nord](https://nordtheme.com) theme for Prism Launcher.
+[Nord](https://nordtheme.com) theme.
 
 ## Preview
 ![Nord Preview](preview.png)

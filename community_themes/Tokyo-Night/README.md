@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2023 Fazzi
 SPDX-License-Identifier: Unlicense
 -->
 
-# TokyoNight Theme for PrismLauncher
+# TokyoNight Theme
 
 ## Preview
 ![Preview](preview.png)

@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Ore UI - Dark Amethyst
 ---
-Minecraft-inspired dark theme for Prism Launcher with vibrant amethyst accents.
+Minecraft-inspired dark theme with vibrant amethyst accents.
 
 ## Preview
 ![Ore UI - Dark Amethyst Preview](preview.png)

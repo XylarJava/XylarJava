@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 GruvBox theme
 ---
-![Gruvbox](https://github.com/morhetz/gruvbox) theme for Prism Launcher
+![Gruvbox](https://github.com/morhetz/gruvbox) theme
 ## Preview
 ![Preview](preview.png)
 

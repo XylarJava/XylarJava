@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Catppuccin-Macchiato
 ---
-[Catppuccin-Macchiato](https://github.com/catppuccin/catppuccin) theme for Prism Launcher.
+[Catppuccin-Macchiato](https://github.com/catppuccin/catppuccin) theme.
 
 ## Preview
 ![Catppuccin-Macchiato Preview](preview.png)

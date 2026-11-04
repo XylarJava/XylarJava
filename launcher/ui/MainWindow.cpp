@@ -489,7 +489,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         connect(APPLICATION->instances(), &InstanceList::modelReset, this, [this] { updateHomePage(); });
     }
 
-    // The old Prism/PolyMC status bar ("No instance selected", playtime) is gone: the Home screen
+    // The old status bar ("No instance selected", playtime) is gone: the Home screen
     // already shows the selected instance. Its toggle goes too.
     ui->actionToggleStatusBar->setVisible(false);
 
@@ -528,7 +528,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     ui->mainToolBar->insertWidget(ui->actionAccountsButton, spacer);
 
-    // The sidebar replaces the old Prism/PolyMC toolbars (main, instance and news bar); keep the
+    // The sidebar replaces the old toolbars (main, instance and news bar); keep the
     // toolbar objects (their actions live on in the sidebar and the menus) but take them out of the window.
     hideLegacyBars();
     ui->instanceToolBar->toggleViewAction()->setVisible(false);

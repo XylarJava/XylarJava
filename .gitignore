@@ -48,15 +48,6 @@ run/
 
 .cache/
 
-# Nix/NixOS
-.direnv/
-## Used when manually invoking stdenv phases
-outputs/
-## Regular artifacts
-result
-result-*
-repl-result-*
-
 # Flatpak
 .flatpak-builder
 flatbuild
@@ -70,3 +61,10 @@ flatbuild
 /tools/SingleExePacker/bin/
 /tools/SingleExePacker/obj/
 *.AppImage
+
+# Release builds and packages
+/dist/
+/dist-windows/
+/release/
+/*.zip
+/*.zsync

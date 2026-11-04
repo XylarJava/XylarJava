@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Amoled
 ---
-Amoled-esque theme for Prism Launcher
+Amoled-esque theme
 
 ## Preview
 ![Amoled Preview](preview.png)

@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Ore UI - Dark Emerald
 ---
-Minecraft-inspired dark theme for Prism Launcher with rich emerald-green accents.
+Minecraft-inspired dark theme with rich emerald-green accents.
 
 ## Preview
 ![Ore UI - Dark Emerald Preview](preview.png)

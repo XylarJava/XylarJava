@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Catppuccin-Mocha
 ---
-[Catppuccin-Mocha](https://github.com/catppuccin/catppuccin) theme for Prism Launcher.
+[Catppuccin-Mocha](https://github.com/catppuccin/catppuccin) theme.
 
 ## Preview
 ![Catppuccin-Mocha Preview](preview.png)

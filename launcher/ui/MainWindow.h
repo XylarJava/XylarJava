@@ -40,7 +40,7 @@ class MainWindow : public QMainWindow {
     explicit MainWindow(QWidget* parent = 0);
     ~MainWindow();
 
-    /** Takes the old Prism/PolyMC toolbars and status bar out of the window. */
+    /** Takes the old toolbars and status bar out of the window. */
     void hideLegacyBars();
 
     bool eventFilter(QObject* obj, QEvent* ev) override;

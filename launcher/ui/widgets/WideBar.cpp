@@ -70,7 +70,7 @@ WideBar::WideBar(QWidget* parent) : QToolBar(parent)
 
 void WideBar::hideForGood()
 {
-    // XylarJava has its own sidebar and menus: the old Prism/PolyMC button bars never show.
+    // XylarJava has its own sidebar and menus: the old button bars never show.
     // Everything they offered is in the right-click menu of their page (createContextMenu).
     QToolBar::setVisible(false);
     toggleViewAction()->setVisible(false);

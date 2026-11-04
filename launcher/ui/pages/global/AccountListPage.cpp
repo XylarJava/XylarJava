@@ -22,7 +22,7 @@
 AccountListPage::AccountListPage(QWidget* parent) : QMainWindow(parent), ui(new Ui::AccountListPage)
 {
     ui->setupUi(this);
-    // The only page that keeps Prism's button bar: adding, removing and picking accounts at a glance.
+    // The only page that keeps the classic button bar: adding, removing and picking accounts at a glance.
     ui->toolBar->showAgain();
     ui->listView->setEmptyString(
         tr("Welcome!\n"

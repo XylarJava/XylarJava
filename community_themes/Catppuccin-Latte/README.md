@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Catppuccin-Latte
 ---
-[Catppuccin-Latte](https://github.com/catppuccin/catppuccin) theme for Prism Launcher.
+[Catppuccin-Latte](https://github.com/catppuccin/catppuccin) theme.
 
 ## Preview
 ![Catppuccin-Latte Preview](preview.png)

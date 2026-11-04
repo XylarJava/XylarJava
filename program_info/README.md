@@ -1,6 +1,6 @@
-# PolyMC Program Info
+# XylarJava Program Info
 
-This is PolyMC's program info which contains information about:
+XylarJava's program info, which contains:
 
 - Application name and logo (and branding in general)
 - Various URLs and API endpoints

@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Ore UI - Light Diamond
 ---
-Minecraft-inspired light theme for Prism Launcher with cool diamond-blue accents.
+Minecraft-inspired light theme with cool diamond-blue accents.
 
 ## Preview
 ![Ore UI - Light Diamond Preview](preview.png)

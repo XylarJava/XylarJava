@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 BD Blue
 ---
-BD style theme for Prism Launcher
+BD style theme
 
 ## Preview
 ![BD Blue Preview](preview.png)

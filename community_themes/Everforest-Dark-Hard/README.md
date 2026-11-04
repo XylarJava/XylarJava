@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Everforest-Dark-Hard
 ---
-[Everforest Dark Hard](https://github.com/sainnhe/everforest) theme for Prism Launcher.
+[Everforest Dark Hard](https://github.com/sainnhe/everforest) theme.
 
 ## Preview
 ![Everforest-Dark-Hard Preview](preview.png)

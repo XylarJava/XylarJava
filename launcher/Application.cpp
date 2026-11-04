@@ -115,7 +115,7 @@
 #include "updater/MacSparkleUpdater.h"
 #endif
 #else
-#include "updater/PrismExternalUpdater.h"
+#include "updater/LauncherExternalUpdater.h"
 #endif
 
 #if defined Q_OS_WIN32
@@ -1375,7 +1375,7 @@ void Application::performMainStartupAction()
         m_updater.reset(new MacSparkleUpdater());
 #endif
 #else
-        m_updater.reset(new PrismExternalUpdater(m_mainWindow, m_rootPath, m_dataPath));
+        m_updater.reset(new LauncherExternalUpdater(m_mainWindow, m_rootPath, m_dataPath));
 #endif
         qDebug() << "<> Updater started.";
     }

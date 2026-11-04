@@ -41,7 +41,7 @@ class WideBar : public QToolBar {
     void removeAction(QAction* action);
 
     void setVisible(bool visible) override;
-    /// The one exception to the hidden bars: this bar shows (Settings > Accounts keeps Prism's buttons).
+    /// The one exception to the hidden bars: this bar shows (Settings > Accounts keeps its buttons).
     void showAgain();
 
    private:

@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Nord Polar Night
 ---
-Nord (Polar Night) theme for Prism Launcher
+Nord (Polar Night) theme
 
 ## Preview
 ![Nord Polar Night Preview](preview.png)

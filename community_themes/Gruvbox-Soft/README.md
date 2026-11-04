@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC0-1.0
 -->
 Gruvbox-Soft
 ---
-[Gruvbox-Soft](https://github.com/morhetz/gruvbox) theme for Prism Launcher.
+[Gruvbox-Soft](https://github.com/morhetz/gruvbox) theme.
 based on Cattppuccin theme
 
 ## Preview

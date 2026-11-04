@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Catppuccin-Frappe
 ---
-[Catppuccin-Frappe](https://github.com/catppuccin/catppuccin) theme for Prism Launcher.
+[Catppuccin-Frappe](https://github.com/catppuccin/catppuccin) theme.
 
 ## Preview
 ![Catppuccin-Frappe Preview](preview.png)

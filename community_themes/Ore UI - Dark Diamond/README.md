@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Ore UI - Dark Diamond
 ---
-Minecraft-inspired dark theme for Prism Launcher with cool diamond-blue accents.
+Minecraft-inspired dark theme with cool diamond-blue accents.
 
 ## Preview
 ![Ore UI - Dark Diamond Preview](preview.png)
