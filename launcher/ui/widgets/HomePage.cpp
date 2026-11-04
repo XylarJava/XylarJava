@@ -550,7 +550,12 @@ HomePage::HomePage(QWidget* parent) : QWidget(parent)
     m_skinButton = new QPushButton(accountCard);
     m_skinButton->setObjectName(QStringLiteral("cardButton"));
     m_skinButton->setCursor(Qt::PointingHandCursor);
-    connect(m_skinButton, &QPushButton::clicked, this, &HomePage::manageAccountsRequested);
+    connect(m_skinButton, &QPushButton::clicked, this, [this] {
+        if (m_hasPlayer)
+            emit skinRequested();
+        else
+            emit manageAccountsRequested();
+    });
     m_accountsButton = new QPushButton(accountCard);
     m_accountsButton->setObjectName(QStringLiteral("cardButton"));
     m_accountsButton->setCursor(Qt::PointingHandCursor);
@@ -708,7 +713,7 @@ void HomePage::retranslate()
     m_pickerButton->setText(tr("Switch"));
     m_pickerButton->setToolTip(tr("Choose what to play"));
     m_playMenuButton->setToolTip(tr("More ways to launch"));
-    m_skinButton->setText(m_hasPlayer ? tr("Change skin") : tr("Add an account"));
+    m_skinButton->setText(m_hasPlayer ? tr("Skin && cape") : tr("Add an account"));
     m_accountsButton->setText(tr("Accounts"));
     m_updatesButton->setText(tr("Check for updates"));
     m_recentTitle->setText(tr("Recently played"));
@@ -789,7 +794,7 @@ void HomePage::showPlayer(const QString& name, const QString& note, const QImage
     const QPixmap smallFace = skinFace(skin, 34);
     m_greetingFace->setPixmap(smallFace);
     m_greetingFace->setVisible(!smallFace.isNull());
-    m_skinButton->setText(tr("Change skin"));
+    m_skinButton->setText(tr("Skin && cape"));
 }
 
 void HomePage::showNoPlayer()

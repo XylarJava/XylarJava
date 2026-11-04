@@ -21,6 +21,7 @@
 #include <QPlainTextEdit>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QRegularExpression>
 #include <QScrollBar>
 #include <QShowEvent>
 #include <QStackedWidget>
@@ -248,7 +249,16 @@ LocalServersPage::LocalServersPage(LocalServerList* servers, QNetworkAccessManag
     joinLayout->setSpacing(8);
     auto joinTitle = new QLabel(tr("How friends join"), join);
     joinTitle->setObjectName(QStringLiteral("serverCardTitle"));
-    joinLayout->addWidget(joinTitle);
+    // The addresses lead to this computer, so they stay hidden until asked: Copy still copies them.
+    m_showAddresses = new QPushButton(join);
+    m_showAddresses->setObjectName(QStringLiteral("serverSecondary"));
+    m_showAddresses->setToolTip(tr("These addresses lead to your computer. Keep them hidden while you stream or share a screenshot: Copy works either way."));
+    connect(m_showAddresses, &QPushButton::clicked, this, [this] { setAddressesShown(!m_addressesShown); });
+    auto joinTitleRow = new QHBoxLayout();
+    joinTitleRow->addWidget(joinTitle);
+    joinTitleRow->addStretch(1);
+    joinTitleRow->addWidget(m_showAddresses);
+    joinLayout->addLayout(joinTitleRow);
     // One row per way in: the address in big letters, the port next to it, and Copy for exactly what to type.
     auto addressRow = [this, join, joinLayout](const QString& label, QLabel*& name, QLabel*& value, QLabel*& port, QPushButton*& copy) {
         auto row = new QHBoxLayout();
@@ -411,7 +421,7 @@ void LocalServersPage::showServer()
     m_list->setVisible(!m_servers->servers().isEmpty());
     if (!m_current)
         return;
-    m_console->setPlainText(m_current->console().join('\n'));
+    m_console->setPlainText(hideAddresses(m_current->console().join('\n')));
     m_console->verticalScrollBar()->setValue(m_console->verticalScrollBar()->maximum());
     updateDetails();
     updateAddresses();
@@ -508,12 +518,12 @@ void LocalServersPage::updateAddresses()
     const bool running = m_current->state() == LocalServer::State::Running;
     const QString port = tr("Port %1").arg(m_current->port());
     auto show = [this, &port](QLabel* value, QLabel* portLabel, QPushButton* copy, const QString& ip) {
-        value->setText(ip.isEmpty() ? tr("-") : ip);
+        value->setText(ip.isEmpty() ? tr("-") : hideAddresses(ip));
         portLabel->setText(port);
         portLabel->setVisible(!ip.isEmpty());
         copy->setEnabled(!ip.isEmpty());
         copy->setProperty("address", ip.isEmpty() ? QString() : m_current->joinAddress(ip));
-        copy->setToolTip(ip.isEmpty() ? QString() : tr("Copies %1").arg(m_current->joinAddress(ip)));
+        copy->setToolTip(ip.isEmpty() ? QString() : hideAddresses(tr("Copies %1").arg(m_current->joinAddress(ip))));
     };
     show(m_publicValue, m_publicPort, m_copyPublic, m_current->publicIp());
     show(m_lanValue, m_lanPort, m_copyLan, m_current->lanIp());
@@ -532,10 +542,10 @@ void LocalServersPage::updateAddresses()
     // Minecraft Java tunnels have an SRV record: the name alone finds the right port.
     m_playitPort->setText(tr("Port: automatic"));
     m_playitPort->setVisible(usesPlayit && !playitAddress.isEmpty());
-    m_playitValue->setText(playitAddress.isEmpty() ? tr("-") : playitAddress);
+    m_playitValue->setText(playitAddress.isEmpty() ? tr("-") : hideAddresses(playitAddress));
     m_copyPlayit->setEnabled(!playitAddress.isEmpty());
     m_copyPlayit->setProperty("address", playitAddress);
-    m_copyPlayit->setToolTip(playitAddress.isEmpty() ? tr("No playit.gg address yet") : tr("Copies %1").arg(playitAddress));
+    m_copyPlayit->setToolTip(playitAddress.isEmpty() ? tr("No playit.gg address yet") : hideAddresses(tr("Copies %1").arg(playitAddress)));
 
     QString message;
     m_playitButton->hide();
@@ -575,7 +585,8 @@ void LocalServersPage::updateAddresses()
             message += (message.isEmpty() ? QString() : QStringLiteral("\n")) +
                        tr("Port 25565 is Minecraft's default, so the IP alone is enough: Copy gives exactly what to type.");
     }
-    m_networkMessage->setText(message);
+    m_networkMessage->setText(hideAddresses(message));
+    m_showAddresses->setText(m_addressesShown ? tr("Hide addresses") : tr("Show addresses"));
     m_publicValue->setProperty("ok", m_current->portOpen());
     m_publicValue->style()->unpolish(m_publicValue);
     m_publicValue->style()->polish(m_publicValue);
@@ -584,11 +595,48 @@ void LocalServersPage::updateAddresses()
     m_playitValue->style()->polish(m_playitValue);
 }
 
+void LocalServersPage::setAddressesShown(bool shown)
+{
+    m_addressesShown = shown;
+    if (!m_current)
+        return;
+    const int scroll = m_console->verticalScrollBar()->value();
+    m_console->setPlainText(hideAddresses(m_current->console().join('\n')));
+    m_console->verticalScrollBar()->setValue(scroll);
+    updateAddresses();
+}
+
+QString LocalServersPage::hideAddresses(const QString& text) const
+{
+    if (m_addressesShown || !m_current || text.isEmpty())
+        return text;
+    const QString hidden(12, QChar(0x2022));
+    QString result = text;
+    for (const QString& address : { m_current->playitAddress(), m_current->publicIp(), m_current->lanIp() })
+        if (!address.isEmpty())
+            result.replace(address, hidden, Qt::CaseInsensitive);
+    // Any other IP too, such as the ones of the players joining in the console. This computer's own
+    // (127.x, 0.0.0.0) stays: it's the same for everyone. IPv6 needs three colons, so times like 12:34:56 stay.
+    static const QRegularExpression ipv4(QStringLiteral("(?<![\\d.])(\\d{1,3})\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?![\\d.])"));
+    static const QRegularExpression ipv6(QStringLiteral("(?<![\\w.:])[0-9a-fA-F]{0,4}(?::[0-9a-fA-F]{0,5}){3,8}(?![\\w.:])"));
+    QString masked;
+    qsizetype last = 0;
+    for (auto it = ipv4.globalMatch(result); it.hasNext();) {
+        const QRegularExpressionMatch match = it.next();
+        if (match.captured(1) == QLatin1String("127") || match.captured() == QLatin1String("0.0.0.0"))
+            continue;
+        masked += QStringView(result).mid(last, match.capturedStart() - last) + hidden;
+        last = match.capturedEnd();
+    }
+    masked += QStringView(result).mid(last);
+    return masked.replace(ipv6, hidden);
+}
+
 void LocalServersPage::appendConsole(const QString& line)
 {
     QScrollBar* bar = m_console->verticalScrollBar();
     const bool atBottom = bar->value() >= bar->maximum() - 4;
-    m_console->appendPlainText(line);
+    m_console->appendPlainText(hideAddresses(line));
     if (atBottom)
         bar->setValue(bar->maximum());
 }

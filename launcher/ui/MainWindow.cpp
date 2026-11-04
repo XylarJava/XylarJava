@@ -64,6 +64,7 @@
 #include "ui/GuiUtil.h"
 #include "ui/ViewLogWindow.h"
 #include "ui/dialogs/AboutDialog.h"
+#include "ui/dialogs/skins/XylarSkinsPage.h"
 #include "ui/dialogs/CopyInstanceDialog.h"
 #include "ui/dialogs/CreateShortcutDialog.h"
 #include "ui/dialogs/CustomMessageBox.h"
@@ -449,6 +450,16 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         connect(m_homePage, &HomePage::createInstanceRequested, this, &MainWindow::on_actionAddInstance_triggered);
         connect(m_homePage, &HomePage::manageInstancesRequested, this, [this] { switchToPage(Page::Instances); });
         connect(m_homePage, &HomePage::manageAccountsRequested, this, &MainWindow::on_actionManageAccounts_triggered);
+        connect(m_homePage, &HomePage::skinRequested, this, [this] {
+            MinecraftAccountPtr account = APPLICATION->accounts()->defaultAccount();
+            if (!account) {
+                on_actionManageAccounts_triggered();
+                return;
+            }
+            XylarSkinsPage dialog(this, account);
+            dialog.exec();
+            updateHomePlayer();  // the skin may have changed
+        });
         connect(m_homePage, &HomePage::playInstanceRequested, this, [this](const QString& id) {
             if (auto instance = instanceById(id)) {
                 setSelectedInstanceById(id);

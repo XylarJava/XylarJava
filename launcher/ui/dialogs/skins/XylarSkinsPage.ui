@@ -6,12 +6,12 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>720</width>
-    <height>540</height>
+    <width>780</width>
+    <height>660</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Skins</string>
+   <string>Skins &amp; Capes</string>
   </property>
   <layout class="QVBoxLayout" name="mainVLayout">
    <property name="spacing">
@@ -57,7 +57,7 @@
          <string notr="true">color: palette(highlighted-text); font-size: 16px; font-weight: bold;</string>
         </property>
         <property name="text">
-         <string>Your Skin</string>
+         <string>Your Skin &amp; Cape</string>
         </property>
        </widget>
       </item>
@@ -67,7 +67,7 @@
          <string notr="true">color: palette(highlighted-text);</string>
         </property>
         <property name="text">
-         <string>Upload, preview and manage your Minecraft skin across XylarJava.</string>
+         <string>Upload, preview and manage your Minecraft skin and cape across XylarJava.</string>
         </property>
         <property name="wordWrap">
          <bool>true</bool>
@@ -243,6 +243,60 @@
             </property>
             <property name="text">
              <string>Remove Skin</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="capesGroupBox">
+         <property name="title">
+          <string>Cape</string>
+         </property>
+         <layout class="QVBoxLayout" name="capesGroupLayout">
+          <property name="spacing">
+           <number>8</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="capeInfoLabel">
+            <property name="text">
+             <string>Pick a XylarJava cape or upload your own. Players using XylarJava see it on every server.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QListWidget" name="capeList">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>208</height>
+             </size>
+            </property>
+            <property name="verticalScrollBarPolicy">
+             <enum>Qt::ScrollBarAsNeeded</enum>
+            </property>
+            <property name="horizontalScrollBarPolicy">
+             <enum>Qt::ScrollBarAlwaysOff</enum>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="uploadCapeBtn">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>Upload your own cape...</string>
+            </property>
+            <property name="toolTip">
+             <string>A 64x32 PNG (or 128x64, 256x128, up to 2048x1024)</string>
             </property>
            </widget>
           </item>

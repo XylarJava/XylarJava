@@ -876,6 +876,7 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
 
         // XylarJava Skin Backend
         m_settings->registerSetting("XylarSkinBackendUrl", "https://xylarjava-skin-backend.xylarinc.workers.dev");
+        m_settings->registerSetting("XylarCapeBackendUrl", "https://xylarjava-capes.xylarinc.workers.dev");
         m_settings->registerSetting("XylarSiteUrl", "https://xylarinc.xylarinc.workers.dev");
         m_settings->registerSetting("XylarSocialUrl", "https://xylarjava-social.xylarinc.workers.dev");
         m_settings->registerSetting("SocialPanelOpen", false);
@@ -2294,6 +2295,7 @@ void Application::initSkinClient()
     if (!backendUrl.isEmpty()) {
         m_skinClient->setBackendUrl(backendUrl);
     }
+    m_skinClient->setCapeBackendUrl(m_settings->get("XylarCapeBackendUrl").toString());
     if (!token.isEmpty()) {
         m_skinClient->setAuthToken(token);
     }

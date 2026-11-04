@@ -179,7 +179,7 @@ void XylarWelcomeWizardPage::retranslate()
     m_featureTitles[1]->setText(tr("Your skin, everywhere"));
     m_featureTexts[1]->setText(tr("Microsoft or offline: your real skin shows up on the Home screen and in game."));
     m_featureTitles[2]->setText(tr("XylarJava Client 1.8"));
-    m_featureTexts[2]->setText(tr("A PvP client for 1.8.9 with 91 mods and an FPS boost preset."));
+    m_featureTexts[2]->setText(tr("A PvP client for 1.8.9 with 92 mods, XylarJava capes and an FPS boost preset."));
 
     m_offlineTitle->setText(tr("Play offline right away (optional)"));
     m_offlineText->setText(tr("Pick a username to create an offline account now. You can sign in with Microsoft on the next steps "

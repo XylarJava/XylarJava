@@ -4,7 +4,7 @@ A standalone client for Minecraft **1.8.9**: vanilla + LaunchWrapper + Mixin, no
 
 ## Features
 
-**91 mods and 113 options** (204 things you can switch or tune), grouped in the Right Shift menu
+**92 mods and 113 options** (205 things you can switch or tune), grouped in the Right Shift menu
 by category, with search. Click a card to switch a mod on or off; click its slider icon (or
 right-click the card) for its options. *FPS boost preset* in the menu applies the fastest video
 settings in one click and puts yours back when you click it again.
@@ -70,7 +70,7 @@ The game's log no longer contains your session token (vanilla 1.8.9 writes it to
 - **Pack Display** - The resource pack you're using.
 - **Stopwatch** - Press K to start or stop, L to reset. *Options: Start / stop key, Reset key.*
 
-### Visual (28)
+### Visual (29)
 
 - **Zoom** - Hold C to zoom in. *Options: Zoom key, Mode, Zoom, Smooth camera, Scroll to adjust.*
 - **Custom Crosshair** - Your own crosshair shape and colour. *Options: Style, Size, Gap, Thickness, Colour, Outline, Show in third person.*
@@ -100,6 +100,7 @@ The game's log no longer contains your session token (vanilla 1.8.9 writes it to
 - **TNT Countdown** - Time left before lit TNT explodes. *Options: Show.*
 - **Item Physics** - Dropped items lie flat on the ground. *Options: Spin while falling.*
 - **Fog Customizer** - Change how far away the fog starts and its colour. *Options: Distance, Tint the fog, Tint colour, Tint strength.*
+- **XylarJava Capes** - Show the capes players picked in XylarJava, on every server.
 
 ### Chat (6)
 

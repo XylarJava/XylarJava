@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QImage>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
@@ -23,6 +24,9 @@ class XylarSkinClient : public QObject {
 
     void setBackendUrl(const QString& url);
     QString backendUrl() const;
+    /// Capes have their own backend; players and their keys are the skins backend's.
+    void setCapeBackendUrl(const QString& url);
+    QString capeBackendUrl() const;
 
     void setAuthToken(const QString& token);
     QString authToken() const;
@@ -43,6 +47,8 @@ class XylarSkinClient : public QObject {
     static bool validateSkinPng(const QString& filePath, QString* outError = nullptr);
     static bool validateSkinPngData(const QByteArray& data, QString* outError = nullptr);
     static QString computeSha256(const QByteArray& data);
+    /// A cape is a PNG twice as wide as it is tall, from 64x32 to 2048x1024.
+    static bool validateCapePngData(const QByteArray& data, QString* outError = nullptr);
 
     // API Operations
     void registerPlayer(const QString& username, const QString& msaUuid = QString());
@@ -53,6 +59,16 @@ class XylarSkinClient : public QObject {
     void uploadSkinData(const QString& uuid, const QByteArray& pngData, const QString& model = "classic");
     void deleteSkin(const QString& uuid);
     void checkHealth();
+
+    // Capes: one of the built-in XylarJava capes, or a PNG the player uploads.
+    void fetchCapes();
+    void fetchCapeMetadata(const QString& uuid);
+    /// Cape PNGs are named by their SHA-256, so they are kept on disk for good.
+    void downloadCape(const QString& hash);
+    QByteArray loadCachedCape(const QString& hash) const;
+    void setCape(const QString& uuid, const QString& capeId);
+    void uploadCapeData(const QString& uuid, const QByteArray& pngData);
+    void removeCape(const QString& uuid);
 
     // Ownership: a claimed player's skin changes only with its key, which is kept here.
     QString playerKey(const QString& uuid) const;
@@ -69,6 +85,12 @@ class XylarSkinClient : public QObject {
     void skinDeleted(const QString& uuid);
     void healthChecked(bool ok, const QString& service);
     void siteLinkReady(const QString& uuid, const QString& code);
+    /// Each entry: { id, name, hash, url }.
+    void capesListed(const QJsonArray& capes);
+    void capeMetadataReceived(const QString& uuid, bool hasCape, const QString& capeHash, const QString& capeId);
+    void capeDownloaded(const QString& hash, const QByteArray& pngData);
+    /// After setCape, uploadCapeData or removeCape; an empty hash means no cape.
+    void capeChanged(const QString& uuid, const QString& capeHash, const QString& capeId);
     void requestFailed(const QString& action, const QString& errorMessage, int httpStatusCode);
 
    private:
@@ -77,10 +99,14 @@ class XylarSkinClient : public QObject {
     void setPlayerKey(const QString& uuid, const QString& key);
     void requestLinkCode(const QString& uuid);
     QString parseErrorMessage(QNetworkReply* reply, const QByteArray& responseBody) const;
+    QString cachedCapePath(const QString& hash) const;
+    QNetworkRequest makeCapeRequest(const QString& endpoint, bool json = true, const QString& playerUuid = QString()) const;
+    void sendCapeChange(const QString& action, const QString& uuid, const QJsonObject& body);
 
    private:
     QNetworkAccessManager* m_nam;
     QString m_backendUrl;
+    QString m_capeBackendUrl;
     QString m_authToken;
     QString m_cacheDir;
 };

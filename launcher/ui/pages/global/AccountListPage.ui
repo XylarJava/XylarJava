@@ -87,10 +87,10 @@
   </action>
   <action name="actionXylarSkins">
    <property name="text">
-    <string>&amp;XylarSkins</string>
+    <string>Skins &amp;&amp; &amp;Capes</string>
    </property>
    <property name="toolTip">
-    <string>Manage XylarJava custom skin (works for offline accounts too)</string>
+    <string>Change this account's skin and cape for XylarJava (works for offline accounts too)</string>
    </property>
   </action>
   <action name="actionAddMicrosoft">

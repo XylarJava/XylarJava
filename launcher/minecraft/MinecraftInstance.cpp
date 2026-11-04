@@ -550,6 +550,12 @@ QStringList MinecraftInstance::javaArguments(const AuthSession* session)
     QString skinBackendUrl = APPLICATION->settings()->get("XylarSkinBackendUrl").toString().trimmed();
     while (skinBackendUrl.endsWith('/'))
         skinBackendUrl.chop(1);
+    // XylarJava Client asks the cape backend for every player's cape, on any server.
+    QString capeBackendUrl = APPLICATION->settings()->get("XylarCapeBackendUrl").toString().trimmed();
+    while (capeBackendUrl.endsWith('/'))
+        capeBackendUrl.chop(1);
+    if (!capeBackendUrl.isEmpty())
+        args << QString("-Dxylarjava.capes=%1").arg(capeBackendUrl);
     QString injectorJar = APPLICATION->getJarPath("authlib-injector.jar");
     if (!skinBackendUrl.isEmpty() && !injectorJar.isEmpty() && QFile::exists(injectorJar)) {
 #ifdef Q_OS_WIN

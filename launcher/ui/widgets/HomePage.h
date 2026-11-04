@@ -83,6 +83,8 @@ class HomePage : public QWidget {
     void manageInstancesRequested();
     void createInstanceRequested();
     void manageAccountsRequested();
+    /// "Skin & cape" was clicked on the signed-in player's card.
+    void skinRequested();
     void checkUpdatesRequested();
     void playInstanceRequested(const QString& id);
     void stopInstanceRequested(const QString& id);

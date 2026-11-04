@@ -7,6 +7,7 @@ import java.util.List;
 import io.xylarjava.client.module.Module;
 import io.xylarjava.client.module.impl.ArmorModule;
 import io.xylarjava.client.module.impl.CameraModules;
+import io.xylarjava.client.module.impl.CapesModule;
 import io.xylarjava.client.module.impl.ChatModules;
 import io.xylarjava.client.module.impl.CoordinatesModule;
 import io.xylarjava.client.module.impl.EffectModules;
@@ -106,6 +107,7 @@ public final class Modules {
     public static final EffectModules.TntCountdown TNT_COUNTDOWN = new EffectModules.TntCountdown();
     public static final EffectModules.ItemPhysics ITEM_PHYSICS = new EffectModules.ItemPhysics();
     public static final EffectModules.FogCustomizer FOG_CUSTOMIZER = new EffectModules.FogCustomizer();
+    public static final CapesModule CAPES = new CapesModule();
 
     // Chat
     public static final ChatModules.Timestamps TIMESTAMPS = new ChatModules.Timestamps();
@@ -146,7 +148,7 @@ public final class Modules {
         Collections.addAll(all, ZOOM, CROSSHAIR, BLOCK_OUTLINE, FULLBRIGHT, TIME_CHANGER, CLEAR_WEATHER, LOW_FIRE, NO_HURT_CAM, STATIC_FOV,
                 NO_PUMPKIN, NO_VIGNETTE, NO_PORTAL, HIDE_ENTITY_FIRE, HITBOXES, OLD_ANIMATIONS, OWN_NAMETAG, NO_ACHIEVEMENTS, CLEAN_INVENTORY,
                 SCOREBOARD, HIDE_TITLES, HIDE_BOSS_BAR, NO_BOBBING, MENU_BLUR, MOTION_BLUR, GLINT_COLOR, TNT_COUNTDOWN, ITEM_PHYSICS,
-                FOG_CUSTOMIZER);
+                FOG_CUSTOMIZER, CAPES);
         Collections.addAll(all, TIMESTAMPS, COMPACT_CHAT, CHAT_HISTORY, NAME_HIDER, MENTION_PING, AUTO_GG);
         Collections.addAll(all, TOGGLE_SPRINT, TOGGLE_SNEAK, TAB_PING, HIT_PARTICLES, FREELOOK, SNAPLOOK, HIT_COLOR);
         Collections.addAll(all, BORDERLESS, WINDOW_TITLE, ARMOR_WARNING, CUSTOM_MAIN_MENU, PAUSE_ON_LOST_FOCUS, SCREENSHOTS, WAYPOINTS, QUICKPLAY);

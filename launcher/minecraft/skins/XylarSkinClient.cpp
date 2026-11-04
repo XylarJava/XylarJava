@@ -3,6 +3,7 @@
 #include <QCryptographicHash>
 #include <QDebug>
 #include <QJsonArray>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QUuid>
 
@@ -27,6 +28,19 @@ void XylarSkinClient::setBackendUrl(const QString& url)
 QString XylarSkinClient::backendUrl() const
 {
     return m_backendUrl;
+}
+
+void XylarSkinClient::setCapeBackendUrl(const QString& url)
+{
+    m_capeBackendUrl = url.trimmed();
+    while (m_capeBackendUrl.endsWith('/')) {
+        m_capeBackendUrl.chop(1);
+    }
+}
+
+QString XylarSkinClient::capeBackendUrl() const
+{
+    return m_capeBackendUrl;
 }
 
 void XylarSkinClient::setAuthToken(const QString& token)
@@ -163,6 +177,28 @@ bool XylarSkinClient::validateSkinPngData(const QByteArray& data, QString* outEr
         return false;
     }
 
+    return true;
+}
+
+bool XylarSkinClient::validateCapePngData(const QByteArray& data, QString* outError)
+{
+    QImage img;
+    if (data.size() < 24 || !img.loadFromData(data, "PNG")) {
+        if (outError) *outError = tr("File is not a valid PNG image.");
+        return false;
+    }
+    const int w = img.width();
+    const int h = img.height();
+    if (w != h * 2 || w < 64 || w > 2048 || w % 64 != 0) {
+        if (outError) {
+            *outError = tr("A cape must be 64x32 pixels (or 128x64, 256x128, up to 2048x1024). This image is %1x%2.").arg(w).arg(h);
+        }
+        return false;
+    }
+    if (data.size() > 1048576) {
+        if (outError) *outError = tr("Cape file too large (maximum allowed size is 1 MB).");
+        return false;
+    }
     return true;
 }
 
@@ -507,6 +543,166 @@ void XylarSkinClient::deleteSkin(const QString& uuid)
         deleteCachedSkin(uuid);
 
         emit skinDeleted(uuid);
+    });
+}
+
+// ─── Capes ────────────────────────────────────────────────────────────────────
+
+void XylarSkinClient::fetchCapes()
+{
+    if (m_capeBackendUrl.isEmpty()) {
+        emit requestFailed("fetchCapes", tr("Cape backend URL is not configured."), 0);
+        return;
+    }
+    QNetworkReply* reply = m_nam->get(makeCapeRequest("/api/capes", false));
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        const QByteArray data = reply->readAll();
+        const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (reply->error() != QNetworkReply::NoError || statusCode >= 400) {
+            emit requestFailed("fetchCapes", parseErrorMessage(reply, data), statusCode);
+            return;
+        }
+        emit capesListed(QJsonDocument::fromJson(data).object().value("capes").toArray());
+    });
+}
+
+void XylarSkinClient::fetchCapeMetadata(const QString& uuid)
+{
+    if (m_capeBackendUrl.isEmpty()) {
+        emit requestFailed("fetchCapeMetadata", tr("Cape backend URL is not configured."), 0);
+        return;
+    }
+    QNetworkReply* reply = m_nam->get(makeCapeRequest("/api/cape/" + uuid + "/metadata", false));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, uuid]() {
+        reply->deleteLater();
+        const QByteArray data = reply->readAll();
+        const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (reply->error() != QNetworkReply::NoError || statusCode >= 400) {
+            emit requestFailed("fetchCapeMetadata", parseErrorMessage(reply, data), statusCode);
+            return;
+        }
+        const QJsonObject obj = QJsonDocument::fromJson(data).object();
+        emit capeMetadataReceived(uuid, obj.value("has_cape").toBool(), obj.value("cape_hash").toString(),
+                                  obj.value("cape_id").toString());
+    });
+}
+
+QNetworkRequest XylarSkinClient::makeCapeRequest(const QString& endpoint, bool json, const QString& playerUuid) const
+{
+    // Same headers (the player's key included), sent to the cape backend.
+    QNetworkRequest req = makeRequest(endpoint, json, playerUuid);
+    req.setUrl(QUrl(m_capeBackendUrl + endpoint));
+    req.setRawHeader("Authorization", QByteArray());  // the skins backend's token stays there
+    return req;
+}
+
+QString XylarSkinClient::cachedCapePath(const QString& hash) const
+{
+    return QDir(m_cacheDir).filePath("capes/" + hash + ".png");
+}
+
+QByteArray XylarSkinClient::loadCachedCape(const QString& hash) const
+{
+    QFile f(cachedCapePath(hash));
+    if (hash.isEmpty() || !f.open(QIODevice::ReadOnly)) {
+        return QByteArray();
+    }
+    return f.readAll();
+}
+
+void XylarSkinClient::downloadCape(const QString& hash)
+{
+    static const QRegularExpression hashFormat("^[0-9a-f]{64}$");
+    if (m_capeBackendUrl.isEmpty() || !hashFormat.match(hash).hasMatch()) {
+        return;
+    }
+    const QByteArray cached = loadCachedCape(hash);
+    if (!cached.isEmpty()) {
+        emit capeDownloaded(hash, cached);
+        return;
+    }
+    QNetworkReply* reply = m_nam->get(makeCapeRequest("/api/cape-texture/" + hash, false));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, hash]() {
+        reply->deleteLater();
+        const QByteArray data = reply->readAll();
+        const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (reply->error() != QNetworkReply::NoError || statusCode >= 400) {
+            emit requestFailed("downloadCape", parseErrorMessage(reply, data), statusCode);
+            return;
+        }
+        // Named by its hash: anything else is a broken download.
+        if (computeSha256(data) != hash) {
+            emit requestFailed("downloadCape", tr("Downloaded cape is damaged."), statusCode);
+            return;
+        }
+        QDir().mkpath(QDir(m_cacheDir).filePath("capes"));
+        QSaveFile out(cachedCapePath(hash));
+        if (out.open(QIODevice::WriteOnly)) {
+            out.write(data);
+            out.commit();
+        }
+        emit capeDownloaded(hash, data);
+    });
+}
+
+void XylarSkinClient::setCape(const QString& uuid, const QString& capeId)
+{
+    QJsonObject body;
+    body["uuid"] = uuid;
+    body["id"] = capeId;
+    sendCapeChange("setCape", uuid, body);
+}
+
+void XylarSkinClient::uploadCapeData(const QString& uuid, const QByteArray& pngData)
+{
+    QString valErr;
+    if (!validateCapePngData(pngData, &valErr)) {
+        emit requestFailed("uploadCape", valErr, 400);
+        return;
+    }
+    QJsonObject body;
+    body["uuid"] = uuid;
+    body["cape_data"] = QString::fromLatin1(pngData.toBase64());
+    sendCapeChange("uploadCape", uuid, body);
+}
+
+void XylarSkinClient::sendCapeChange(const QString& action, const QString& uuid, const QJsonObject& body)
+{
+    if (m_capeBackendUrl.isEmpty()) {
+        emit requestFailed(action, tr("Cape backend URL is not configured."), 0);
+        return;
+    }
+    QNetworkReply* reply = m_nam->post(makeCapeRequest("/api/cape", true, uuid), QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, uuid, action]() {
+        reply->deleteLater();
+        const QByteArray data = reply->readAll();
+        const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (reply->error() != QNetworkReply::NoError || statusCode >= 400) {
+            emit requestFailed(action, parseErrorMessage(reply, data), statusCode);
+            return;
+        }
+        const QJsonObject obj = QJsonDocument::fromJson(data).object();
+        emit capeChanged(uuid, obj.value("cape_hash").toString(), obj.value("cape_id").toString());
+    });
+}
+
+void XylarSkinClient::removeCape(const QString& uuid)
+{
+    if (m_capeBackendUrl.isEmpty()) {
+        emit requestFailed("removeCape", tr("Cape backend URL is not configured."), 0);
+        return;
+    }
+    QNetworkReply* reply = m_nam->deleteResource(makeCapeRequest("/api/cape/" + uuid, false, uuid));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, uuid]() {
+        reply->deleteLater();
+        const QByteArray data = reply->readAll();
+        const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (reply->error() != QNetworkReply::NoError || statusCode >= 400) {
+            emit requestFailed("removeCape", parseErrorMessage(reply, data), statusCode);
+            return;
+        }
+        emit capeChanged(uuid, QString(), QString());
     });
 }
 

@@ -1,9 +1,12 @@
 #include "XylarSkinsPage.h"
 #include "ui_XylarSkinsPage.h"
 
+#include <QDebug>
 #include <QFileDialog>
 #include <QLabel>
+#include <QListWidget>
 #include <QMimeDatabase>
+#include <QPainter>
 #include <QPalette>
 #include <QSizePolicy>
 #include <QUrlQuery>
@@ -22,10 +25,11 @@ XylarSkinsPage::XylarSkinsPage(QWidget* parent, MinecraftAccountPtr acct)
 {
     m_ui->setupUi(this);
     setWindowModality(Qt::WindowModal);
-    setWindowTitle(tr("Skins"));
+    setWindowTitle(tr("Skins & Capes"));
 
     setupSkinClient();
     setupPreviewWidget();
+    setupCapeList();
 
     // Same skin, managed from the Xylar website: linking opens the site with a one-time code.
     m_websiteBtn = new QPushButton(tr("Manage on the Xylar website"), this);
@@ -63,7 +67,7 @@ SkinModel* XylarSkinsPage::getSelectedSkin()
 
 QHash<QString, QImage> XylarSkinsPage::capes()
 {
-    return {};
+    return m_capeImages;
 }
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
@@ -94,6 +98,10 @@ void XylarSkinsPage::setupSkinClient()
     connect(m_client, &XylarSkinClient::skinDeleted, this, &XylarSkinsPage::onSkinDeleted);
     connect(m_client, &XylarSkinClient::requestFailed, this, &XylarSkinsPage::onRequestFailed);
     connect(m_client, &XylarSkinClient::siteLinkReady, this, &XylarSkinsPage::onSiteLinkReady);
+    connect(m_client, &XylarSkinClient::capesListed, this, &XylarSkinsPage::onCapesListed);
+    connect(m_client, &XylarSkinClient::capeMetadataReceived, this, &XylarSkinsPage::onCapeMetadataReceived);
+    connect(m_client, &XylarSkinClient::capeDownloaded, this, &XylarSkinsPage::onCapeDownloaded);
+    connect(m_client, &XylarSkinClient::capeChanged, this, &XylarSkinsPage::onCapeChanged);
 }
 
 void XylarSkinsPage::setupPreviewWidget()
@@ -228,13 +236,12 @@ void XylarSkinsPage::applySkinToPreview(const QByteArray& pngData, const QString
     delete m_previewSkin;
     m_previewSkin = new SkinModel(texture, skinModel);
 
+    m_previewSkin->setCapeId(m_currentCapeHash);
+
     if (m_skinPreview) {
         m_skinPreview->updateScene(m_previewSkin);
     } else if (m_skinPreviewLabel) {
-        m_skinPreviewLabel->setPixmap(
-            QPixmap::fromImage(m_previewSkin->getPreview())
-                .scaled(m_skinPreviewLabel->size().isValid() ? m_skinPreviewLabel->size() : QSize(200, 200),
-                        Qt::KeepAspectRatio, Qt::FastTransformation));
+        refreshFlatPreview();
     }
 
     // Sync the model radio buttons
@@ -269,13 +276,11 @@ void XylarSkinsPage::restoreAccountSkinPreview()
     const auto skinModel = model == "slim" ? SkinModel::SLIM : SkinModel::CLASSIC;
     delete m_previewSkin;
     m_previewSkin = new SkinModel(texture, skinModel);
+    m_previewSkin->setCapeId(m_currentCapeHash);
     if (m_skinPreview) {
         m_skinPreview->updateScene(m_previewSkin);
     } else if (m_skinPreviewLabel) {
-        m_skinPreviewLabel->setPixmap(
-            QPixmap::fromImage(m_previewSkin->getPreview())
-                .scaled(m_skinPreviewLabel->size().isValid() ? m_skinPreviewLabel->size() : QSize(200, 200),
-                        Qt::KeepAspectRatio, Qt::FastTransformation));
+        refreshFlatPreview();
     }
     m_ui->alexBtn->setChecked(model == "slim");
     m_ui->steveBtn->setChecked(model != "slim");
@@ -291,6 +296,9 @@ void XylarSkinsPage::setStatusMessage(const QString& msg, bool isError)
 
 void XylarSkinsPage::setUIEnabled(bool enabled)
 {
+    m_uiEnabled = enabled;
+    m_ui->capeList->setEnabled(enabled && m_ui->capeList->count() > 0);
+    m_ui->uploadCapeBtn->setEnabled(enabled && !m_currentUuid.isEmpty() && m_client && !m_client->backendUrl().isEmpty());
     if (m_websiteBtn)
         m_websiteBtn->setEnabled(enabled && !m_currentUuid.isEmpty() && m_client && !m_client->backendUrl().isEmpty());
     m_ui->uploadBtn->setEnabled(enabled && !m_selectedFilePath.isEmpty());
@@ -397,10 +405,7 @@ void XylarSkinsPage::on_steveBtn_toggled(bool checked)
         if (m_skinPreview) {
             m_skinPreview->updateScene(m_previewSkin);
         } else if (m_skinPreviewLabel) {
-            m_skinPreviewLabel->setPixmap(
-                QPixmap::fromImage(m_previewSkin->getPreview())
-                    .scaled(m_skinPreviewLabel->size().isValid() ? m_skinPreviewLabel->size() : QSize(200, 200),
-                            Qt::KeepAspectRatio, Qt::FastTransformation));
+            refreshFlatPreview();
         }
     }
 }
@@ -413,10 +418,7 @@ void XylarSkinsPage::on_alexBtn_toggled(bool checked)
         if (m_skinPreview) {
             m_skinPreview->updateScene(m_previewSkin);
         } else if (m_skinPreviewLabel) {
-            m_skinPreviewLabel->setPixmap(
-                QPixmap::fromImage(m_previewSkin->getPreview())
-                    .scaled(m_skinPreviewLabel->size().isValid() ? m_skinPreviewLabel->size() : QSize(200, 200),
-                            Qt::KeepAspectRatio, Qt::FastTransformation));
+            refreshFlatPreview();
         }
     }
 }
@@ -428,6 +430,7 @@ void XylarSkinsPage::onPlayerRegistered(const QString& uuid, const QString& user
     (void)username;
     m_currentUuid = uuid;
     m_currentSkinHash = skinHash;
+    requestCapes();
 
     if (!skinHash.isEmpty()) {
         // Player has a skin: check cache or download
@@ -436,7 +439,7 @@ void XylarSkinsPage::onPlayerRegistered(const QString& uuid, const QString& user
             // Verify hash matches
             if (XylarSkinClient::computeSha256(cached) == skinHash) {
                 applySkinToPreview(cached, skinModel);
-                m_ui->currentSkinLabel->setText(tr("Skin loaded from cache (hash matches)."));
+                m_ui->currentSkinLabel->setText(tr("This is the skin XylarJava players see."));
                 m_ui->deleteBtn->setEnabled(true);
                 setStatusMessage(tr("Ready."));
                 setUIEnabled(true);
@@ -486,7 +489,7 @@ void XylarSkinsPage::onSkinMetadataReceived(const QString& uuid, bool hasSkin, c
             QByteArray cached = m_client->loadCachedSkin(m_currentUuid);
             if (XylarSkinClient::computeSha256(cached) == skinHash) {
                 applySkinToPreview(cached, model);
-                m_ui->currentSkinLabel->setText(tr("Skin loaded from cache."));
+                m_ui->currentSkinLabel->setText(tr("This is the skin XylarJava players see."));
                 m_ui->deleteBtn->setEnabled(true);
                 setStatusMessage(tr("Ready."));
                 setUIEnabled(true);
@@ -515,7 +518,7 @@ void XylarSkinsPage::onSkinDownloaded(const QString& uuid, const QString& localP
         applySkinToPreview(bytes, model);
     }
 
-    m_ui->currentSkinLabel->setText(tr("Current skin: downloaded and cached."));
+    m_ui->currentSkinLabel->setText(tr("This is the skin XylarJava players see."));
     m_ui->deleteBtn->setEnabled(true);
     setStatusMessage(tr("Skin loaded successfully."));
     setUIEnabled(true);
@@ -588,6 +591,17 @@ void XylarSkinsPage::onRequestFailed(const QString& action, const QString& error
         if (m_client && m_client->hasCachedSkin(m_currentUuid)) {
             refreshFromCache();
         }
+    } else if (action == "downloadCape") {
+        // Only a thumbnail or the preview is missing; the cape itself is fine.
+        qWarning() << "XylarSkins: cape download failed:" << errorMessage;
+        return;
+    } else if (action == "fetchCapes" || action == "fetchCapeMetadata") {
+        msg = tr("Couldn't load capes: %1").arg(errorMessage);
+        setStatusMessage(msg, true);
+    } else if (action == "setCape" || action == "uploadCape" || action == "removeCape") {
+        msg = tr("Couldn't change the cape: %1").arg(errorMessage);
+        setStatusMessage(msg, true);
+        selectCurrentCape();
     } else if (action == "siteLink") {
         msg = tr("Couldn't open the website: %1").arg(errorMessage);
         setStatusMessage(msg, true);
@@ -623,5 +637,237 @@ void XylarSkinsPage::onSiteLinkReady(const QString& uuid, const QString& code)
     url.setQuery(query);
     DesktopServices::openUrl(url);
     setStatusMessage(tr("Finish on the website: sign in and confirm. The code works for 10 minutes."));
+    setUIEnabled(true);
+}
+
+// ─── Capes ────────────────────────────────────────────────────────────────────
+
+namespace {
+constexpr int CapeIdRole = Qt::UserRole;
+constexpr int CapeHashRole = Qt::UserRole + 1;
+const QString NoCape = QStringLiteral("none");
+const QString CustomCape = QStringLiteral("custom");
+}  // namespace
+
+void XylarSkinsPage::setupCapeList()
+{
+    auto* list = m_ui->capeList;
+    list->setViewMode(QListView::IconMode);
+    list->setIconSize(QSize(40, 64));
+    list->setGridSize(QSize(92, 100));
+    list->setMinimumHeight(2 * 100 + 8);  // both rows of capes, without scrolling
+    list->setMovement(QListView::Static);
+    list->setResizeMode(QListView::Adjust);
+    list->setWrapping(true);
+    list->setSelectionMode(QAbstractItemView::SingleSelection);
+    // Clicks only: selecting the worn cape from code must not send it again.
+    connect(list, &QListWidget::itemClicked, this, &XylarSkinsPage::onCapeItemClicked);
+}
+
+void XylarSkinsPage::requestCapes()
+{
+    if (m_capesRequested || !m_client || m_client->backendUrl().isEmpty() || m_currentUuid.isEmpty())
+        return;
+    m_capesRequested = true;
+    m_client->fetchCapes();
+    m_client->fetchCapeMetadata(m_currentUuid);
+}
+
+QIcon XylarSkinsPage::capeIcon(const QImage& cape) const
+{
+    QPixmap canvas(40, 64);
+    canvas.fill(Qt::transparent);
+    QPainter painter(&canvas);
+    if (!cape.isNull()) {
+        // The outside of the cape: 10x16 pixels at (1, 1) of a 64x32 texture, scaled up for HD capes.
+        const int scale = qMax(1, cape.width() / 64);
+        painter.drawImage(QRect(0, 0, 40, 64), cape.copy(scale, scale, 10 * scale, 16 * scale));
+    } else {
+        painter.setPen(QPen(palette().color(QPalette::Mid), 1, Qt::DashLine));
+        painter.drawRect(0, 0, 39, 63);
+    }
+    return QIcon(canvas);
+}
+
+void XylarSkinsPage::addCapeItem(const QString& id, const QString& name, const QString& hash)
+{
+    auto* list = m_ui->capeList;
+    for (int i = 0; i < list->count(); ++i) {
+        auto* item = list->item(i);
+        if (item->data(CapeIdRole).toString() == id) {
+            item->setData(CapeHashRole, hash);
+            item->setIcon(capeIcon(m_capeImages.value(hash)));
+            return;
+        }
+    }
+    auto* item = new QListWidgetItem(capeIcon(m_capeImages.value(hash)), name);
+    item->setData(CapeIdRole, id);
+    item->setData(CapeHashRole, hash);
+    item->setToolTip(name);
+    list->addItem(item);
+}
+
+void XylarSkinsPage::removeCapeItem(const QString& id)
+{
+    auto* list = m_ui->capeList;
+    for (int i = list->count() - 1; i >= 0; --i) {
+        if (list->item(i)->data(CapeIdRole).toString() == id)
+            delete list->takeItem(i);
+    }
+}
+
+void XylarSkinsPage::selectCurrentCape()
+{
+    auto* list = m_ui->capeList;
+    for (int i = 0; i < list->count(); ++i) {
+        auto* item = list->item(i);
+        const bool worn = m_currentCapeHash.isEmpty() ? item->data(CapeIdRole).toString() == NoCape
+                                                      : item->data(CapeHashRole).toString() == m_currentCapeHash;
+        if (worn) {
+            list->setCurrentItem(item);
+            return;
+        }
+    }
+    list->clearSelection();
+}
+
+void XylarSkinsPage::showCapeInPreview()
+{
+    if (m_previewSkin)
+        m_previewSkin->setCapeId(m_currentCapeHash);
+    if (m_skinPreview)
+        m_skinPreview->updateCape(m_capeImages.value(m_currentCapeHash));  // a null image hides it
+    else
+        refreshFlatPreview();
+}
+
+void XylarSkinsPage::refreshFlatPreview()
+{
+    if (!m_skinPreviewLabel || !m_previewSkin)
+        return;
+    // Front and back side by side (36x36). The cape hangs on the back: its outside is the 10x16
+    // pixels at (1, 1) of a 64x32 texture, over the torso and the top of the legs.
+    QImage preview = m_previewSkin->getPreview();
+    const QImage cape = m_capeImages.value(m_currentCapeHash);
+    if (!cape.isNull()) {
+        const int scale = qMax(1, cape.width() / 64);
+        QPainter painter(&preview);
+        painter.drawImage(QRect(23, 10, 10, 16), cape.copy(scale, scale, 10 * scale, 16 * scale));
+    }
+    const QSize size = m_skinPreviewLabel->size().isValid() ? m_skinPreviewLabel->size() : QSize(200, 200);
+    m_skinPreviewLabel->setPixmap(QPixmap::fromImage(preview).scaled(size, Qt::KeepAspectRatio, Qt::FastTransformation));
+}
+
+void XylarSkinsPage::onCapesListed(const QJsonArray& capes)
+{
+    m_ui->capeList->clear();
+    addCapeItem(NoCape, tr("None"), QString());
+    for (const auto& value : capes) {
+        const QJsonObject cape = value.toObject();
+        const QString hash = cape.value("hash").toString();
+        addCapeItem(cape.value("id").toString(), cape.value("name").toString(), hash);
+        m_client->downloadCape(hash);
+    }
+    if (m_currentCapeId == CustomCape)
+        addCapeItem(CustomCape, tr("Your cape"), m_currentCapeHash);
+    selectCurrentCape();
+    m_ui->capeList->setEnabled(m_uiEnabled);
+}
+
+void XylarSkinsPage::onCapeMetadataReceived(const QString& uuid, bool hasCape, const QString& capeHash, const QString& capeId)
+{
+    if (uuid != m_currentUuid)
+        return;
+    m_currentCapeHash = hasCape ? capeHash : QString();
+    m_currentCapeId = hasCape ? capeId : QString();
+    if (m_currentCapeId == CustomCape && m_ui->capeList->count() > 0)
+        addCapeItem(CustomCape, tr("Your cape"), m_currentCapeHash);
+    if (!m_currentCapeHash.isEmpty())
+        m_client->downloadCape(m_currentCapeHash);
+    selectCurrentCape();
+    showCapeInPreview();
+}
+
+void XylarSkinsPage::onCapeDownloaded(const QString& hash, const QByteArray& pngData)
+{
+    QImage image;
+    if (!image.loadFromData(pngData, "PNG"))
+        return;
+    m_capeImages.insert(hash, image);
+    auto* list = m_ui->capeList;
+    for (int i = 0; i < list->count(); ++i) {
+        if (list->item(i)->data(CapeHashRole).toString() == hash)
+            list->item(i)->setIcon(capeIcon(image));
+    }
+    if (hash == m_currentCapeHash)
+        showCapeInPreview();
+}
+
+void XylarSkinsPage::onCapeItemClicked(QListWidgetItem* item)
+{
+    if (!item || !m_uiEnabled || !m_client || m_currentUuid.isEmpty())
+        return;
+    const QString id = item->data(CapeIdRole).toString();
+    const QString hash = item->data(CapeHashRole).toString();
+    if (id == NoCape) {
+        if (m_currentCapeHash.isEmpty())
+            return;
+        setStatusMessage(tr("Taking the cape off…"));
+        setUIEnabled(false);
+        m_client->removeCape(m_currentUuid);
+        return;
+    }
+    // "Your cape" is only listed while it's worn.
+    if (hash == m_currentCapeHash || id == CustomCape)
+        return;
+    setStatusMessage(tr("Putting on %1…").arg(item->text()));
+    setUIEnabled(false);
+    m_client->setCape(m_currentUuid, id);
+}
+
+void XylarSkinsPage::on_uploadCapeBtn_clicked()
+{
+    if (!m_client || m_currentUuid.isEmpty())
+        return;
+    auto filter = QMimeDatabase().mimeTypeForName("image/png").filterString();
+    const QString path = QFileDialog::getOpenFileName(this, tr("Select Cape PNG (64×32)"), QDir::homePath(), filter);
+    if (path.isEmpty())
+        return;
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        setStatusMessage(tr("Cannot read the cape file: %1").arg(file.errorString()), true);
+        return;
+    }
+    const QByteArray bytes = file.readAll();
+    QString errMsg;
+    if (!XylarSkinClient::validateCapePngData(bytes, &errMsg)) {
+        setStatusMessage(tr("Invalid cape: %1").arg(errMsg), true);
+        return;
+    }
+    // Known before the answer comes back, so the preview shows it straight away.
+    QImage image;
+    if (image.loadFromData(bytes, "PNG"))
+        m_capeImages.insert(XylarSkinClient::computeSha256(bytes), image);
+    setStatusMessage(tr("Uploading cape…"));
+    setUIEnabled(false);
+    m_client->uploadCapeData(m_currentUuid, bytes);
+}
+
+void XylarSkinsPage::onCapeChanged(const QString& uuid, const QString& capeHash, const QString& capeId)
+{
+    if (uuid != m_currentUuid)
+        return;
+    m_currentCapeHash = capeHash;
+    m_currentCapeId = capeId;
+    if (capeId == CustomCape)
+        addCapeItem(CustomCape, tr("Your cape"), capeHash);
+    else
+        removeCapeItem(CustomCape);  // an uploaded cape is gone once another is worn
+    if (!capeHash.isEmpty() && !m_capeImages.contains(capeHash))
+        m_client->downloadCape(capeHash);
+    selectCurrentCape();
+    showCapeInPreview();
+    setStatusMessage(capeHash.isEmpty() ? tr("✓ Cape taken off. Restart Minecraft to apply it.")
+                                        : tr("✓ Cape changed. Restart Minecraft to apply it."));
     setUIEnabled(true);
 }

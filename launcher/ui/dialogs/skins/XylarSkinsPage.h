@@ -1,6 +1,10 @@
 #pragma once
 
 #include <QDialog>
+#include <QHash>
+#include <QIcon>
+#include <QImage>
+#include <QJsonArray>
 #include <QLabel>
 #include <QPixmap>
 #include <QPointer>
@@ -12,6 +16,7 @@
 #include "ui/dialogs/skins/draw/SkinOpenGLWindow.h"
 
 class XylarSkinClient;
+class QListWidgetItem;
 
 namespace Ui {
 class XylarSkinsPage;
@@ -46,6 +51,14 @@ class XylarSkinsPage : public QDialog, public SkinProvider {
     void manageOnWebsite();
     void onSiteLinkReady(const QString& uuid, const QString& code);
 
+    // Capes
+    void on_uploadCapeBtn_clicked();
+    void onCapeItemClicked(QListWidgetItem* item);
+    void onCapesListed(const QJsonArray& capes);
+    void onCapeMetadataReceived(const QString& uuid, bool hasCape, const QString& capeHash, const QString& capeId);
+    void onCapeDownloaded(const QString& hash, const QByteArray& pngData);
+    void onCapeChanged(const QString& uuid, const QString& capeHash, const QString& capeId);
+
    private:
     void setupSkinClient();
     void setupPreviewWidget();
@@ -57,6 +70,15 @@ class XylarSkinsPage : public QDialog, public SkinProvider {
     void setUIEnabled(bool enabled);
     QString currentModel() const;
     QString xylarUuid() const;
+    void setupCapeList();
+    void requestCapes();
+    void addCapeItem(const QString& id, const QString& name, const QString& hash);
+    void removeCapeItem(const QString& id);
+    void selectCurrentCape();
+    void showCapeInPreview();
+    /// The front/back picture used without OpenGL, with the cape on the back.
+    void refreshFlatPreview();
+    QIcon capeIcon(const QImage& cape) const;
 
    private:
     Ui::XylarSkinsPage* m_ui;
@@ -72,4 +94,11 @@ class XylarSkinsPage : public QDialog, public SkinProvider {
     SkinOpenGLWindow* m_skinPreview = nullptr;
     QLabel* m_skinPreviewLabel = nullptr;
     QPushButton* m_websiteBtn = nullptr;
+    bool m_uiEnabled = true;
+
+    // The cape worn (empty hash: none), and the cape textures known so far, by hash.
+    QString m_currentCapeHash;
+    QString m_currentCapeId;
+    bool m_capesRequested = false;
+    QHash<QString, QImage> m_capeImages;
 };

@@ -67,6 +67,10 @@ class LocalServersPage : public QWidget {
     /// Puts the button's address on the clipboard and says so on the button for a moment.
     void copyAddress(QPushButton* button);
     void appendConsole(const QString& line);
+    /// Hides or shows the addresses that lead to this computer: playit.gg, the public IP and the Wi-Fi IP.
+    void setAddressesShown(bool shown);
+    /// `text` with the current server's addresses and every IP in it hidden, unless they're shown.
+    QString hideAddresses(const QString& text) const;
     void copyModsFrom(const QString& folder);
     void updateStyle();
     QFrame* card(QWidget* parent);
@@ -109,6 +113,9 @@ class LocalServersPage : public QWidget {
     QLabel* m_localPort = nullptr;
     QPushButton* m_copyLocal = nullptr;
     QLabel* m_networkMessage = nullptr;
+    QPushButton* m_showAddresses = nullptr;
+    /// Off every time the launcher starts, so a stream or a screenshot never shows them by accident.
+    bool m_addressesShown = false;
     QPlainTextEdit* m_console = nullptr;
     QLineEdit* m_command = nullptr;
     QSet<QObject*> m_watched;
