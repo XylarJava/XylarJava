@@ -1,6 +1,9 @@
 #include "PlayerProfileDialog.h"
 
 #include <QDateTime>
+#include <QApplication>
+#include <QClipboard>
+#include <QScrollArea>
 #include <QDialogButtonBox>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -63,6 +66,7 @@ PlayerProfileDialog::PlayerProfileDialog(ProfileClient* client, const QString& n
     setWindowTitle(tr("%1's profile").arg(name));
     setAttribute(Qt::WA_DeleteOnClose);
 
+    setMinimumSize(560, 380);
     auto outer = new QVBoxLayout(this);
     auto top = new QHBoxLayout;
     top->setSpacing(24);
@@ -81,16 +85,25 @@ PlayerProfileDialog::PlayerProfileDialog(ProfileClient* client, const QString& n
     QFont titleFont = m_title->font();
     titleFont.setPointSizeF(titleFont.pointSizeF() * 1.6);
     titleFont.setBold(true);
+    m_title->setTextFormat(Qt::PlainText);
     m_title->setFont(titleFont);
     m_title->setTextInteractionFlags(Qt::TextSelectableByMouse);
     right->addWidget(m_title);
+    auto copyName = new QPushButton(tr("Copy player name"), this);
+    connect(copyName, &QPushButton::clicked, this, [this] { QApplication::clipboard()->setText(m_title->text()); });
+    right->addWidget(copyName, 0, Qt::AlignLeft);
     m_since = caption(QString(), this);
     right->addWidget(m_since);
     right->addSpacing(12);
 
     m_message = new QLabel(tr("Loading the profile..."), this);
     m_message->setWordWrap(true);
+    m_message->setTextFormat(Qt::PlainText);
     right->addWidget(m_message);
+    m_retry = new QPushButton(tr("Retry"), this);
+    m_retry->hide();
+    connect(m_retry, &QPushButton::clicked, this, &PlayerProfileDialog::load);
+    right->addWidget(m_retry, 0, Qt::AlignLeft);
 
     m_details = new QWidget(this);
     auto details = new QVBoxLayout(m_details);
@@ -109,7 +122,11 @@ PlayerProfileDialog::PlayerProfileDialog(ProfileClient* client, const QString& n
     m_versions->setSpacing(6);
     details->addLayout(m_versions);
     m_details->hide();
-    right->addWidget(m_details);
+    auto scroll = new QScrollArea(this);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setWidget(m_details);
+    right->addWidget(scroll, 1);
     right->addStretch(1);
 
     auto buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
@@ -130,10 +147,14 @@ void PlayerProfileDialog::showMessage(const QString& text)
     m_details->hide();
     m_message->setText(text);
     m_message->show();
+    m_retry->show();
 }
 
 void PlayerProfileDialog::load()
 {
+    m_retry->hide();
+    m_message->setText(tr("Loading the profile..."));
+    m_message->show();
     m_client->fetch(m_name, this, [this](bool ok, const ProfileClient::Profile& profile, const QString& error) {
         if (!ok)
             return showMessage(error);
@@ -154,22 +175,27 @@ void PlayerProfileDialog::load()
         for (int i = 0; i < rows.size(); i++) {
             m_stats->addWidget(caption(rows[i].first, m_details), i, 0);
             auto value = new QLabel(rows[i].second, m_details);
+            value->setTextFormat(Qt::PlainText);
+            value->setWordWrap(true);
             value->setTextInteractionFlags(Qt::TextSelectableByMouse);
             m_stats->addWidget(value, i, 1);
         }
         m_stats->setColumnStretch(1, 1);
 
-        const qint64 most = profile.versions.isEmpty() ? 0 : profile.versions.first().second;
+        qint64 most = 0;
+        for (const auto& version : profile.versions)
+            most = qMax(most, version.second);
         for (const auto& [version, seconds] : profile.versions) {
             auto row = new QHBoxLayout;
             auto label = new QLabel(version, m_details);
+            label->setTextFormat(Qt::PlainText);
             label->setMinimumWidth(90);
             row->addWidget(label);
             auto bar = new QProgressBar(m_details);
             bar->setTextVisible(false);
             bar->setFixedHeight(8);
             bar->setRange(0, 1000);
-            bar->setValue(most > 0 ? int(seconds * 1000 / most) : 0);
+            bar->setValue(most > 0 ? qBound(0, int(1000.0 * qMax<qint64>(0, seconds) / most), 1000) : 0);
             row->addWidget(bar, 1);
             row->addWidget(caption(playtimeText(seconds), m_details));
             m_versions->addLayout(row);

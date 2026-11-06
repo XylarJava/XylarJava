@@ -6,6 +6,7 @@
 class QGridLayout;
 class QLabel;
 class QVBoxLayout;
+class QPushButton;
 class ProfileClient;
 class SkinPreview;
 
@@ -32,6 +33,7 @@ class PlayerProfileDialog : public QDialog {
     SkinPreview* m_skin = nullptr;
     QLabel* m_title = nullptr;
     QLabel* m_since = nullptr;
+    QPushButton* m_retry = nullptr;
     QLabel* m_message = nullptr;
     QWidget* m_details = nullptr;
     QGridLayout* m_stats = nullptr;

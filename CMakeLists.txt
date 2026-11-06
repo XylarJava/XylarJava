@@ -497,6 +497,10 @@ endif()
 # It ships next to NewLaunch.jar, where Application::getJarPath() finds it.
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/libraries/authlib-injector.jar")
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/libraries/authlib-injector.jar" DESTINATION ${JARS_DEST_DIR})
+    # Development builds need the same agent as installed distributions.
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/jars")
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/libraries/authlib-injector.jar"
+                   "${CMAKE_CURRENT_BINARY_DIR}/jars/authlib-injector.jar" COPYONLY)
 else()
     message(WARNING "libraries/authlib-injector.jar is missing: offline accounts won't get XylarSkins skins in game")
 endif()
