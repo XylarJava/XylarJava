@@ -1,0 +1,23 @@
+// Binary NBT oracle: the complete pinned source is compiled unchanged.
+#![allow(dead_code)]
+#[path = "@NBT_SOURCE@"] pub mod nbt;
+use std::io::Read;
+fn unhex(s: &str) -> Vec<u8> { if s=="-" { return vec![]; } (0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect() }
+fn hex(data: &[u8]) -> String { data.iter().map(|b|format!("{b:02x}")).collect() }
+fn main() {
+    let mut input=String::new(); std::io::stdin().read_to_string(&mut input).unwrap();
+    for line in input.lines() {
+        let p:Vec<_>=line.split(' ').collect();
+        let limits=nbt::Limits{max_bytes:p[1].parse().unwrap(),max_nodes:p[2].parse().unwrap(),max_depth:p[3].parse().unwrap()};
+        let data=unhex(p[4]);
+        let parsed=if p[0]=="N" { nbt::read_named(&data,limits) }
+            else { nbt::read_network(&data,limits).map(|(tag,n)|(nbt::NamedTag{name:nbt::JavaString::default(),tag},n)) };
+        match parsed {
+            Err(e)=>println!("ERR {e}"),
+            Ok((root,used))=>{
+                let output=if p[0]=="N" { nbt::write_named(&root,limits) } else { nbt::write_network(&root.tag,limits) };
+                match output { Ok(data)=>println!("OK {used} {}",hex(&data)), Err(e)=>println!("WRITE {e}") }
+            }
+        }
+    }
+}

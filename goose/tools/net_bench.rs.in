@@ -1,0 +1,28 @@
+// Original chunk implementation, same workload/checksum as the Goose driver.
+#![allow(dead_code, unused_imports)]
+@LIB_TYPES@
+#[path = "@BUF_SOURCE@"] pub mod buf;
+#[path = "@CHUNK_SOURCE@"] pub mod chunk;
+fn exercise(values: &[i32], global_bits: u8) -> u64 {
+    let p = chunk::Paletted::from_values(std::hint::black_box(values), chunk::Strategy::Blocks, global_bits);
+    let mut checksum = u64::from(p.bits) + p.palette.len() as u64 + p.data.len() as u64;
+    for value in p.palette { checksum = checksum.wrapping_add(value as u32 as u64); }
+    for (i, value) in p.data.into_iter().enumerate() { checksum = checksum.wrapping_add(value as u64 ^ i as u64); }
+    checksum
+}
+fn main() {
+    let arguments: Vec<String> = std::env::args().collect();
+    let kind = arguments[1].parse::<usize>().unwrap();
+    let rounds = arguments[2].parse::<usize>().unwrap();
+    let global_bits = if kind == 2 { 32 } else { 16 };
+    let mut values = [0i32;4096];
+    for (i,v) in values.iter_mut().enumerate() { *v = if kind == 0 { i % 20 } else if kind == 1 { i * 7 } else { 1000000 + i * 31 } as i32; }
+    let mut checksum = 0u64;
+    for _ in 0..4 { checksum = checksum.wrapping_add(exercise(&values, global_bits)); }
+    let start = std::time::Instant::now();
+    for round in 0..rounds {
+        values[0] = if kind == 0 { round % 20 } else if kind == 1 { round * 17 % 30000 } else { 1000000 + round * 100003 } as i32;
+        checksum = checksum.wrapping_add(exercise(&values, global_bits));
+    }
+    println!("{checksum} {}", start.elapsed().as_nanos());
+}

@@ -15,6 +15,29 @@
 - **XylarJava Client 1.8.9**: a PvP client with 90+ mods and nothing that gives an unfair advantage ([client/](client/)).
 - **Repair**: when a game doesn't start or crashes, XylarJava finds out why and offers the fix.
 
+## Goose engine development
+
+**Xylar Goose** is the native engine project, porting an existing Rust
+implementation to Goose, targeting **Minecraft Java 26.3 only**. Packed storage,
+resident palettes, scalar chunk coordinates, Java integer parsing and biome seed
+hashing are translated and compared, along with seeded random streams (including
+floating-point and Gaussian draws) and an x86-64 Linux math subset.
+The verified protocol subset now includes
+integer/string primitives, handshake/status/login packets, chunk sections and
+frame/compression policy (using system zlib). A Linux network diagnostic now
+integrates status and offline login through acknowledgement, with adapted
+RSA/AES. Binary NBT and configuration codecs are now compared; the diagnostic
+can acknowledge configuration and decode a first chunk with lighting. Full chunk
+wire data, fifteen Play variants, player synchronization and dimension layouts are
+compared. The first column binds to its dimension; a running world and gameplay remain pending. See
+[the porting scope and status](goose/PORTING.md).
+The instance dialog includes a green **Goose** selector for the planned native
+engine. Installation stays disabled until the translated client is playable.
+The separate earlier voxel sandbox does not count as port coverage. Native
+palette-building measurements are recorded in [the benchmark report](goose/BENCHMARK.md);
+whole-client performance and low-end suitability remain unmeasured. See
+[the engine source](goose/README.md).
+
 ## Download
 
 Get the latest build from the [Releases](../../releases) page or from [corp.xylarinc.workers.dev](https://corp.xylarinc.workers.dev/downloads).

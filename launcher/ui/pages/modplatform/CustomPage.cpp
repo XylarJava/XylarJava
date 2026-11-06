@@ -24,12 +24,14 @@ CustomPage::CustomPage(NewInstanceDialog* dialog, QWidget* parent) : QWidget(par
     connect(ui->refreshBtn, &QPushButton::clicked, this, &CustomPage::refresh);
 
     connect(ui->loaderVersionList, &VersionSelectWidget::selectedVersionChanged, this, &CustomPage::setSelectedLoaderVersion);
-    connect(ui->noneFilter, &QRadioButton::toggled, this, &CustomPage::loaderFilterChanged);
-    connect(ui->forgeFilter, &QRadioButton::toggled, this, &CustomPage::loaderFilterChanged);
-    connect(ui->fabricFilter, &QRadioButton::toggled, this, &CustomPage::loaderFilterChanged);
-    connect(ui->quiltFilter, &QRadioButton::toggled, this, &CustomPage::loaderFilterChanged);
-    connect(ui->liteLoaderFilter, &QRadioButton::toggled, this, &CustomPage::loaderFilterChanged);
+    connect(ui->loaderBtnGroup, &QButtonGroup::buttonToggled, this, [this](QAbstractButton*, bool checked) {
+        if (checked)
+            loaderFilterChanged();
+    });
+    ui->goosePanel->hide();
+    connect(ui->gooseVersion, &QComboBox::currentIndexChanged, this, [this] { suggestCurrent(); });
     connect(ui->loaderRefreshBtn, &QPushButton::clicked, this, &CustomPage::loaderRefresh);
+    ui->loaderRefreshBtn->setEnabled(false);
 }
 
 void CustomPage::openedImpl()
@@ -50,7 +52,7 @@ void CustomPage::refresh()
 
 void CustomPage::loaderRefresh()
 {
-    if (ui->noneFilter->isChecked())
+    if (ui->noneFilter->isChecked() || ui->gooseFilter->isChecked())
         return;
     ui->loaderVersionList->loadList();
 }
@@ -74,6 +76,16 @@ void CustomPage::filterChanged()
 
 void CustomPage::loaderFilterChanged()
 {
+    const bool goose = ui->gooseFilter->isChecked();
+    ui->loaderVersionList->setVisible(!goose);
+    ui->goosePanel->setVisible(goose);
+    ui->loaderRefreshBtn->setEnabled(!goose && !ui->noneFilter->isChecked());
+    if (goose) {
+        m_selectedLoader.clear();
+        m_selectedLoaderVersion.reset();
+        suggestCurrent();
+        return;
+    }
     QString minecraftVersion;
     if (m_selectedVersion) {
         minecraftVersion = m_selectedVersion->descriptor();
@@ -84,9 +96,12 @@ void CustomPage::loaderFilterChanged()
         return;
     }
     if (ui->noneFilter->isChecked()) {
+        m_selectedLoader.clear();
+        m_selectedLoaderVersion.reset();
         ui->loaderVersionList->setExactFilter(BaseVersionList::ParentVersionRole, "AAA");  // empty list
         ui->loaderVersionList->setEmptyString(tr("No mod loader is selected."));
         ui->loaderVersionList->setEmptyMode(VersionListView::String);
+        suggestCurrent();
         return;
     } else if (ui->neoForgeFilter->isChecked()) {
         ui->loaderVersionList->setExactFilter(BaseVersionList::ParentVersionRole, minecraftVersion);
@@ -117,6 +132,8 @@ void CustomPage::loaderFilterChanged()
     ui->loaderVersionList->initialize(vlist.get());
     ui->loaderVersionList->selectRecommended();
     ui->loaderVersionList->setEmptyString(tr("No versions are currently available for Minecraft %1").arg(minecraftVersion));
+    m_selectedLoaderVersion = ui->loaderVersionList->selectedVersion();
+    suggestCurrent();
 }
 
 CustomPage::~CustomPage()
@@ -155,13 +172,20 @@ void CustomPage::suggestCurrent()
         return;
     }
 
+    if (ui->gooseFilter->isChecked()) {
+        // A native engine is not a Java mod loader. Never create a Vanilla
+        // instance under the Goose name while native builds are unavailable.
+        dialog->setSuggestedPack(tr("Goose %1 (in development)").arg(ui->gooseVersion->currentText()), nullptr);
+        return;
+    }
+
     if (!m_selectedVersion) {
         dialog->setSuggestedPack();
         return;
     }
 
     // There isn't a selected version if the version list is empty
-    if (ui->loaderVersionList->selectedVersion() == nullptr)
+    if (ui->noneFilter->isChecked() || ui->loaderVersionList->selectedVersion() == nullptr)
         dialog->setSuggestedPack(m_selectedVersion->descriptor(), new VanillaCreationTask(m_selectedVersion));
     else {
         dialog->setSuggestedPack(m_selectedVersion->descriptor(),
@@ -173,8 +197,8 @@ void CustomPage::suggestCurrent()
 void CustomPage::setSelectedVersion(BaseVersion::Ptr version)
 {
     m_selectedVersion = version;
-    suggestCurrent();
     loaderFilterChanged();
+    suggestCurrent();
 }
 
 void CustomPage::setSelectedLoaderVersion(BaseVersion::Ptr version)

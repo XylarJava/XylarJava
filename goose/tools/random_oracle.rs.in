@@ -1,0 +1,119 @@
+// Development wrapper: only positional/worldgen/hash boundaries are removed.
+// Draws, cache state and reseeding retain the pinned random.rs definitions.
+// jmath uses the same documented snapshot as the independent jmath comparison.
+#![allow(dead_code)]
+#[path = "@RANDOM_SNAPSHOT@"]
+mod random;
+extern crate jmath;
+use random::{LegacyRandom, XoroshiroRandom, RandomSource, mix_stafford13};
+use std::io::{self, Read};
+
+enum Gen {
+    L(LegacyRandom),
+    X(XoroshiroRandom),
+}
+
+trait StateProbe {
+    fn dump_state(&self);
+}
+impl StateProbe for LegacyRandom {
+    fn dump_state(&self) {
+        println!("{}", self.state() as i64);
+    }
+}
+impl StateProbe for XoroshiroRandom {
+    fn dump_state(&self) {
+        let (lo, hi) = self.state_words();
+        println!("{}", lo as i64);
+        println!("{}", hi as i64);
+    }
+}
+
+fn run_op<R: RandomSource + Clone + StateProbe>(r: &mut R, op: &str) {
+    if op == "i" {
+        println!("{}", r.next_int());
+    } else if op == "l" {
+        println!("{}", r.next_long());
+    } else if op == "b" {
+        println!("{}", r.next_boolean() as i32);
+    } else if op == "f" {
+        println!("{}", r.next_float().to_bits());
+    } else if op == "d" {
+        println!("{}", r.next_double().to_bits());
+    } else if op == "g" {
+        println!("{}", r.next_gaussian().to_bits());
+    } else if op == "Fg" {
+        let mut f = r.fork();
+        println!("{}", f.next_gaussian().to_bits());
+        println!("{}", f.next_gaussian().to_bits());
+        f.dump_state();
+    } else if let Some(seed) = op.strip_prefix("S:") {
+        r.set_seed(seed.parse().unwrap());
+    } else if let Some(x) = op.strip_prefix("T:") {
+        let (a, b) = x.split_once(':').unwrap();
+        let a = f64::from_bits(a.parse::<i64>().unwrap() as u64);
+        let b = f64::from_bits(b.parse::<i64>().unwrap() as u64);
+        println!("{}", r.triangle(a, b).to_bits());
+    } else if let Some(x) = op.strip_prefix("t:") {
+        let (a, b) = x.split_once(':').unwrap();
+        let a = f32::from_bits(a.parse().unwrap());
+        let b = f32::from_bits(b.parse().unwrap());
+        println!("{}", r.triangle_float(a, b).to_bits());
+    } else if op == "s" {
+        r.dump_state();
+    } else if op == "F" {
+        let mut f = r.fork();
+        println!("{}", f.next_long());
+    } else if let Some(x) = op.strip_prefix("B:") {
+        let bound: i32 = x.parse().unwrap();
+        match r.next_int_bound(bound) {
+            Ok(v) => println!("{v}"),
+            Err(_) => println!("E"),
+        }
+    } else if let Some(x) = op.strip_prefix("R:") {
+        let (o, b) = x.split_once(':').unwrap();
+        match r.next_int_between(o.parse().unwrap(), b.parse().unwrap()) {
+            Ok(v) => println!("{v}"),
+            Err(_) => println!("E"),
+        }
+    } else if let Some(x) = op.strip_prefix("N:") {
+        let (mn, mx) = x.split_once(':').unwrap();
+        match r.next_int_between_inclusive(mn.parse().unwrap(), mx.parse().unwrap()) {
+            Ok(v) => println!("{v}"),
+            Err(_) => println!("E"),
+        }
+    } else if let Some(x) = op.strip_prefix("C:") {
+        r.consume_count(x.parse().unwrap());
+    } else {
+        panic!("unknown op {op}");
+    }
+}
+
+fn main() {
+    let mut input = String::new();
+    io::stdin().read_to_string(&mut input).unwrap();
+    for line in input.lines() {
+        if line.is_empty() {
+            continue;
+        }
+        let mut it = line.split(' ');
+        let kind = it.next().unwrap();
+        if kind == "mix" {
+            let v: i64 = it.next().unwrap().parse().unwrap();
+            println!("{}", mix_stafford13(v as u64) as i64);
+            continue;
+        }
+        let seed: i64 = it.next().unwrap().parse().unwrap();
+        let mut g = match kind {
+            "L" => Gen::L(LegacyRandom::new(seed)),
+            "X" => Gen::X(XoroshiroRandom::new(seed)),
+            _ => panic!("unknown generator {kind}"),
+        };
+        for op in it {
+            match &mut g {
+                Gen::L(r) => run_op(r, op),
+                Gen::X(r) => run_op(r, op),
+            }
+        }
+    }
+}

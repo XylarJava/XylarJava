@@ -1,0 +1,50 @@
+// Original login/packet definitions; only the original test UUID fixture is substituted.
+#![allow(dead_code, unused_imports)]
+@LIB_TYPES@
+#[path = "@BUF_SOURCE@"] pub mod buf;
+#[path = "@IDS_SOURCE@"] pub mod ids;
+#[path = "@PACKETS_SOURCE@"] pub mod packets;
+use std::io::Read;
+fn hex(bytes: &[u8]) -> String { bytes.iter().map(|b| format!("{b:02x}")).collect() }
+fn unhex(s: &str) -> Vec<u8> { if s == "-" { return vec![]; } (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i+2],16).unwrap()).collect() }
+fn uuid(v: u128) -> String { format!("{}:{}",(v>>64) as u64,v as u64) }
+fn profile(p: &packets::login::GameProfile) -> String {
+    use std::fmt::Write;
+    let mut s=format!("{} {} {}",uuid(p.uuid),hex(p.name.as_bytes()),p.properties.len());
+    for v in &p.properties { write!(&mut s," | {} {} {} {}",hex(v.name.as_bytes()),hex(v.value.as_bytes()),v.signature.is_some() as u8,hex(v.signature.as_deref().unwrap_or("").as_bytes())).unwrap(); }
+    s
+}
+fn client(p: &packets::login::Clientbound) -> String {
+    use packets::login::Clientbound::*;
+    match p {
+        Disconnect(v)=>format!("reason {}",hex(v.reason_json.as_bytes())),
+        Hello(v)=>format!("hello {} {} {} {}",hex(v.server_id.as_bytes()),hex(&v.public_key),hex(&v.challenge),v.should_authenticate as u8),
+        LoginFinished(v)=>format!("finished {} session {}",profile(&v.profile),uuid(v.session)),
+        Compression(v)=>format!("compression {}",v.threshold),
+        CustomQuery(v)=>format!("query {} {} {}",v.transaction,hex(v.channel.as_bytes()),hex(&v.data)),
+        CookieRequest(v)=>format!("cookie {}",hex(v.key.as_bytes())),
+        Unknown(id,bytes)=>format!("unknown {id} {}",hex(bytes)),
+    }
+}
+fn server(p: &packets::login::Serverbound) -> String {
+    use packets::login::Serverbound::*;
+    match p {
+        Hello(v)=>format!("hello {} {}",hex(v.name.as_bytes()),uuid(v.uuid)),
+        Key(v)=>format!("key {} {}",hex(&v.key),hex(&v.challenge)),
+        CustomQueryAnswer(v)=>format!("answer {} {} {}",v.transaction,v.payload.is_some() as u8,hex(v.payload.as_deref().unwrap_or(&[]))),
+        LoginAcknowledged(_)=>"ack".to_owned(),
+        CookieResponse(v)=>format!("cookie {} {} {}",hex(v.key.as_bytes()),v.payload.is_some() as u8,hex(v.payload.as_deref().unwrap_or(&[]))),
+        Unknown(id,bytes)=>format!("unknown {id} {}",hex(bytes)),
+    }
+}
+fn main() {
+    let mut input=String::new();std::io::stdin().read_to_string(&mut input).unwrap();
+    for line in input.lines().filter(|s|!s.is_empty()) {
+        let p:Vec<_>=line.split(' ').collect();let id=p[1].parse::<i32>().unwrap();let data=unhex(p[2]);
+        if p[0]=="C" { match packets::login::Clientbound::decode(id,&data) {
+            Err(e)=>println!("ERR {e}"),Ok(v)=>println!("CLIENT {} {} {}",v.name(),client(&v),hex(&v.encode()))
+        }} else { match packets::login::Serverbound::decode(id,&data) {
+            Err(e)=>println!("ERR {e}"),Ok(v)=>println!("SERVER {} {} {}",v.name(),server(&v),hex(&v.encode()))
+        }}
+    }
+}

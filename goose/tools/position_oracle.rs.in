@@ -1,0 +1,30 @@
+// Scalar bodies copied unchanged from the pinned file; only the two iterator
+// module declarations are excluded from the generated snapshot (iterator port pending).
+#![allow(dead_code)]
+#[path = "@POSITION_SNAPSHOT@"]
+mod position;
+use position::{BlockPos, SectionPos, ChunkPos};
+use std::io::{self, Read};
+fn main() {
+    let mut input = String::new(); io::stdin().read_to_string(&mut input).unwrap();
+    for line in input.lines() {
+        let n: Vec<i64> = line.split(' ').map(|v| v.parse().unwrap()).collect();
+        let p = BlockPos::new(n[0] as i32, n[1] as i32, n[2] as i32);
+        let packed = p.pack(); let unp = BlockPos::unpack(packed);
+        let off = p.offset(n[3] as i32, n[4] as i32, n[5] as i32);
+        let sec = p.section(); let ch = p.chunk(); let rel = p.section_relative();
+        let sp = SectionPos::new(p.x,p.y,p.z).pack(); let su = SectionPos::unpack(sp);
+        let rb = SectionPos::new(p.x,p.y,p.z).relative_to_block(n[7] as u16);
+        let cp = ChunkPos::new(p.x,p.z).pack(); let cu = ChunkPos::unpack(cp);
+        let reg = ChunkPos::new(p.x,p.z).region(); let (lx,lz) = ChunkPos::new(p.x,p.z).region_local();
+        let braw = BlockPos::unpack(n[6]); let sraw = SectionPos::unpack(n[6]); let craw = ChunkPos::unpack(n[6]);
+        let values: [i64;36] = [packed, unp.x as i64, unp.y as i64, unp.z as i64,
+            off.x as i64, off.y as i64, off.z as i64, sec.x as i64, sec.y as i64, sec.z as i64,
+            ch.x as i64, ch.z as i64, rel as i64, p.section_index() as i64,
+            sp, su.x as i64, su.y as i64, su.z as i64, rb.x as i64, rb.y as i64, rb.z as i64,
+            cp, cu.x as i64, cu.z as i64, reg.x as i64, reg.z as i64, lx as i64, lz as i64,
+            braw.x as i64,braw.y as i64,braw.z as i64,sraw.x as i64,sraw.y as i64,sraw.z as i64,
+            craw.x as i64,craw.z as i64];
+        println!("{}", values.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(" "));
+    }
+}

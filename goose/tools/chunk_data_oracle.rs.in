@@ -1,0 +1,29 @@
+#![allow(dead_code, unused_imports)]
+extern crate self as horizon_world;
+@LIB_TYPES@
+#[path="@NBT_SOURCE@"] pub mod nbt;
+#[path="@BUF_SOURCE@"] pub mod buf;
+#[path="@CHUNK_SOURCE@"] pub mod chunk;
+@PLAY_TYPES@
+use std::io::Read;
+use buf::{Reader,Writer,Codec};
+fn unhex(s:&str)->Vec<u8>{if s=="-" {return vec![];} (0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+fn hex(data:&[u8])->String {data.iter().map(|b|format!("{b:02x}")).collect()}
+fn main(){
+    let mut text=String::new();std::io::stdin().read_to_string(&mut text).unwrap();
+    for line in text.lines(){let p:Vec<_>=line.split(' ').collect();let count=p[1].parse().unwrap();let data=unhex(p[2]);let mut r=Reader::new(&data);let mut w=Writer::new();
+        if p[0]=="P" {match terrain::Clientbound::decode(count as i32,&data){
+            Err(e)=>println!("ERR {e}"),Ok(p)=>println!("OK {}",hex(&p.encode()))
+        }}else if p[0]=="C" {match chunk::ChunkData::read(&mut r){
+            Err(e)=>println!("ERR {} {e}",r.position()),Ok(c)=>{
+                chunk::ChunkData::write(&c,&mut w);println!("OK {} {}",r.position(),hex(&w.data));
+                match c.sections(count,16,7){Err(e)=>println!("SE {e}"),Ok(s)=>println!("SC {}",hex(&chunk::ChunkData::from_sections(&s)))}
+            }
+        }}else{match chunk::LightData::read(&mut r){
+            Err(e)=>println!("ERR {} {e}",r.position()),Ok(l)=>{
+                chunk::LightData::write(&l,&mut w);println!("OK {} {}",r.position(),hex(&w.data));
+                for (s,b) in l.layers(count){println!("L {} {} {} {}",s.is_some() as u8,hex(s.as_deref().unwrap_or_default()),b.is_some() as u8,hex(b.as_deref().unwrap_or_default()));}
+            }
+        }}
+    }
+}

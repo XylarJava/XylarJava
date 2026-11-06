@@ -1,0 +1,21 @@
+#![allow(dead_code, unused_imports)]
+extern crate self as horizon_world;
+@LIB_TYPES@
+#[path="@NBT_SOURCE@"] pub mod nbt;
+#[path="@BUF_SOURCE@"] pub mod buf;
+#[path="@IDS_SOURCE@"] pub mod ids;
+#[path="@PACKETS_SOURCE@"] pub mod packets;
+// Only the upstream round-trip fixtures use this helper. It does not certify
+// text component construction: the fixture is a simple NBT string tag.
+pub mod text { pub fn literal(s: &str) -> crate::nbt::Tag { crate::nbt::Tag::String(s.into()) } }
+use std::io::Read;
+fn unhex(s:&str)->Vec<u8>{if s=="-" {return vec![];} (0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
+fn hex(data:&[u8])->String {data.iter().map(|b|format!("{b:02x}")).collect()}
+fn main(){
+    let mut text=String::new();std::io::stdin().read_to_string(&mut text).unwrap();
+    for line in text.lines(){let p:Vec<_>=line.split(' ').collect();let id=p[1].parse().unwrap();let data=unhex(p[2]);
+        let result=if p[0]=="C" { packets::configuration::Clientbound::decode(id,&data).map(|p|p.encode()) }
+            else {packets::configuration::Serverbound::decode(id,&data).map(|p|p.encode())};
+        match result {Ok(data)=>println!("OK {}",hex(&data)),Err(e)=>println!("ERR {e}")}
+    }
+}

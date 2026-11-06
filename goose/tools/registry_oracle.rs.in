@@ -1,0 +1,21 @@
+#![allow(dead_code,unused_imports)]
+#[path="@NBT_SOURCE@"] mod nbt;
+use nbt::{JavaString,Tag};
+use std::collections::HashMap;
+// Dependency data shapes only; registry behavior below is unchanged source.
+struct RegistryEntry { id:String,data:Option<Tag> }
+struct RegistryData { registry:String,entries:Vec<RegistryEntry> }
+struct TagEntry { name:String,ids:Vec<i32> }
+struct RegistryTags { registry:String,tags:Vec<TagEntry> }
+struct UpdateTags { registries:Vec<RegistryTags> }
+@REGISTRY_BODY@
+use std::io::Read;
+fn main(){let mut input=String::new();std::io::stdin().read_to_string(&mut input).unwrap();
+ for line in input.lines(){let p:Vec<_>=line.split(' ').collect();let mut dynamic=Dynamic::default();
+ let data=if p[1]=="-"{None}else{
+ let bytes:Vec<u8>=(0..p[1].len()).step_by(2).map(|i|u8::from_str_radix(&p[1][i..i+2],16).unwrap()).collect();
+ match nbt::read_network(&bytes,nbt::Limits{max_bytes:2097152,..Default::default()}){Ok((tag,_))=>Some(tag),Err(e)=>{println!("ERR NBT: {e}");continue;}}};
+ dynamic.add(RegistryData{registry:"minecraft:dimension_type".into(),entries:vec![RegistryEntry{id:p[0].into(),data}]});
+ let d=dynamic.dimension(0);println!("{} {} {} {} {} {} {}",d.min_y,d.height,d.logical_height,d.has_skylight as u8,d.has_ceiling as u8,d.ambient_light.to_bits(),d.sections());
+ }
+}

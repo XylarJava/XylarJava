@@ -445,3 +445,13 @@
     HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
     CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
     OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+## Xylar Goose source notices
+
+Source provenance and the preserved MIT notice for the planned Rust-to-Goose
+port are in [goose/UPSTREAM.md](goose/UPSTREAM.md) and
+[goose/licenses/upstream-MIT.txt](goose/licenses/upstream-MIT.txt).
+
+The Goose cube-root adaptation also retains the CORE-MATH MIT notice in
+[goose/licenses/core-math-MIT.txt](goose/licenses/core-math-MIT.txt); see
+[goose/UPSTREAM.md](goose/UPSTREAM.md) for its source and adaptation scope.

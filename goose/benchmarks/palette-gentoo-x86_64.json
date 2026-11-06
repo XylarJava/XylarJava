@@ -1,0 +1,98 @@
+{
+  "minecraft": "26.3",
+  "reference_revision": "f66e017f5ce2bfc3adc90f093c9250ec458c39ea",
+  "repeats": 7,
+  "measured_at_utc": "2026-11-05T22:44:02.479887+00:00",
+  "cpu_model": "AMD Ryzen 7 5825U with Radeon Graphics",
+  "platform": "Linux",
+  "architecture": "x86_64",
+  "load_average": [
+    4.5703125,
+    3.40087890625,
+    2.06884765625
+  ],
+  "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "goose": "goose runtime 4d3da949e563",
+  "results": [
+    {
+      "case": "dense-list",
+      "global_bits": 16,
+      "calls_per_sample": 10000,
+      "rust_ns_per_call": [
+        8014.6359,
+        8336.21,
+        9631.5325,
+        8565.3968,
+        8543.8424,
+        7894.9484,
+        9374.9332
+      ],
+      "goose_ns_per_call": [
+        6143.0997,
+        6050.5792,
+        6379.3578,
+        6367.5287,
+        6280.8801,
+        6129.8929,
+        5878.9884
+      ],
+      "ratio_rust_over_goose": 1.3908031477984966
+    },
+    {
+      "case": "dense-global",
+      "global_bits": 16,
+      "calls_per_sample": 10000,
+      "rust_ns_per_call": [
+        17310.2362,
+        18306.575,
+        18837.665,
+        18876.4247,
+        18930.7717,
+        18151.9188,
+        18534.798
+      ],
+      "goose_ns_per_call": [
+        9965.0559,
+        9942.9164,
+        10581.0924,
+        10433.4585,
+        10749.4311,
+        10399.051,
+        10738.6139
+      ],
+      "ratio_rust_over_goose": 1.7764768988154789
+    },
+    {
+      "case": "sparse-fallback",
+      "global_bits": 32,
+      "calls_per_sample": 200,
+      "rust_ns_per_call": [
+        519282.59,
+        425290.855,
+        440782.91,
+        446140.11,
+        451881.78,
+        438247.155,
+        453762.91
+      ],
+      "goose_ns_per_call": [
+        61337.545,
+        60297.995,
+        59164.57,
+        61024.76,
+        56388.06,
+        61036.38,
+        62741.875
+      ],
+      "ratio_rust_over_goose": 7.310804827417592
+    }
+  ],
+  "c_compiler": "cc (Gentoo 16.2.1_p20260926 p1) 16.2.1 20260926",
+  "scope": "Single 4096-entry section palette construction kernel; not client FPS or end-to-end performance.",
+  "method": "Same inputs, four warmups, full output checksum, monotonic elapsed time, alternating execution order; median of repeated native release runs.",
+  "limits": [
+    "Shared host is not an isolated low-end benchmark machine.",
+    "Sparse fallback contains registry ids >= 1000000, outside normal vanilla 26.3 registry ids.",
+    "Rust -O and Goose default native release compiler settings are used; no game renderer/world simulation is measured."
+  ]
+}

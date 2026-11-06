@@ -1,0 +1,85 @@
+// Development oracle: original modules are compiled unchanged.
+#![allow(dead_code)]
+#[path = "@STORAGE_SOURCE@"]
+mod storage;
+#[path = "@PALETTED_SOURCE@"]
+mod paletted;
+use paletted::{PaletteError, PalettedContainer, Strategy};
+use std::io::{self, Read};
+fn flag(v: bool) -> u8 { u8::from(v) }
+fn emit_error(error: PaletteError) {
+    match error {
+        PaletteError::BadPalette { len } => println!("PALETTE {len}"),
+        PaletteError::BadStorage { expected, actual } => println!("STORAGE {expected} {actual}"),
+        PaletteError::BadIndex { index, palette } => println!("INDEX {index} {palette}"),
+        PaletteError::BadBits { declared, expected } => println!("BITS {declared} {expected}"),
+    }
+}
+fn dump(c: &PalettedContainer) {
+    use std::fmt::Write;
+    let uniform = c.uniform();
+    println!("STATE {} {} {} {} {}", c.bits(), c.palette_len(), flag(c.is_global()), flag(uniform.is_some()), uniform.unwrap_or(0));
+    let (bits, palette, words) = c.to_wire();
+    let mut line = format!("WIRE {bits} {}", palette.len());
+    for v in palette { write!(&mut line, " {v}").unwrap(); }
+    write!(&mut line, " WORDS {}", words.len()).unwrap();
+    for &word in words { write!(&mut line, " {}", word as i64).unwrap(); }
+    println!("{line}");
+    let saved = c.pack();
+    let mut line = format!("PACK {} {} {}", saved.bits, flag(saved.data.is_some()), saved.palette.len());
+    for v in saved.palette { write!(&mut line, " {v}").unwrap(); }
+    let data = saved.data.unwrap_or_default();
+    write!(&mut line, " WORDS {}", data.len()).unwrap();
+    for word in data { write!(&mut line, " {}", word as i64).unwrap(); }
+    println!("{line}");
+    let mut values = vec![0; c.strategy().entries()];
+    c.unpack(&mut values);
+    let mut ids = vec![u16::MAX; values.len()];
+    let has_ids = c.unpack_ids(&mut ids).is_some();
+    let mut line = "VALUES".to_string();
+    for (i, v) in values.iter().enumerate() { assert_eq!(*v, c.get(i)); write!(&mut line, " {v}").unwrap(); }
+    println!("{line}");
+    let mut line = format!("IDS {}", flag(has_ids));
+    if has_ids { for id in ids { write!(&mut line, " {id}").unwrap(); } }
+    else { assert!(ids.iter().all(|&i| i == u16::MAX)); }
+    println!("{line}");
+    for start in [0, 1, 15, 16, values.len() - 16] {
+        let mut run = [0; 16]; c.get_run(start, &mut run);
+        assert_eq!(&run, &values[start..start + 16]);
+    }
+}
+fn main() {
+    let mut input = String::new(); io::stdin().read_to_string(&mut input).unwrap();
+    let mut c = PalettedContainer::new(Strategy::blocks(16), 0);
+    for line in input.lines().filter(|s| !s.is_empty()) {
+        let p: Vec<_> = line.split(' ').collect();
+        let n = |i: usize| p[i].parse::<i64>().unwrap();
+        let strategy = || if n(1) == 0 { Strategy::blocks(n(2) as u8) } else { Strategy::biomes(n(2) as u8) };
+        match p[0] {
+            "N" => { c = PalettedContainer::new(strategy(), n(3) as u32); println!("OK"); }
+            "V" => { let values: Vec<u32> = p[3..].iter().map(|v| v.parse().unwrap()).collect(); c = PalettedContainer::from_values(strategy(), &values); println!("OK"); }
+            "W" | "P" => {
+                let count = if p[0] == "W" { n(4) } else { n(3) } as usize;
+                let palette: Vec<u32> = p[6..6 + count].iter().map(|v| v.parse().unwrap()).collect();
+                let words: Vec<u64> = p[6 + count..].iter().map(|v| v.parse::<i64>().unwrap() as u64).collect();
+                assert_eq!(words.len(), n(5) as usize);
+                let result = if p[0] == "W" { PalettedContainer::from_wire(strategy(), n(3) as u8, palette, words) }
+                else { PalettedContainer::from_packed(strategy(), palette, if n(4) == 0 { None } else { Some(words.as_slice()) }) };
+                match result { Ok(value) => { c = value; println!("OK"); }, Err(e) => { c = PalettedContainer::new(strategy(), 0); emit_error(e); } }
+            }
+            "S" => println!("SET {}", c.set(n(1) as usize, n(2) as u32)),
+            "G" => println!("GET {}", c.get(n(1) as usize)),
+            "D" => dump(&c),
+            "H" => { let hit = |v| v == n(1) as u32 || v == n(2) as u32; println!("HAS {} {}", flag(c.has(hit)), flag(c.maybe_has(hit))); }
+            "J" => { let hit = |v| v % n(1) as u32 == n(2) as u32; println!("HAS {} {}", flag(c.has(hit)), flag(c.maybe_has(hit))); }
+            "I" => println!("UNIFORM {}", flag(c.is_uniform(n(1) as u32))),
+            "E" => { let other = PalettedContainer::new(strategy(), n(3) as u32); println!("EQUAL {} {}", flag(c == other), flag(c.same_storage(&other))); }
+            "R" => {
+                let saved = c.pack();
+                let restored = PalettedContainer::from_packed(c.strategy(), saved.palette, saved.data.as_deref()).unwrap();
+                assert_eq!(c, restored); println!("RESTORE {}", flag(c.same_storage(&restored))); c = restored;
+            }
+            op => panic!("Unknown command: {op}"),
+        }
+    }
+}

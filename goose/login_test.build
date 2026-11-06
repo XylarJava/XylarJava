@@ -1,0 +1,3 @@
+c_sources = ["native/compression.c"];
+c_libs_linux = ["z"];
+c_libs_macos = ["z"];

@@ -1,0 +1,36 @@
+#![allow(dead_code, unused_imports)]
+extern crate self as horizon_world;
+extern crate self as horizon_core;
+extern crate self as horizon_protocol;
+@LIB_TYPES@
+#[path="@NBT_SOURCE@"] pub mod nbt;
+#[path="@BUF_SOURCE@"] pub mod buf;
+#[path="@IDS_SOURCE@"] pub mod ids;
+#[path="@PACKETS_SOURCE@"] pub mod packets;
+#[path="@SYNC_SOURCE@"] pub mod sync;
+#[path="@TRIG_SOURCE@"] pub mod trig;
+pub mod geometry {
+    use crate::trig;
+    #[derive(Clone,Copy)] pub struct Vec3 { pub x:f64,pub y:f64,pub z:f64 }
+    impl Vec3 { @VEC_METHODS@ }
+}
+use std::io::Read;
+fn hex(data:&[u8])->String {data.iter().map(|b|format!("{b:02x}")).collect()}
+fn main(){
+    let mut text=String::new();std::io::stdin().read_to_string(&mut text).unwrap();let mut sender=sync::PositionSender::default();
+    for line in text.lines(){let p:Vec<_>=line.split(' ').collect();
+        if p[0]=="T" {for x in trig::sine_table(){println!("{}",x.to_bits());}continue;}
+        if p[0]=="R" {sender=sync::PositionSender::default();continue;}
+        let data:Vec<u8>=(0..p[1].len()).step_by(2).map(|i|u8::from_str_radix(&p[1][i..i+2],16).unwrap()).collect();let mut r=buf::Reader::new(&data);
+        if p[0]=="S" {let x=r.f64().unwrap();println!("{} {}",trig::sin(x).to_bits(),trig::cos(x).to_bits());}
+        else if p[0]=="M" {
+            let pos=[r.f64().unwrap(),r.f64().unwrap(),r.f64().unwrap()];let rot=(r.f32().unwrap(),r.f32().unwrap());let ground=r.bool().unwrap();let collision=r.bool().unwrap();
+            println!("{}",sender.update(pos,rot,ground,collision).map(|p|hex(&p.encode())).unwrap_or_default());
+        }else{
+            let v=geometry::Vec3::new(r.f64().unwrap(),r.f64().unwrap(),r.f64().unwrap());
+            let old=(r.f32().unwrap(),r.f32().unwrap());let new=(r.f32().unwrap(),r.f32().unwrap());
+            let p=packets::play::PlayerPosition{teleport:0,position:[0.;3],delta:[r.f64().unwrap(),r.f64().unwrap(),r.f64().unwrap()],yaw:0.,pitch:0.,relatives:r.i32().unwrap()};
+            let v=sync::teleport_velocity(v,old,new,&p);let bits=|v:f64|if v.is_nan(){0x7ff8000000000000}else{v.to_bits()};println!("{} {} {}",bits(v.x),bits(v.y),bits(v.z));
+        }
+    }
+}

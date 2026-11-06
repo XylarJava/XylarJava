@@ -1,0 +1,92 @@
+// Pinned original protocol definitions, with the documented NBT/other-state exclusions.
+#![allow(dead_code, unused_imports)]
+@LIB_TYPES@
+#[path = "@BUF_SOURCE@"] pub mod buf;
+#[path = "@CHUNK_SOURCE@"] pub mod chunk;
+#[path = "@IDS_SOURCE@"] pub mod ids;
+#[path = "@PACKETS_SOURCE@"] pub mod packets;
+use std::io::{self, Read};
+use buf::{Reader, Writer, Codec};
+fn hex(bytes: &[u8]) -> String { bytes.iter().map(|b| format!("{b:02x}")).collect() }
+fn unhex(s: &str) -> Vec<u8> { if s == "-" { return vec![]; } (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i+2],16).unwrap()).collect() }
+fn describe(p: &chunk::Paletted) -> String {
+    use std::fmt::Write;
+    let mut out = format!("{} P {}",p.bits,p.palette.len());
+    for v in &p.palette { write!(&mut out," {v}").unwrap(); }
+    write!(&mut out," D {}",p.data.len()).unwrap();
+    for v in &p.data { write!(&mut out," {v}").unwrap(); }
+    out.push_str(" G");
+    for i in [0,11,12,13,63,64,4095,4096,100000] { write!(&mut out," {}",p.get(i)).unwrap(); }
+    out
+}
+fn read_primitive(code: i64, max: usize, r: &mut Reader, w: &mut Writer) -> Result<String> {
+    use std::fmt::Write;
+    macro_rules! scalar { ($read:ident,$write:ident) => {{ let v=r.$read()?; w.$write(v); v.to_string() }}; }
+    Ok(match code {
+        0=>scalar!(u8,u8), 1=>scalar!(i8,i8),
+        2=>{let v=r.bool()?;w.bool(v);u8::from(v).to_string()},
+        3=>scalar!(i16,i16),4=>scalar!(u16,u16),5=>scalar!(i32,i32),6=>scalar!(u32,u32),
+        7=>scalar!(i64,i64),8=>scalar!(varint,varint),9=>scalar!(varlong,varlong),
+        10=>{let v=r.uuid()?;w.uuid(v);format!("{}:{}",(v>>64) as i64,v as i64)},
+        11=>{let v=r.string(max)?;w.string(&v);format!("B:{}",hex(v.as_bytes()))},
+        12|16=>{let v=r.byte_array(if code==16{r.remaining()}else{max})?;if code==16{buf::BitSet::write(&v,w)}else{w.byte_array(&v)};format!("B:{}",hex(&v))},
+        13|14=>{let v=if code==13{r.fixed_longs(max)?}else{r.long_array()?};let mut s="L:".to_string();for n in &v {write!(&mut s,"{n},").unwrap();}if code==13{for n in v{w.i64(n)}}else{w.long_array(&v)};s},
+        15=>{let v=r.count(max)?;w.varint(v as i32);v.to_string()},
+        17=>{let v=r.bytes(max)?;w.bytes(v);format!("B:{}",hex(v))},
+        18=>{let v=r.since(max);w.bytes(v);format!("B:{}",hex(v))},
+        19=>{let v=r.rest();w.bytes(v);format!("B:{}",hex(v))},
+        _=>panic!("unknown primitive"),
+    })
+}
+fn main() {
+    let mut input=String::new();io::stdin().read_to_string(&mut input).unwrap();
+    for line in input.lines().filter(|s|!s.is_empty()) {
+        let p:Vec<_>=line.split(' ').collect();let n=|i:usize|p[i].parse::<i64>().unwrap();
+        match p[0] {
+            "R"=>{
+                let data=unhex(p[4]);let mut r=Reader::new(&data);r.bytes(n(3) as usize).unwrap();let mut w=Writer::new();
+                match read_primitive(n(1),n(2) as usize,&mut r,&mut w) {Ok(v)=>println!("OK {} {v} {}",r.position(),hex(&w.data)),Err(e)=>println!("ERR {} {}",r.position(),e.0)}
+            }
+            "H"=>{
+                use packets::handshake::Serverbound;
+                match Serverbound::decode(n(1) as i32,&unhex(p[2])) {
+                    Err(e)=>println!("ERR {}",e.0),
+                    Ok(packet)=>{let encoded=packet.encode();match packet {
+                        Serverbound::Intention(v)=>println!("H K {} {} {} {} {}",v.protocol,v.port,v.intent,hex(v.host.as_bytes()),hex(&encoded)),
+                        Serverbound::Unknown(id,payload)=>println!("H U {id} {} {}",hex(&payload),hex(&encoded)),
+                    }}
+                }
+            }
+            "T"=>{
+                if n(1)!=0 { use packets::status::Serverbound;match Serverbound::decode(n(2) as i32,&unhex(p[3])) {
+                    Err(e)=>println!("ERR {}",e.0),Ok(packet)=>{let encoded=packet.encode();match packet {
+                        Serverbound::StatusRequest(_)=>println!("T K 0 0  {}",hex(&encoded)),
+                        Serverbound::PingRequest(v)=>println!("T K 1 {}  {}",v.time,hex(&encoded)),
+                        Serverbound::Unknown(id,payload)=>println!("T U {id} {} {}",hex(&payload),hex(&encoded)),
+                    }}
+                }} else { use packets::status::Clientbound;match Clientbound::decode(n(2) as i32,&unhex(p[3])) {
+                    Err(e)=>println!("ERR {}",e.0),Ok(packet)=>{let encoded=packet.encode();match packet {
+                        Clientbound::StatusResponse(v)=>println!("T K 0 0 {} {}",hex(v.json.as_bytes()),hex(&encoded)),
+                        Clientbound::PongResponse(v)=>println!("T K 1 {}  {}",v.time,hex(&encoded)),
+                        Clientbound::Unknown(id,payload)=>println!("T U {id} {} {}",hex(&payload),hex(&encoded)),
+                    }}
+                }}
+            }
+            "V"=>{
+                let values:Vec<i32>=p[3..].iter().map(|v|v.parse().unwrap()).collect();
+                let strategy=if n(1)!=0{chunk::Strategy::Blocks}else{chunk::Strategy::Biomes};
+                let v=chunk::Paletted::from_values(&values,strategy,n(2) as u8);let mut w=Writer::new();v.write(&mut w);
+                println!("PC {} {}",describe(&v),hex(&w.data));
+            }
+            "C"=>{
+                let data=unhex(p[3]);let mut r=Reader::new(&data);let strategy=if n(1)!=0{chunk::Strategy::Blocks}else{chunk::Strategy::Biomes};
+                match chunk::Paletted::read(&mut r,strategy,n(2) as u8){Err(e)=>println!("ERR {} {}",r.position(),e.0),Ok(v)=>{let mut w=Writer::new();v.write(&mut w);println!("PC {} {} {}",r.position(),describe(&v),hex(&w.data))}}
+            }
+            "S"=>{
+                let data=unhex(p[3]);let mut r=Reader::new(&data);
+                match chunk::Section::read(&mut r,n(1) as u8,n(2) as u8){Err(e)=>println!("ERR {} {}",r.position(),e.0),Ok(v)=>{let mut w=Writer::new();v.write(&mut w);println!("SC {} {} {} | {} | {} {}",r.position(),v.non_empty,v.fluids,describe(&v.states),describe(&v.biomes),hex(&w.data))}}
+            }
+            _=>panic!("unknown command"),
+        }
+    }
+}

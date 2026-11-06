@@ -1,0 +1,554 @@
+{
+  "reference_revision": "f66e017f5ce2bfc3adc90f093c9250ec458c39ea",
+  "scope": "Minecraft Java 26.3 only. Compared protocol/math/player foundations and dimension layout; stream-tested login/teleports and a bound first-column diagnostic. Not yet playable.",
+  "modules": [
+    {
+      "id": "core/storage",
+      "source": "crates/horizon-core/src/storage.rs",
+      "target": "core/storage.goose",
+      "status": "translated-and-compared",
+      "symbols": {
+        "MAGIC": "MAGIC/make_magic",
+        "MAGIC_LEN": "MAGIC_LEN",
+        "locate": "locate",
+        "mask": "mask",
+        "StorageError": "StorageError",
+        "PackedStorage::new": "new_storage",
+        "PackedStorage::from_words": "from_words",
+        "PackedStorage::per_word": "word_count/constructor validation",
+        "PackedStorage::bits/len/words": "fields bits/len/words",
+        "PackedStorage::is_empty": "is_empty",
+        "PackedStorage::slot/location/get/read/write/set": "slot/location/get/read/write/set",
+        "PackedStorage::fill": "fill_storage",
+        "PackedStorage::unpack/unpack_into": "unpack/unpack_into",
+        "PackedStorage::heap_bytes": "word_bytes (adapted telemetry)"
+      },
+      "adaptations": [
+        "Rust Result maps to a value plus tagged StorageError; failure values are empty placeholders.",
+        "Goose owns inline word data, so logical word bytes replace Rust Vec heap capacity telemetry.",
+        "Indices/lengths use nonnegative i64; callers select use_magic=false on non-x86 architectures.",
+        "read/write preconditions are asserted in every Goose build."
+      ],
+      "evidence": "build-goose/port/storage-report.json",
+      "reference_limit": "The reference x86 u32 multiply-shift aliases index 8192 to 0 for bits=31,len=16384. The port preserves this optimized-source behavior. 4096-entry sections and storages above 16384 (division path) are outside this failing domain."
+    },
+    {
+      "id": "core/text",
+      "source": "crates/horizon-core/src/text.rs",
+      "target": "core/text.goose",
+      "status": "translated-and-compared",
+      "symbols": {
+        "parse_java_integer": "java_text::parse_java_integer"
+      },
+      "adaptations": [
+        "Rust Option<i32> maps to i32,bool.",
+        "Rust str is validated UTF-8; the Goose byte-slice entry also rejects malformed UTF-8."
+      ],
+      "evidence": "build-goose/port/text-report.json"
+    },
+    {
+      "id": "core/seed_hash",
+      "source": "crates/horizon-core/src/biome/seed_hash.rs",
+      "target": "core/seed_hash.goose",
+      "status": "translated-and-compared",
+      "symbols": {
+        "hash": "biome_seed::hash"
+      },
+      "adaptations": [
+        "Little/big-endian byte conversions and rotations are explicit unsigned Goose operations."
+      ],
+      "evidence": "build-goose/port/seed_hash-report.json"
+    },
+    {
+      "id": "core/paletted",
+      "source": "crates/horizon-core/src/paletted.rs",
+      "target": "core/paletted.goose",
+      "status": "translated-and-compared",
+      "symbols": {
+        "Kind/Strategy/Config": "BLOCKS/BIOMES, Strategy, config",
+        "ceil_log2/storage_len": "ceil_log2/storage_len",
+        "palette_ids/pack_words": "palette_ids/pack_words",
+        "PaletteError": "PaletteError",
+        "Palette/PalettedContainer": "Container mode + single + owned data buffer",
+        "PalettedContainer::new/get/set": "new_container/get/set",
+        "PalettedContainer::get_run/unpack/unpack_ids": "get_run/unpack/unpack_ids",
+        "PalettedContainer::uniform/is_uniform/has/maybe_has": "uniform/is_uniform/has/maybe_has",
+        "PalettedContainer::from_values/build": "from_values/build",
+        "PalettedContainer::from_wire/to_wire": "from_wire/to_wire",
+        "PalettedContainer::pack/from_packed": "pack/from_packed",
+        "PalettedContainer::same_storage/PartialEq": "same_storage/equal",
+        "PalettedContainer::heap_bytes": "word_bytes (Goose logical backing bytes)"
+      },
+      "adaptations": [
+        "One growable u64 buffer holds words then palette ids; list ids use u64 backing slots while all wire/save ids retain their original u32 format. This avoids unsupported multiple resizable fields or a fixed palette reservation in single-value sections.",
+        "Completed palette-id results, saved forms and wire snapshots use frozen arrays. Wire snapshots own their words rather than borrowing the container.",
+        "Rust Result/Option map to explicit error tags or value/presence pairs. unpack_ids returns a flag with the palette accessible through the container.",
+        "Dense lookup scratch is worker-local through Goose globals. Sparse lookup uses the pinned Goose standard dictionary.",
+        "Container read/update preconditions are asserted in all builds; allocation telemetry counts logical backing bytes rather than Rust Vec capacity."
+      ],
+      "evidence": "build-goose/port/paletted-report.json"
+    },
+    {
+      "id": "core/position-scalar",
+      "source": "crates/horizon-core/src/position.rs",
+      "target": "core/position.goose",
+      "status": "scalar-definitions-translated-and-compared",
+      "symbols": {
+        "BlockPos": "BlockPos/block_pos/block_pack/block_unpack/offset/section/chunk/section_relative/section_index",
+        "SectionPos": "SectionPos/section_pos/section_pack/section_unpack/relative_to_block",
+        "ChunkPos": "ChunkPos/chunk_pos/chunk_pack/chunk_unpack/region/region_local"
+      },
+      "adaptations": [
+        "Java/Rust wrapping arithmetic is expressed as unsigned operations and explicit unchecked signed casts, including in debug builds.",
+        "Rust usize section indices are nonnegative Goose i64 values.",
+        "The Rust oracle removes only the two declarations importing position/iter.rs; every scalar definition and its original tests remain verbatim."
+      ],
+      "pending": [
+        "position/iter.rs and geometry-dependent containing/box iteration methods"
+      ],
+      "evidence": "build-goose/port/position-report.json"
+    },
+    {
+      "id": "net/buf-primitives",
+      "source": "crates/horizon-protocol/src/buf.rs",
+      "target": "net/buf.goose",
+      "status": "primitive-subset-translated-and-compared",
+      "symbols": {
+        "Reader::new/position/remaining/bytes/since/rest": "reader/position/remaining/bytes/since/rest",
+        "Reader signed/unsigned integer codecs, bool, UUID, VarInt/VarLong": "read_* functions; UUID is two u64 words",
+        "Reader::string/count/byte_array/long_array/fixed_longs": "read_string/read_count/read_byte_array/read_long_array/read_fixed_longs",
+        "Writer integer/string/array/UUID/bitset codecs": "write_* functions",
+        "Error": "wire::Error/error_message",
+        "Reader::nbt/Writer::nbt": "read_nbt/write_nbt (canonical validated network bytes)"
+      },
+      "adaptations": [
+        "Rust Result maps to a value and tagged wire::Error.",
+        "Byte arrays and strings borrow the Reader input; completed long arrays own frozen storage.",
+        "UTF-8 validation preserves Rust error positions/lengths; string limits count Java UTF-16 units.",
+        "UUID uses two u64 words because this Goose release has no u128.",
+        "NBT fields expose canonical network bytes; read_nbt validates and normalizes through the translated arena, then advances by the original consumed length. Error locations retain the NBT-relative offset."
+      ],
+      "pending": [
+        "floating-point bitcasts, angle/velocity codecs, position/options helpers"
+      ],
+      "evidence": "build-goose/port/net-report.json"
+    },
+    {
+      "id": "net/chunk-section-wire",
+      "source": "crates/horizon-protocol/src/chunk.rs",
+      "target": "net/chunk.goose",
+      "status": "full-chunk-module-translated-and-compared",
+      "symbols": {
+        "Strategy/config/storage_len/storage_get": "is_blocks/configuration/storage_len/storage_get",
+        "Paletted::read/write/get/from_palette/from_values": "read_paletted/write_paletted/get/from_palette/from_values",
+        "Section::read/write": "read_section/write_section",
+        "BlockEntityInfo/Heightmaps/ChunkData": "BlockEntityInfo/Heightmap/ChunkData, read_chunk/write_chunk, sections/from_sections",
+        "Layers/LightData/SectionLight/nibble": "Layer/LightData/SectionLight, read_layers/write_layers/read_light/write_light/layers/nibble"
+      },
+      "adaptations": [
+        "Frozen owned arrays replace Rust Vec fields; section copies are explicit.",
+        "Dense worker-local lookup uses zero as unseen and id+1 otherwise, clearing only touched cells.",
+        "Sparse/negative-id fallback uses a first-occurrence dictionary instead of the source linear palette scan; exact palette and wire order are compared.",
+        "Wire palette rules stay separate from resident-container validation, retaining source acceptance and cursor behavior.",
+        "Block entity NBT owns canonical network bytes; outer chunk buffer remains separate from decoded sections.",
+        "Light expansion uses borrowed views during its linear mask traversal, copying each present layer only into the returned owner. Absent and explicitly zeroed layers stay distinct.",
+        "Rust block field is named block_light because block is reserved in Goose."
+      ],
+      "pending": [],
+      "evidence": [
+        "build-goose/port/net-report.json",
+        "build-goose/port/chunk-data-report.json"
+      ],
+      "benchmark": "build-goose/port/benchmark/net-benchmark.json"
+    },
+    {
+      "id": "net/handshake-status",
+      "source": [
+        "crates/horizon-protocol/src/packets/handshake.rs",
+        "crates/horizon-protocol/src/packets/status.rs",
+        "crates/horizon-protocol/src/packets/mod.rs (packet_enum behavior)",
+        "crates/horizon-protocol/src/ids.rs (protocol and handshake/status IDs)"
+      ],
+      "target": "net/packets.goose",
+      "status": "handshake-and-status-translated-and-compared",
+      "symbols": {
+        "ClientIntentionPacket/Serverbound": "Intention/decode_intention/encode_intention",
+        "ServerboundStatusRequestPacket/ServerboundPingRequestPacket/ClientboundStatusResponsePacket/ClientboundPongResponsePacket": "StatusPacket/decode_status/encode_status",
+        "packet_enum unknown/decode full-consumption behavior": "known/id/payload and PacketTooLarge"
+      },
+      "adaptations": [
+        "Tagged records replace Rust packet enums. Unknown packet payloads are preserved.",
+        "This is a packet-body codec; it does not provide sockets, framing or login."
+      ],
+      "pending": [
+        "configuration and play packet families (login codecs are tracked separately)"
+      ],
+      "evidence": "build-goose/port/net-report.json"
+    },
+    {
+      "id": "net/frame",
+      "source": "crates/horizon-protocol/src/frame.rs",
+      "target": "net/frame.goose",
+      "status": "policy-translated-and-compared-with-adapted-zlib-backend",
+      "symbols": {
+        "MAX_FRAME/MAX_UNCOMPRESSED": "MAX_FRAME/MAX_UNCOMPRESSED",
+        "encode/contents/prefixed/header": "encode/contents/prefixed/header",
+        "Inflater::default/inflate": "new_inflater/body plus native zlib calls",
+        "Body::Plain/Inflated": "Body plain/start/data",
+        "body": "body"
+      },
+      "adaptations": [
+        "Rust Option<usize> threshold maps to -1 (None) or a nonnegative i64.",
+        "System zlib through native/compression.c replaces flate2/zlib-rs. Framing, quotas, threshold policy, VarInts and error ordering remain Goose.",
+        "Inflater has exclusive handle ownership and explicit close. Native calls do not retain Goose input/output pointers.",
+        "Backend-specific errors report numeric zlib status; original policy error messages remain unchanged.",
+        "The Rust test oracle retains frame.rs verbatim but supplies a test-only flate2-shaped system-zlib dependency adapter. Its compressed byte choices are not evidence about upstream zlib-rs."
+      ],
+      "pending": [
+        "upstream zlib-rs cross-backend interoperability comparison",
+        "full connection-source parity and memory-pipe/split transport (Linux stream integration is tracked separately)"
+      ],
+      "evidence": "build-goose/port/frame-report.json"
+    },
+    {
+      "id": "net/login",
+      "source": "crates/horizon-protocol/src/packets/login.rs",
+      "target": "net/login.goose",
+      "status": "all-login-packet-codecs-translated-and-compared",
+      "symbols": {
+        "Property/GameProfile": "Property/GameProfile, read_property/write_property/read_profile/write_profile",
+        "Clientbound Disconnect/Hello/LoginFinished/Compression/CustomQuery/CookieRequest": "Clientbound variable enum and corresponding codecs",
+        "Serverbound Hello/Key/CustomQueryAnswer/LoginAcknowledged/CookieResponse": "Serverbound variable enum and corresponding codecs",
+        "packet_enum decode/encode/id/name/Unknown": "decode_clientbound/decode_serverbound/encode_clientbound/encode_serverbound/client_id/server_id/client_name/server_name/Unknown"
+      },
+      "adaptations": [
+        "Goose variable enum modes own their byte fields and property lists; no fixed maximum-sized union is reserved.",
+        "Option signatures/payloads use explicit presence booleans; Some(empty) stays distinct from None.",
+        "The test snapshot substitutes only the round-trip fixture offline_uuid call with a fixed u128, keeping original packet codecs and test assertions. It does not test offline UUID generation.",
+        "Integration test negotiates compression in the previous framing mode, then decodes compressed and below-threshold login packets."
+      ],
+      "pending": [
+        "MSA session join and entitlement validation",
+        "play/world integration (configuration diagnostics tracked separately)"
+      ],
+      "evidence": "build-goose/port/login-report.json"
+    },
+    {
+      "id": "core/random",
+      "source": "crates/horizon-core/src/random.rs",
+      "target": "core/random.goose",
+      "status": "seeded-integer-and-float-streams-translated-and-compared",
+      "symbols": {
+        "LegacyRandom::new/from_state/state/bits": "new_legacy/legacy_from_state/legacy_state/legacy_bits",
+        "LegacyRandom next_int/next_int_bound/next_long/next_boolean": "legacy_next_int/legacy_next_int_bound/legacy_next_long/legacy_next_boolean",
+        "RandomSource::next_int_between_inclusive/next_int_between/consume_count/fork": "legacy_* and xoroshiro_* next_int_between_inclusive/next_int_between/consume_count/fork",
+        "XoroshiroRandom::new/from_state/state_words": "new_xoroshiro/xoroshiro_from_state/XoroshiroRandom lo+hi",
+        "XoroshiroRandom next_int/next_int_bound/next_long/next_boolean": "xoroshiro_next_int/xoroshiro_next_int_bound/xoroshiro_next_long/xoroshiro_next_boolean",
+        "mix_stafford13": "mix_stafford13",
+        "LegacyRandom/XoroshiroRandom::set_seed": "legacy_set_seed/xoroshiro_set_seed",
+        "LegacyRandom/XoroshiroRandom next_float/next_double/next_gaussian": "legacy_* and xoroshiro_* next_float/next_double/next_gaussian",
+        "RandomSource::triangle/triangle_float": "legacy_triangle/legacy_triangle_float and xoroshiro_triangle/xoroshiro_triangle_float",
+        "marsaglia_polar": "specialized legacy_next_gaussian/xoroshiro_next_gaussian"
+      },
+      "adaptations": [
+        "Rust Result<i32, InvalidBound> maps to a value plus an ok bool; the generator is not advanced on Err.",
+        "Java/Rust wrapping arithmetic is expressed as unsigned u32/u64 operations and explicit unchecked casts (as!), including in debug builds.",
+        "Mutable &mut self receivers become explicit LegacyRandom&/XoroshiroRandom& reference parameters.",
+        "next_long sign-extends the low 32-bit draw before a wrapping u64 addition, matching Java concatenation.",
+        "Option<f64> Gaussian cache maps to a presence bit and f64 value; reseeding resets it and forks start uncached.",
+        "Generic MarsagliaPolar is specialized for each generator; draw order, rejection and cached-state behavior are compared by raw IEEE-754 bits.",
+        "Float draws and triangles retain f32/f64 operation width. Gaussian log calls the verified x86-64 Linux jmath entry point."
+      ],
+      "pending": [
+        "positional.rs, worldgen.rs and hash.rs submodules (fork_positional, positional/worldgen sources, string/position seeds)"
+      ],
+      "evidence": "build-goose/port/random-report.json"
+    },
+    {
+      "id": "core/jmath",
+      "source": "crates/horizon-core/src/jmath.rs",
+      "target": "core/jmath.goose",
+      "status": "x86-64-linux-subset-translated-and-compared",
+      "symbols": {
+        "round_f32/round": "jmath::round_f32/round",
+        "fdlibm::{log,log10,cbrt,hypot}": "jmath::fdlibm_log/fdlibm_log10/fdlibm_cbrt/fdlibm_hypot",
+        "sin/cos/tan/exp/log/log10/pow": "jmath::* platform-libm wrappers (x86-64 Linux)",
+        "hypot": "jmath::hypot (fdlibm kernel)",
+        "cbrt": "jmath::cbrt (Rust 1.98.1 compiler-builtins CORE-MATH nearest rounding)"
+      },
+      "adaptations": [
+        "Rust saturating float-to-int casts use explicit NaN and range checks.",
+        "IEEE-754 bit reinterpretations use native/jmath.c memcpy helpers; kernels remain Goose.",
+        "fabs clears the sign bit, including negative zero, matching Rust f64::abs.",
+        "Rust 1.98.1 f64::cbrt resolves to compiler-builtins CORE-MATH rather than glibc; the nearest-rounding algorithm is translated to Goose, using libm fma for explicitly fused operations.",
+        "Verification uses a hashed pinned-source snapshot; only unavailable libm-crate/geometry calls in unexercised paths are substituted. Rust source tests requiring those paths are not claimed.",
+        "Verification certifies equivalence to the pinned Rust build on x86-64 Linux, not independent vanilla/HotSpot equivalence."
+      ],
+      "pending": [
+        "aarch64 sin/cos stubs and remaining aarch64 platform entry-point selection",
+        "Windows exact sin/cos",
+        "atan2 (geometry::trig), atan/asin/acos (software libm)",
+        "Independent end-to-end vanilla/HotSpot comparison"
+      ],
+      "evidence": "build-goose/port/jmath-report.json"
+    },
+    {
+      "id": "net/crypto-subset",
+      "source": "crates/horizon-protocol/src/crypto.rs",
+      "target": "net/crypto.goose",
+      "status": "cfb8-md5-uuid-compared-with-adapted-aes-backend",
+      "symbols": {
+        "Cfb8::new/encrypt/decrypt": "new_cipher/encrypt/decrypt",
+        "md5/offline_uuid/uuid_string": "md5/offline_uuid/uuid_string",
+        "random_bytes/generate_secret": "secure_random and session-local secret (OpenSSL RAND_bytes adaptation)"
+      },
+      "adaptations": [
+        "OpenSSL EVP AES-128 ECB supplies forward AES blocks; CFB8 register shifts and batched decryption remain Goose.",
+        "The standalone Rust oracle retains Cfb8, MD5 and offline UUID bodies, adapting the unavailable Cargo AES dependency to OpenSSL. Final registers and output bytes are compared.",
+        "MD5 round constants are precomputed; all hash/UUID fixtures also match independent Python hashlib/uuid.",
+        "RSA public-key import/encryption uses the explicitly native OpenSSL adapter. It is not a translation or parity certification of rsa.rs big-integer arithmetic."
+      ],
+      "pending": [
+        "java_hex_digest/server_hash and Microsoft session joining",
+        "Rust RSA arithmetic and secure-chat signatures"
+      ],
+      "evidence": "build-goose/port/crypto-report.json"
+    },
+    {
+      "id": "net/connection-integration",
+      "source": "crates/horizon-protocol/src/connection.rs",
+      "target": "net/connection.goose",
+      "status": "buffering-and-framing-adapted-and-integration-tested",
+      "symbols": {
+        "ConnReader::next/packet/buffered/fill_from": "next/packet_body/buffered/feed/prepare/recv",
+        "ConnWriter::send/send_contents/frame_into": "send/send_contents/frame_into",
+        "Connection::set_compression/enable_encryption": "set_compression/enable_encryption",
+        "Connection counters": "Connection received/sent/bytes_in/bytes_out"
+      },
+      "adaptations": [
+        "Linux POSIX TCP/resolver implementation is native/network.c; protocol framing, read buffer, encryption switch and counters remain Goose.",
+        "Tests replace only the native socket byte stream with subprocess pipes, exercising real reads/writes without sockets. Production links native/network.c.",
+        "Encryption activates on unread buffered bytes and preserves separate cipher registers for each direction.",
+        "Integration is independently checked with Python framing/zlib and OpenSSL CLI, not compared to the complete Rust connection source.",
+        "The native TCP backend compiles; a separate loopback status check runs when sockets are allowed. In this sandbox socket creation is denied and its report explicitly records unavailable."
+      ],
+      "pending": [
+        "Full original connection-source parity",
+        "Memory Pipe, split/detached ownership and raw read/write API",
+        "Windows transport, SRV resolver"
+      ],
+      "evidence": [
+        "build-goose/session-debug-report.json",
+        "build-goose/session-release-report.json",
+        "goose/connection_test.goose"
+      ]
+    },
+    {
+      "id": "net/session-login",
+      "source": [
+        "crates/horizon-client/src/net.rs (ping and connection login loop)",
+        "crates/horizon-protocol/src/rsa.rs (public-key operation boundary)"
+      ],
+      "target": [
+        "net/session.goose",
+        "network.goose",
+        "native/crypto.c",
+        "net/play.goose"
+      ],
+      "status": "status-login-and-configuration-diagnostic-integrated",
+      "symbols": {
+        "ping": "session263::ping",
+        "login handshake/Hello/Compression/LoginFinished/CustomQuery/CookieRequest": "session263::offline_login",
+        "RsaPublicKey::from_der/encrypt": "cryptography::public_key/encrypt (OpenSSL dependency adaptation)",
+        "configure": "session263::configure (collects decoded configuration data and acknowledges transition)"
+      },
+      "adaptations": [
+        "The native CLI exposes status, login-offline and configure-offline; the last collects configuration data and acknowledges FinishConfiguration, then closes without consuming a world or rendering.",
+        "Unauthenticated encryption sends the RSA-encrypted secret/challenge before enabling AES/CFB8. RSA parsing/error diagnostics follow the native adapter rather than claiming Rust parser parity.",
+        "Online-mode authentication requests return an explicit missing-Microsoft-auth error. No MSA tokens/accounts or entitlement checks are implemented.",
+        "Integration uses independently encoded peers, 1024/2048-bit private RSA decryption and fragmented/coalesced, compressed/encrypted streams in debug/release.",
+        "No prepared known packs are claimed: SelectKnownPacks replies empty so registry entries are sent in full.",
+        "Configuration retains raw registry/tag batches for a future Dynamic/world binder; it does not apply dimension/biome semantics.",
+        "The diagnostic answers keep-alives/pings/cookies, declines resource packs, and explicitly stops for code-of-conduct acceptance, interactive dialogs or transfer. It does not implement the original event/UI/resource layer.",
+        "terrain-offline is a bounded diagnostic that decodes the first chunk, answering play keep-alives/pings/batch acknowledgements. Player login and teleport acknowledgements now run before first terrain. The first column now binds to the configured dimension layout. PlayerLoaded is not sent because world loading/rendering is not implemented."
+      ],
+      "pending": [
+        "Microsoft account/session join",
+        "Dynamic registry interpretation, resources and play/world binding",
+        "Interactive configuration UI, transfer and resource packs"
+      ],
+      "evidence": [
+        "build-goose/session-debug-report.json",
+        "build-goose/session-release-report.json"
+      ]
+    },
+    {
+      "id": "data/nbt-binary",
+      "source": "crates/horizon-world/src/nbt.rs",
+      "target": "data/nbt.goose",
+      "status": "binary-read-write-translated-and-compared",
+      "symbols": {
+        "read_named/read_network": "nbt::read(named=true/false)",
+        "write_named/write_network": "nbt::write(named=true/false)",
+        "Tag/NamedTag/JavaString/Compound": "Document u64 arena, Node scalar headers, exact UTF-16 and sorted linked compound entries",
+        "Reader/Writer payload, modified_utf8, quota checks": "payload/write_payload/string/put_string and Limits"
+      },
+      "adaptations": [
+        "One growable u64 arena owns all node headers, variable data and child/sibling links; no borrowed pointer survives arena growth.",
+        "Compound insertion is a sorted linked list instead of a BTreeMap; duplicate names retain their last value.",
+        "Array bytes and UTF-16 units occupy u64 slots. Memory usage is not equivalent to Rust and has not been benchmarked.",
+        "Binary errors, consumed lengths, canonical bytes, negative-zero normalization, disk NaNs, UTF-16 and mixed-list wrapper quotas are compared.",
+        "The oracle compiles the complete pinned Rust source unchanged; SNBT/streaming/template tests do not establish port coverage."
+      ],
+      "pending": [
+        "SNBT",
+        "streaming visitor API",
+        "JavaString convenience APIs and large trusted-file limits presets"
+      ],
+      "evidence": "build-goose/port/nbt-report.json"
+    },
+    {
+      "id": "net/configuration",
+      "source": "crates/horizon-protocol/src/packets/configuration.rs",
+      "target": "net/configuration.goose",
+      "status": "all-configuration-codecs-translated-and-compared",
+      "symbols": {
+        "Clientbound/Serverbound": "Clientbound/Serverbound enums and decode_*/encode_*",
+        "ClientInformation::new": "default_information",
+        "RegistryEntry/RegistryData/RegistryTags/TagEntry/KnownPack": "same named records (KnownPack.namespace becomes pack_namespace)",
+        "ServerLinkKind/ClickPayload": "LinkKind/read_link_kind/write_link_kind and read_click/write_click"
+      },
+      "adaptations": [
+        "NBT Tag fields retain validated canonical bytes; optional presence is separate, preserving Some(End) where the original codec does.",
+        "ClickPayload consumes its length-prefixed region, decodes its first tag and intentionally ignores remaining bytes inside that region, matching the reference.",
+        "The oracle retains original packet/codec bodies and full binary NBT. Its round-trip text::literal fixture helper produces a simple NBT String; this does not certify text components."
+      ],
+      "pending": [
+        "Dynamic registries/world interpretation and resource binding"
+      ],
+      "evidence": "build-goose/port/configuration-report.json"
+    },
+    {
+      "id": "net/play-terrain",
+      "source": "crates/horizon-protocol/src/packets/play.rs",
+      "target": "net/play.goose",
+      "status": "fifteen-clientbound-variants-translated-and-compared",
+      "symbols": {
+        "BundleDelimiter/ChunkBatchStart/ChunkBatchFinished/KeepAlive/Ping/Disconnect/StartConfiguration/LevelChunkWithLight/LightUpdate": "Clientbound variants, decode_clientbound/encode_clientbound",
+        "Login/SpawnInfo/GlobalPos/Respawn/PlayerPosition": "typed records, optional fields, packed last-death position and exact IEEE wire bits",
+        "BlockUpdate/SectionBlocksUpdate/ForgetLevelChunk": "Clientbound codec variants; packed coordinates retain all wire bits",
+        "remote.rs SectionBlocksUpdate position/state extraction": "section_change using compared core.position helpers"
+      },
+      "adaptations": [
+        "Other play packets retain id/payload as Unknown; this is not complete Play codec coverage.",
+        "Oracle extracts unchanged selected packet declarations and enum rows, retaining original macros, chunk, NBT and buffer codecs.",
+        "Bounded session263::receive_terrain diagnostic handles control replies and returns an owned first chunk; login and teleport pose/velocity are tracked, but dimension registry binding and resident world remain pending."
+      ],
+      "evidence": [
+        "build-goose/port/chunk-data-report.json",
+        "build-goose/session-debug-report.json",
+        "build-goose/session-release-report.json"
+      ],
+      "pending": [
+        "Remaining play codec variants",
+        "Player session/world state and renderer integration",
+        "Apply block updates and unloads to the running multi-column store"
+      ]
+    },
+    {
+      "id": "client/player-sync",
+      "source": [
+        "crates/horizon-client/src/player_sync.rs",
+        "crates/horizon-client/src/game/remote.rs",
+        "crates/horizon-core/src/geometry/trig.rs",
+        "crates/horizon-core/src/geometry/mod.rs"
+      ],
+      "target": [
+        "net/player_sync.goose",
+        "core/trig.goose"
+      ],
+      "status": "movement-selection-teleport-velocity-and-pose-translated-and-compared",
+      "symbols": {
+        "PositionSender::update": "movement / PositionSender",
+        "teleport_velocity": "teleport_velocity",
+        "remote_teleport position/rotation and AcceptTeleportation": "teleport (pose/acknowledgement subset)",
+        "sine_table/sin/cos, Vec3::rotate_x/rotate_y": "trig263 table/sin/cos/rotate_x/rotate_y"
+      },
+      "adaptations": [
+        "Sine table is worker-local in Goose (256 KiB per initialized worker), rather than process-shared Rust OnceLock.",
+        "Wire float fields own exact IEEE bits and use the existing C bitcast adapter when evaluated.",
+        "Velocity comparisons normalize arithmetic NaN payloads only; other results compare raw bits.",
+        "PositionSender is callable but has no game tick/input loop yet. Teleport acknowledgement does not advance its independent movement baseline."
+      ],
+      "pending": [
+        "Simulation ticks, collision and input",
+        "World/registry binding, loading tracker and PlayerLoaded",
+        "Respawn world replacement, camera/models/UI",
+        "Remaining geometry/inverse trigonometry"
+      ],
+      "evidence": [
+        "build-goose/port/player-sync-report.json",
+        "build-goose/port/chunk-data-report.json",
+        "build-goose/session-debug-report.json",
+        "build-goose/session-release-report.json"
+      ]
+    },
+    {
+      "id": "net/registry-dimension-layout",
+      "source": "crates/horizon-protocol/src/registry.rs",
+      "target": "net/registry.goose",
+      "status": "dimension-layout-subset-translated-and-compared",
+      "symbols": {
+        "DimensionType::valid_shape/vanilla/sections": "valid_shape/vanilla/sections",
+        "Dynamic::dimension layout fields": "layout (min_y,height,logical_height,sky,ceiling,ambient_light)",
+        "Dynamic::add replacement semantics": "dimensions/registry_len select last configuration batch"
+      },
+      "adaptations": [
+        "Configuration preserves batches; layout extraction selects only the latest dimension registry, rather than appending entries.",
+        "Compound keys compare exact UTF-16 with ASCII protocol field names.",
+        "Layout keeps fixed scalar fields; names/default_clock, full Dynamic lookup/tag APIs and Builtin report loading remain pending."
+      ],
+      "evidence": [
+        "build-goose/port/registry-report.json",
+        "build-goose/session-debug-report.json",
+        "build-goose/session-release-report.json"
+      ]
+    },
+    {
+      "id": "world/column-binding-adapter",
+      "source": [
+        "crates/horizon-protocol/src/chunk.rs",
+        "crates/horizon-protocol/src/registry.rs"
+      ],
+      "target": "net/column.goose",
+      "status": "new-ownership-adapter-over-compared-primitives",
+      "symbols": {
+        "ChunkData::sections / LightData::layers": "bind returns owned sections/light/entities with x,z and configured layout"
+      },
+      "adaptations": [
+        "This is a Goose integration adapter, not a claim to have translated the Rust renderer World store.",
+        "Block/biome access uses local X/Z and absolute Y, retaining compressed palettes. Variable-sized sections currently require linear section traversal.",
+        "Diagnostic uses 16 block palette bits for the pinned target and server-registry-derived biome bits; prepared-resource-derived block registry sizing remains pending.",
+        "The native diagnostic validates/queries the first owned column then closes and discards it. No multi-column store or renderer is attached."
+      ],
+      "evidence": [
+        "goose/column_test.goose",
+        "build-goose/session-debug-report.json",
+        "build-goose/session-release-report.json"
+      ],
+      "pending": [
+        "Full resident world store and block/light updates",
+        "Prepared resources and renderer integration"
+      ]
+    }
+  ],
+  "pending": [
+    "geometry, position box iterators and resident chunk/NBT storage binding",
+    "remaining jmath platform/inverse-trig paths and positional/worldgen/hash random sources",
+    "SNBT/streaming NBT, saves, dynamic registry interpretation and resource preparation",
+    "remaining play codecs/world state machine, MSA sessions, memory/split transport and non-Linux TCP",
+    "simulation, gameplay, renderer, audio and menus",
+    "native launcher installation and distribution"
+  ],
+  "target_minecraft": "26.3"
+}

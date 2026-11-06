@@ -1,0 +1,2 @@
+c_sources = ["native/jmath.c", "native/compression.c", "native/crypto.c", "tools/pipe_transport.c"];
+c_libs_linux = ["z", "crypto"];

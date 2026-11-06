@@ -1,0 +1,67 @@
+// Development oracle: compile the pinned original module without translating it.
+#![allow(dead_code)]
+#[path = "@STORAGE_SOURCE@"]
+mod storage;
+use std::io::{self, Read};
+use storage::{PackedStorage, StorageError};
+
+fn emit(result: Result<u32, StorageError>) {
+    match result {
+        Ok(v) => println!("OK {v}"),
+        Err(StorageError::InvalidBits(b)) => println!("BITS {b}"),
+        Err(StorageError::InvalidLength {expected, actual}) => println!("LENGTH {expected} {actual}"),
+        Err(StorageError::OutOfBounds {index, len}) => println!("BOUNDS {index} {len}"),
+        Err(StorageError::ValueTooLarge(v)) => println!("VALUE {v}"),
+    }
+}
+fn main() {
+    let mut input = String::new();
+    io::stdin().read_to_string(&mut input).unwrap();
+    let mut data = PackedStorage::new(1, 0).unwrap();
+    for line in input.lines().filter(|s| !s.is_empty()) {
+        let p: Vec<&str> = line.split(' ').collect();
+        let number = |n: usize| p[n].parse::<i64>().unwrap();
+        match p[0] {
+            "N" | "F" => {
+                // The fourth field selects the Goose indexing strategy; the
+                // original Rust module selects its architecture at compile time.
+                let bits = number(1) as u8;
+                let len = number(2) as usize;
+                let result = if p[0] == "N" { PackedStorage::new(bits, len) } else {
+                    PackedStorage::from_words(bits, len, p[4..].iter().map(|s| s.parse::<i64>().unwrap() as u64).collect())
+                };
+                match result {
+                    Ok(v) => { data = v; emit(Ok(0)); }
+                    Err(e) => { data = PackedStorage::new(1, 0).unwrap(); emit(Err(e)); }
+                }
+            }
+            "G" => emit(data.get(number(1) as usize)),
+            "S" => emit(data.set(number(1) as usize, number(2) as u32)),
+            "W" => emit(Ok(data.write(number(1) as usize, number(2) as u32))),
+            "L" => emit(data.fill(number(1) as u32).map(|()| 0)),
+            "A" => {
+                let mut sum = 0u64;
+                for i in 0..data.len() {
+                    let value = ((i as u64 * 7 + number(1) as u64) & ((1u64 << data.bits()) - 1)) as u32;
+                    sum += u64::from(data.write(i, value));
+                    assert_eq!(data.get(i).unwrap(), data.read(i));
+                }
+                println!("A {sum}");
+            }
+            "D" => {
+                use std::fmt::Write;
+                let mut out = "WORDS".to_string();
+                for &word in data.words() { write!(&mut out, " {}", word as i64).unwrap(); }
+                out.push_str(" VALUES");
+                let values = data.unpack();
+                let mut into = vec![u32::MAX; data.len() + 3];
+                data.unpack_into(&mut into);
+                assert_eq!(&into[..data.len()], values);
+                assert_eq!(&into[data.len()..], &[u32::MAX; 3]);
+                for v in values { write!(&mut out, " {v}").unwrap(); }
+                println!("{out}");
+            }
+            op => panic!("unknown operation {op}"),
+        }
+    }
+}

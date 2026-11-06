@@ -1,0 +1,45 @@
+// Development-only wrapper of the pinned jmath.rs. jmath_parity.py substitutes
+// the Rust `libm` crate calls (only in the aarch64/Windows sin-cos and the
+// atan/asin/acos paths) and crate::geometry's atan2 with std equivalents so the
+// file builds with a standalone rustc; those substituted paths are not
+// exercised here. The #[cfg(test)] module is excluded (compiled without
+// --test). On x86-64 Linux the entry points run their std else-branch, which is
+// unchanged, so jmath::sin/cos/tan/exp/log/log10/pow/cbrt are the real values.
+#![allow(dead_code)]
+#[path = "@JMATH_SNAPSHOT@"]
+mod jmath;
+use std::io::{self, Read};
+
+fn main() {
+    let mut input = String::new();
+    io::stdin().read_to_string(&mut input).unwrap();
+    for line in input.lines() {
+        if line.is_empty() {
+            continue;
+        }
+        let parts: Vec<&str> = line.split(' ').collect();
+        let op = parts[0];
+        let b = |i: usize| f64::from_bits(parts[i].parse::<i64>().unwrap() as u64);
+        match op {
+            "rf" => println!(
+                "{}",
+                jmath::round_f32(f32::from_bits(parts[1].parse::<i64>().unwrap() as u32))
+            ),
+            "rd" => println!("{}", jmath::round(b(1))),
+            "log" => println!("{}", jmath::log(b(1)).to_bits()),
+            "log10" => println!("{}", jmath::log10(b(1)).to_bits()),
+            "exp" => println!("{}", jmath::exp(b(1)).to_bits()),
+            "sin" => println!("{}", jmath::sin(b(1)).to_bits()),
+            "cos" => println!("{}", jmath::cos(b(1)).to_bits()),
+            "tan" => println!("{}", jmath::tan(b(1)).to_bits()),
+            "sqrt" => println!("{}", b(1).sqrt().to_bits()),
+            "cbrt" => println!("{}", jmath::cbrt(b(1)).to_bits()),
+            "pow" => println!("{}", jmath::pow(b(1), b(2)).to_bits()),
+            "flog" => println!("{}", jmath::fdlibm::log(b(1)).to_bits()),
+            "flog10" => println!("{}", jmath::fdlibm::log10(b(1)).to_bits()),
+            "fcbrt" => println!("{}", jmath::fdlibm::cbrt(b(1)).to_bits()),
+            "fhyp" => println!("{}", jmath::fdlibm::hypot(b(1), b(2)).to_bits()),
+            _ => panic!("unknown op {op}"),
+        }
+    }
+}

@@ -1,0 +1,48 @@
+// Original frame.rs definitions and tests with an explicitly substituted zlib dependency.
+#![allow(dead_code, unused_imports)]
+@LIB_TYPES@
+@ZLIB_ADAPTER@
+#[path = "@BUF_SOURCE@"] pub mod buf;
+#[path = "@FRAME_SOURCE@"] pub mod frame;
+use std::io::Read;
+fn hex(bytes: &[u8]) -> String { bytes.iter().map(|b| format!("{b:02x}")).collect() }
+fn unhex(s: &str) -> Vec<u8> { if s == "-" { return vec![]; } (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i+2],16).unwrap()).collect() }
+fn digest(bytes: &[u8]) -> u64 { bytes.iter().fold(0xcbf29ce484222325u64, |h, b| (h ^ u64::from(*b)).wrapping_mul(0x100000001b3)) }
+fn main() {
+    let mut input = String::new(); std::io::stdin().read_to_string(&mut input).unwrap();
+    let mut inflater = frame::Inflater::default();
+    for line in input.lines().filter(|l| !l.is_empty()) {
+        let p: Vec<_> = line.split(' ').collect();
+        if p[0] == "H" {
+            match frame::header(&unhex(p[1])) {
+                Ok(None) => println!("NONE"), Ok(Some((start,len))) => println!("HEADER {start} {len}"), Err(e) => println!("ERR {e}")
+            }
+        } else if p[0] == "P" { println!("PREFIX {}", hex(&frame::prefixed(&unhex(p[1])))); }
+        else {
+            let t = p[1].parse::<i64>().unwrap(); let threshold = (t >= 0).then_some(t as usize);
+            if p[0] == "E" {
+                match frame::encode(&unhex(p[2]), threshold) { Ok(v) => println!("ENC {}",hex(&v)), Err(e) => println!("ERR {e}") }
+            } else if p[0] == "B" {
+                let bytes = unhex(p[2]);
+                match frame::body(&bytes, threshold, &mut inflater) {
+                    Ok(frame::Body::Plain(at)) => println!("PLAIN {at} {}",hex(&bytes[at..])),
+                    Ok(frame::Body::Inflated(v)) => println!("INFLATED {}",hex(&v)), Err(e) => println!("ERR {e}")
+                }
+            } else if p[0] == "X" {
+                let n = p[2].parse::<usize>().unwrap(); let kind = p[3].parse::<usize>().unwrap();
+                let bytes: Vec<u8> = (0..n).map(|i| if kind == 0 { (i%7) as u8 } else { ((i as u64).wrapping_mul(0x9e3779b97f4a7c15) >> 56) as u8 }).collect();
+                match frame::encode(&bytes, threshold) {
+                    Err(e) => println!("ERR {e}"),
+                    Ok(v) => {
+                        let (at, size) = frame::header(&v).unwrap().unwrap();
+                        match frame::body(&v[at..at+size], threshold, &mut inflater) {
+                            Ok(frame::Body::Plain(start)) => println!("LARGE {} {} {}",v.len(),digest(&v),digest(&v[at+start..])),
+                            Ok(frame::Body::Inflated(out)) => println!("LARGE {} {} {}",v.len(),digest(&v),digest(&out)),
+                            Err(e) => println!("BODYERR {} {} {e}",v.len(),digest(&v))
+                        }
+                    }
+                }
+            } else { panic!("unknown frame fixture"); }
+        }
+    }
+}

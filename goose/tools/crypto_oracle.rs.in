@@ -1,0 +1,34 @@
+#![allow(dead_code, unused_imports)]
+#[path = "@BLOCKS_ADAPTER@"] mod blocks;
+#[path = "@CRYPTO_SNAPSHOT@"] mod crypto;
+use std::io::{self, Read};
+fn hex(data: &[u8]) -> String { data.iter().map(|b| format!("{b:02x}")).collect() }
+fn unhex(s: &str) -> Vec<u8> {
+    if s == "-" { return Vec::new(); }
+    (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()
+}
+fn main() {
+    let mut text = String::new(); io::stdin().read_to_string(&mut text).unwrap();
+    for line in text.lines() {
+        let p: Vec<_> = line.split(' ').collect();
+        let op = p[0];
+        if op == "M" { println!("{}", hex(&crypto::md5(&unhex(p[1])))); }
+        else if op == "U" {
+            let name = unhex(p[1]);
+            match std::str::from_utf8(&name) {
+                Ok(s) => println!("{}", crypto::uuid_string(crypto::offline_uuid(s))),
+                Err(_) => println!("INVALID"),
+            }
+        } else {
+            let key: [u8;16] = unhex(p[1]).try_into().unwrap();
+            let iv: [u8;16] = unhex(p[2]).try_into().unwrap();
+            let chunk: usize = p[3].parse().unwrap();
+            let mut data = unhex(p[4]);
+            let mut c = crypto::Cfb8::new(&key, &iv);
+            for part in data.chunks_mut(chunk) {
+                if op == "E" { c.encrypt(part); } else { assert_eq!(op,"D"); c.decrypt(part); }
+            }
+            println!("{}:{}", hex(&data), hex(crypto::register(&c)));
+        }
+    }
+}

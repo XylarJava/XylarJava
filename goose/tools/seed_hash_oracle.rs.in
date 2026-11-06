@@ -1,0 +1,12 @@
+// Development-only wrapper of the unchanged original seed hash module.
+#[path = "@SEED_HASH_SOURCE@"]
+mod seed_hash;
+use std::io::{self, Read};
+fn main() {
+    let mut input = String::new();
+    io::stdin().read_to_string(&mut input).unwrap();
+    for line in input.lines() {
+        let seed = line.parse::<i64>().unwrap();
+        println!("{}", seed_hash::hash(seed));
+    }
+}
