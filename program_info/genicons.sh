@@ -58,4 +58,4 @@ else
 fi
 
 # replace icon in themes
-cp -v ${LAUNCHER_APPID}.svg "../launcher/resources/multimc/scalable/launcher.svg"
+cp -v "${LAUNCHER_APPID}.svg" "../launcher/resources/polymc/scalable/launcher.svg"

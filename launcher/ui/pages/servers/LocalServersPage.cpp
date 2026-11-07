@@ -137,7 +137,12 @@ LocalServersPage::LocalServersPage(LocalServerList* servers, QNetworkAccessManag
     emptyLayout->addWidget(emptyIcon);
     emptyLayout->addSpacing(8);
     emptyLayout->addWidget(emptyTitle);
-    emptyLayout->addWidget(emptyText, 0, Qt::AlignHCenter);
+    // Centre through a layout so height-for-width uses the label's actual width.
+    auto emptyTextRow = new QHBoxLayout();
+    emptyTextRow->addStretch();
+    emptyTextRow->addWidget(emptyText, 1);
+    emptyTextRow->addStretch();
+    emptyLayout->addLayout(emptyTextRow);
     emptyLayout->addSpacing(12);
     emptyLayout->addWidget(emptyButton, 0, Qt::AlignHCenter);
     emptyLayout->addStretch(1);

@@ -3,7 +3,6 @@
 #include <QByteArray>
 #include <QDir>
 #include <QFile>
-#include <QFileInfo>
 #include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>

@@ -1,18 +1,13 @@
 #include "XylarSkinClient.h"
 
 #include <QCryptographicHash>
-#include <QDebug>
 #include <QJsonArray>
-#include <QRegularExpression>
 #include <QSaveFile>
 #include <QUuid>
 
 #include "minecraft/auth/AccountTokenCipher.h"
 
-XylarSkinClient::XylarSkinClient(QObject* parent)
-    : QObject(parent),
-      m_nam(new QNetworkAccessManager(this)),
-      m_cacheDir(defaultCacheDir())
+XylarSkinClient::XylarSkinClient(QObject* parent) : QObject(parent), m_nam(new QNetworkAccessManager(this)), m_cacheDir(defaultCacheDir())
 {
     QDir().mkpath(m_cacheDir);
 }
@@ -129,11 +124,13 @@ bool XylarSkinClient::validateSkinPng(const QString& filePath, QString* outError
 {
     QFile file(filePath);
     if (!file.exists()) {
-        if (outError) *outError = tr("Selected skin file does not exist.");
+        if (outError)
+            *outError = tr("Selected skin file does not exist.");
         return false;
     }
     if (!file.open(QIODevice::ReadOnly)) {
-        if (outError) *outError = tr("Cannot read selected skin file: %1").arg(file.errorString());
+        if (outError)
+            *outError = tr("Cannot read selected skin file: %1").arg(file.errorString());
         return false;
     }
     QByteArray data = file.readAll();
@@ -144,14 +141,16 @@ bool XylarSkinClient::validateSkinPng(const QString& filePath, QString* outError
 bool XylarSkinClient::validateSkinPngData(const QByteArray& data, QString* outError)
 {
     if (data.size() < 24) {
-        if (outError) *outError = tr("File is too small to be a valid PNG image.");
+        if (outError)
+            *outError = tr("File is too small to be a valid PNG image.");
         return false;
     }
 
     // Check PNG signature: 89 50 4E 47 0D 0A 1A 0A
     static const unsigned char pngSig[8] = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
     if (memcmp(data.constData(), pngSig, 8) != 0) {
-        if (outError) *outError = tr("File is not a valid PNG image.");
+        if (outError)
+            *outError = tr("File is not a valid PNG image.");
         return false;
     }
 
@@ -167,13 +166,15 @@ bool XylarSkinClient::validateSkinPngData(const QByteArray& data, QString* outEr
     }
 
     if (data.size() > 1048576) {
-        if (outError) *outError = tr("Skin file too large (maximum allowed size is 1 MB).");
+        if (outError)
+            *outError = tr("Skin file too large (maximum allowed size is 1 MB).");
         return false;
     }
 
     QImage img;
     if (!img.loadFromData(data, "PNG")) {
-        if (outError) *outError = tr("Failed to decode PNG image data.");
+        if (outError)
+            *outError = tr("Failed to decode PNG image data.");
         return false;
     }
 
@@ -184,7 +185,8 @@ bool XylarSkinClient::validateCapePngData(const QByteArray& data, QString* outEr
 {
     QImage img;
     if (data.size() < 24 || !img.loadFromData(data, "PNG")) {
-        if (outError) *outError = tr("File is not a valid PNG image.");
+        if (outError)
+            *outError = tr("File is not a valid PNG image.");
         return false;
     }
     const int w = img.width();
@@ -196,7 +198,8 @@ bool XylarSkinClient::validateCapePngData(const QByteArray& data, QString* outEr
         return false;
     }
     if (data.size() > 1048576) {
-        if (outError) *outError = tr("Cape file too large (maximum allowed size is 1 MB).");
+        if (outError)
+            *outError = tr("Cape file too large (maximum allowed size is 1 MB).");
         return false;
     }
     return true;
@@ -270,10 +273,8 @@ QString XylarSkinClient::parseErrorMessage(QNetworkReply* reply, const QByteArra
             break;
     }
 
-    if (reply->error() == QNetworkReply::ConnectionRefusedError ||
-        reply->error() == QNetworkReply::HostNotFoundError ||
-        reply->error() == QNetworkReply::TimeoutError ||
-        reply->error() == QNetworkReply::RemoteHostClosedError) {
+    if (reply->error() == QNetworkReply::ConnectionRefusedError || reply->error() == QNetworkReply::HostNotFoundError ||
+        reply->error() == QNetworkReply::TimeoutError || reply->error() == QNetworkReply::RemoteHostClosedError) {
         return tr("Cannot reach skin backend (server offline or network issue).");
     }
 
@@ -583,8 +584,7 @@ void XylarSkinClient::fetchCapeMetadata(const QString& uuid)
             return;
         }
         const QJsonObject obj = QJsonDocument::fromJson(data).object();
-        emit capeMetadataReceived(uuid, obj.value("has_cape").toBool(), obj.value("cape_hash").toString(),
-                                  obj.value("cape_id").toString());
+        emit capeMetadataReceived(uuid, obj.value("has_cape").toBool(), obj.value("cape_hash").toString(), obj.value("cape_id").toString());
     });
 }
 

@@ -2,7 +2,6 @@
 
 #include <QCoreApplication>
 #include <QDebug>
-#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 
@@ -61,8 +60,8 @@ std::unique_ptr<MinecraftInstance> XylarClientCreationTask::createInstance()
 {
     setStatus(tr("Setting up %1").arg(XylarClient::displayName()));
 
-    auto inst = std::make_unique<MinecraftInstance>(m_globalSettings, std::make_unique<INISettingsObject>(FS::PathCombine(m_stagingPath, "instance.cfg")),
-                                                    m_stagingPath);
+    auto inst = std::make_unique<MinecraftInstance>(
+        m_globalSettings, std::make_unique<INISettingsObject>(FS::PathCombine(m_stagingPath, "instance.cfg")), m_stagingPath);
     SettingsObject::Lock lock(inst->settings());
 
     auto components = inst->getPackProfile();

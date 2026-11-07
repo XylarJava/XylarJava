@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="launcher/resources/assets/XylarJava.png" alt="XylarJava" width="160">
+  <img src="program_info/io.xylarjava.XylarJava_256.png" alt="XylarJava" width="160">
 </p>
 
 <h1 align="center">XylarJava</h1>

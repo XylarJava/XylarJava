@@ -202,7 +202,7 @@
     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-## Instance icons (`launcher/resources/multimc/scalable/instances`)
+## Instance icons (`launcher/resources/polymc/scalable/instances`)
 
     Copyright (C) 2022 AutiOne, Boba, ely, Fulmine, gon sawa, Pankakes, tobimori, Zeke
     Source: https://github.com/PrismLauncher/PrismLauncher
