@@ -20,6 +20,8 @@ CMakeUserPresets.json
 /.idea
 /.vscode
 /.vs
+/.agents/
+/.claude/
 cmake-build-*/
 Debug
 compile_commands.json
