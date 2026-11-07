@@ -25,6 +25,7 @@ class FadingStackedWidget;
 class DiscordPresence;
 class XylarUpdater;
 class MojangSkinFetcher;
+class XylarSkinClient;
 class PageContainer;
 class SettingsObjectLockHolder;
 class QAction;
@@ -280,6 +281,9 @@ class MainWindow : public QMainWindow {
     bool m_away = false;
     bool m_defaultSkinDownloadTried = false;  // fetched the default skins once this session
     QString m_homeSkinKey;  // Mojang lookup the Home screen is waiting for
+    QString m_homeXylarSkinUuid;
+    QString m_homeXylarSkinRequest;
+    XylarSkinClient* m_homeSkinClient = nullptr;
     QWidget* m_settingsPage = nullptr;
     class LocalServerList* m_localServers = nullptr;
     class LocalServersPage* m_serversPage = nullptr;

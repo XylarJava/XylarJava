@@ -9,7 +9,7 @@
 ## Features
 
 - **Every version, every loader**: any release or snapshot, with Fabric, Forge, NeoForge or Quilt. Modpacks from Modrinth, CurseForge, FTB, ATLauncher and Technic.
-- **Skins & capes**: pick a skin and a XylarJava cape, or upload your own. Other XylarJava players see them, on offline servers too.
+- **Skins & capes**: pick a skin and a XylarJava cape, or upload your own. Other XylarJava players see them, on offline servers too. [Use your profile on another device](docs/skins.md).
 - **Servers in one click**: host a server on your computer and share it through a playit.gg tunnel, with your addresses hidden until you ask.
 - **Friends**: see who's online, invite friends, join their server and show what you're playing on Discord.
 - **XylarJava Client 1.8.9**: a PvP client with 90+ mods and nothing that gives an unfair advantage ([client/](client/)).

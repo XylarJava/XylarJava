@@ -2,12 +2,14 @@
 
 #include <QCryptographicHash>
 #include <QJsonArray>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QUuid>
 
 #include "minecraft/auth/AccountTokenCipher.h"
 
-XylarSkinClient::XylarSkinClient(QObject* parent) : QObject(parent), m_nam(new QNetworkAccessManager(this)), m_cacheDir(defaultCacheDir())
+XylarSkinClient::XylarSkinClient(QObject* parent, QNetworkAccessManager* network)
+    : QObject(parent), m_nam(network ? network : new QNetworkAccessManager(this)), m_cacheDir(defaultCacheDir())
 {
     QDir().mkpath(m_cacheDir);
 }
@@ -81,11 +83,9 @@ QByteArray XylarSkinClient::loadCachedSkin(const QString& uuid) const
 bool XylarSkinClient::saveCachedSkin(const QString& uuid, const QByteArray& data)
 {
     QDir().mkpath(m_cacheDir);
-    QFile f(getCachedSkinPath(uuid));
+    QSaveFile f(getCachedSkinPath(uuid));
     if (f.open(QIODevice::WriteOnly)) {
-        qint64 written = f.write(data);
-        f.close();
-        return written == data.size();
+        return f.write(data) == data.size() && f.commit();
     }
     return false;
 }
@@ -333,11 +333,8 @@ void XylarSkinClient::registerPlayer(const QString& username, const QString& msa
         QString skinModel = player["skin_model"].toString("classic");
 
         // Keep this player's skin ours: ask for its key the first time we see it.
-        if (!uuid.isEmpty() && playerKey(uuid).isEmpty()) {
-            claimPlayer(uuid);
-        }
-
-        emit playerRegistered(uuid, username, skinHash, skinModel);
+        claimPlayer(uuid,
+                    [this, uuid, username, skinHash, skinModel](bool) { emit playerRegistered(uuid, username, skinHash, skinModel); });
     });
 }
 
@@ -433,7 +430,10 @@ void XylarSkinClient::downloadSkin(const QString& uuid, const QString& expectedH
         }
 
         // Save to cache
-        saveCachedSkin(uuid, data);
+        if (!saveCachedSkin(uuid, data)) {
+            emit requestFailed("downloadSkin", tr("Could not save the downloaded skin on this computer."), 0);
+            return;
+        }
 
         QString respModel = QString::fromUtf8(reply->rawHeader("X-Skin-Model")).toLower();
         if (respModel.isEmpty()) {
@@ -485,6 +485,10 @@ void XylarSkinClient::uploadSkinData(const QString& uuid, const QByteArray& pngD
         return;
     }
 
+    if (playerKey(uuid).isEmpty()) {
+        requirePlayerKey(uuid, "uploadSkin", [this, uuid, pngData, model] { uploadSkinData(uuid, pngData, model); });
+        return;
+    }
     QString skinModel = model.toLower() == "slim" ? "slim" : "classic";
     QJsonObject body;
     body["uuid"] = uuid;
@@ -521,6 +525,10 @@ void XylarSkinClient::uploadSkinData(const QString& uuid, const QByteArray& pngD
 
 void XylarSkinClient::deleteSkin(const QString& uuid)
 {
+    if (playerKey(uuid).isEmpty()) {
+        requirePlayerKey(uuid, "deleteSkin", [this, uuid] { deleteSkin(uuid); });
+        return;
+    }
     if (m_backendUrl.isEmpty()) {
         emit requestFailed("deleteSkin", tr("Backend URL is not configured."), 0);
         return;
@@ -669,6 +677,10 @@ void XylarSkinClient::uploadCapeData(const QString& uuid, const QByteArray& pngD
 
 void XylarSkinClient::sendCapeChange(const QString& action, const QString& uuid, const QJsonObject& body)
 {
+    if (playerKey(uuid).isEmpty()) {
+        requirePlayerKey(uuid, action, [this, action, uuid, body] { sendCapeChange(action, uuid, body); });
+        return;
+    }
     if (m_capeBackendUrl.isEmpty()) {
         emit requestFailed(action, tr("Cape backend URL is not configured."), 0);
         return;
@@ -689,6 +701,10 @@ void XylarSkinClient::sendCapeChange(const QString& action, const QString& uuid,
 
 void XylarSkinClient::removeCape(const QString& uuid)
 {
+    if (playerKey(uuid).isEmpty()) {
+        requirePlayerKey(uuid, "removeCape", [this, uuid] { removeCape(uuid); });
+        return;
+    }
     if (m_capeBackendUrl.isEmpty()) {
         emit requestFailed("removeCape", tr("Cape backend URL is not configured."), 0);
         return;
@@ -723,7 +739,7 @@ QString XylarSkinClient::playerKey(const QString& uuid) const
     return AccountTokenCipher::decrypt(keys.value(uuid.toLower()).toString());
 }
 
-void XylarSkinClient::setPlayerKey(const QString& uuid, const QString& key)
+bool XylarSkinClient::setPlayerKey(const QString& uuid, const QString& key)
 {
     QJsonObject keys;
     {
@@ -736,17 +752,32 @@ void XylarSkinClient::setPlayerKey(const QString& uuid, const QString& key)
     QDir().mkpath(m_cacheDir);
     QSaveFile out(keysFile());
     if (out.open(QIODevice::WriteOnly)) {
-        out.write(QJsonDocument(keys).toJson(QJsonDocument::Indented));
-        out.commit();
+        const QByteArray data = QJsonDocument(keys).toJson(QJsonDocument::Indented);
+        if (out.write(data) != data.size() || !out.commit())
+            return false;
         QFile::setPermissions(keysFile(), QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+        return true;
     }
+    return false;
 }
 
-void XylarSkinClient::claimPlayer(const QString& uuid)
+void XylarSkinClient::claimPlayer(const QString& uuid, std::function<void(bool)> done)
 {
     if (m_backendUrl.isEmpty() || uuid.isEmpty()) {
+        if (done)
+            done(false);
         return;
     }
+    if (!playerKey(uuid).isEmpty()) {
+        if (done)
+            done(true);
+        return;
+    }
+    const QString identity = uuid.toLower();
+    const bool pending = m_claimCallbacks.contains(identity);
+    m_claimCallbacks[identity].append(std::move(done));
+    if (pending)
+        return;
     QJsonObject body;
     body["uuid"] = uuid;
     QNetworkReply* reply = m_nam->post(makeRequest("/api/player/claim"), QJsonDocument(body).toJson(QJsonDocument::Compact));
@@ -765,7 +796,73 @@ void XylarSkinClient::claimPlayer(const QString& uuid)
         } else {
             qWarning() << "XylarSkins: claiming player failed:" << parseErrorMessage(reply, data);
         }
+        const bool ready = !playerKey(uuid).isEmpty();
+        if (ready) {
+            m_claimFailures.remove(uuid.toLower());
+        } else {
+            m_claimFailures.insert(
+                uuid.toLower(), { statusCode == 201 ? 0 : statusCode, statusCode == 201 ? tr("Could not save skin access on this computer.")
+                                                                                        : parseErrorMessage(reply, data) });
+        }
+        const auto callbacks = m_claimCallbacks.take(uuid.toLower());
+        for (const auto& callback : callbacks) {
+            if (callback)
+                callback(ready);
+        }
     });
+}
+
+void XylarSkinClient::requirePlayerKey(const QString& uuid, const QString& action, std::function<void()> operation)
+{
+    claimPlayer(uuid, [this, uuid, action, operation = std::move(operation)](bool ready) {
+        if (ready) {
+            operation();
+        } else {
+            const auto failure = m_claimFailures.value(uuid.toLower());
+            if (failure.first != 409) {
+                emit requestFailed(action, failure.second.isEmpty() ? tr("Skin backend URL is not configured.") : failure.second,
+                                   failure.first);
+                return;
+            }
+            emit requestFailed(
+                action,
+                tr("This installation cannot change this profile yet. Use Skin access to import access exported from the device "
+                   "that owns the profile, or manage the skin from your linked Xylar website account."),
+                403);
+        }
+    });
+}
+
+QByteArray XylarSkinClient::exportPlayerAccess(const QString& uuid) const
+{
+    const QString key = playerKey(uuid);
+    if (key.isEmpty() || m_backendUrl.isEmpty())
+        return {};
+    return QJsonDocument(QJsonObject{ { "version", 1 }, { "backend", m_backendUrl }, { "uuid", uuid.toLower() }, { "key", key } })
+        .toJson(QJsonDocument::Indented);
+}
+
+bool XylarSkinClient::importPlayerAccess(const QString& uuid, const QByteArray& data, QString* outError)
+{
+    auto fail = [outError](const QString& message) {
+        if (outError)
+            *outError = message;
+        return false;
+    };
+    if (data.size() > 16384)
+        return fail(tr("This is not a valid skin access file."));
+    const QJsonObject object = QJsonDocument::fromJson(data).object();
+    if (object.value("version").toInt() != 1 || object.value("backend").toString() != m_backendUrl || m_backendUrl.isEmpty())
+        return fail(tr("This skin access file belongs to another backend or has an unsupported format."));
+    if (uuid.isEmpty() || object.value("uuid").toString().compare(uuid, Qt::CaseInsensitive) != 0)
+        return fail(tr("This skin access file belongs to another player. Select the matching account first."));
+    const QString key = object.value("key").toString();
+    static const QRegularExpression keyFormat(QStringLiteral("^[A-Za-z0-9_-]{32,256}$"));
+    if (!keyFormat.match(key).hasMatch())
+        return fail(tr("The skin access file does not contain a valid player key."));
+    if (!setPlayerKey(uuid, key))
+        return fail(tr("Could not save skin access on this computer."));
+    return true;
 }
 
 void XylarSkinClient::startSiteLink(const QString& uuid)
@@ -778,28 +875,7 @@ void XylarSkinClient::startSiteLink(const QString& uuid)
         requestLinkCode(uuid);
         return;
     }
-    // Not claimed from here yet: claim, then ask for the code.
-    QJsonObject body;
-    body["uuid"] = uuid;
-    QNetworkReply* reply = m_nam->post(makeRequest("/api/player/claim"), QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply, uuid]() {
-        reply->deleteLater();
-        const QByteArray data = reply->readAll();
-        const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        if (statusCode == 201) {
-            setPlayerKey(uuid, QJsonDocument::fromJson(data).object().value("key").toString());
-            requestLinkCode(uuid);
-            return;
-        }
-        if (statusCode == 409) {
-            emit requestFailed("siteLink",
-                               tr("This player was claimed from another XylarJava install. Link it from there, or from a website "
-                                  "account it's already linked to."),
-                               statusCode);
-            return;
-        }
-        emit requestFailed("siteLink", parseErrorMessage(reply, data), statusCode);
-    });
+    requirePlayerKey(uuid, "siteLink", [this, uuid] { requestLinkCode(uuid); });
 }
 
 void XylarSkinClient::requestLinkCode(const QString& uuid)

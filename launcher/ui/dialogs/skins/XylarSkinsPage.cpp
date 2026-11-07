@@ -5,9 +5,11 @@
 #include <QFileDialog>
 #include <QLabel>
 #include <QListWidget>
+#include <QMenu>
 #include <QMimeDatabase>
 #include <QPainter>
 #include <QPalette>
+#include <QSaveFile>
 #include <QSizePolicy>
 #include <QUrlQuery>
 
@@ -38,6 +40,17 @@ XylarSkinsPage::XylarSkinsPage(QWidget* parent, MinecraftAccountPtr acct)
     if (auto* layout = m_ui->deleteBtn->parentWidget()->layout())
         layout->addWidget(m_websiteBtn);
     connect(m_websiteBtn, &QPushButton::clicked, this, &XylarSkinsPage::manageOnWebsite);
+
+    m_accessButton = new QPushButton(tr("Skin access…"), this);
+    m_accessButton->setToolTip(tr("Use the same skin profile on another device without changing who owns it."));
+    auto* accessMenu = new QMenu(m_accessButton);
+    accessMenu->addAction(tr("Import access from another device…"), this, &XylarSkinsPage::importSkinAccess);
+    auto* exportAction = accessMenu->addAction(tr("Export access to another device…"), this, &XylarSkinsPage::exportSkinAccess);
+    connect(accessMenu, &QMenu::aboutToShow, this,
+            [this, exportAction] { exportAction->setEnabled(m_client && !m_client->playerKey(m_currentUuid).isEmpty()); });
+    m_accessButton->setMenu(accessMenu);
+    if (auto* layout = m_ui->deleteBtn->parentWidget()->layout())
+        layout->addWidget(m_accessButton);
 
     // Connect model toggle buttons
     connect(m_ui->steveBtn, &QRadioButton::toggled, this, &XylarSkinsPage::on_steveBtn_toggled);
@@ -301,6 +314,8 @@ void XylarSkinsPage::setUIEnabled(bool enabled)
     m_ui->uploadCapeBtn->setEnabled(enabled && !m_currentUuid.isEmpty() && m_client && !m_client->backendUrl().isEmpty());
     if (m_websiteBtn)
         m_websiteBtn->setEnabled(enabled && !m_currentUuid.isEmpty() && m_client && !m_client->backendUrl().isEmpty());
+    if (m_accessButton)
+        m_accessButton->setEnabled(enabled && !m_currentUuid.isEmpty() && m_client && !m_client->backendUrl().isEmpty());
     m_ui->uploadBtn->setEnabled(enabled && !m_selectedFilePath.isEmpty());
     m_ui->selectFileBtn->setEnabled(enabled);
     m_ui->steveBtn->setEnabled(enabled);
@@ -622,6 +637,57 @@ void XylarSkinsPage::manageOnWebsite()
     setStatusMessage(tr("Opening the Xylar website…"));
     setUIEnabled(false);
     m_client->startSiteLink(m_currentUuid);
+}
+
+void XylarSkinsPage::importSkinAccess()
+{
+    if (!m_client || m_currentUuid.isEmpty())
+        return;
+    const QString path = QFileDialog::getOpenFileName(this, tr("Import Skin Access"), QDir::homePath(),
+                                                      tr("Skin access files (*.xylar-skin-access);;All files (*)"));
+    if (path.isEmpty())
+        return;
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        setStatusMessage(tr("Could not read skin access: %1").arg(file.errorString()), true);
+        return;
+    }
+    QString error;
+    if (!m_client->importPlayerAccess(m_currentUuid, file.read(16385), &error)) {
+        setStatusMessage(error, true);
+        return;
+    }
+    loadCurrentSkin();
+}
+
+void XylarSkinsPage::exportSkinAccess()
+{
+    if (!m_client || m_currentUuid.isEmpty())
+        return;
+    const QByteArray access = m_client->exportPlayerAccess(m_currentUuid);
+    if (access.isEmpty()) {
+        setStatusMessage(tr("This device does not own the skin profile. Export access from the device where changing the skin works."),
+                         true);
+        return;
+    }
+    QString path = QFileDialog::getSaveFileName(this, tr("Save Skin Access — Keep This File Private"),
+                                                QDir::home().filePath(m_currentUuid + QStringLiteral(".xylar-skin-access")),
+                                                tr("Skin access files (*.xylar-skin-access)"));
+    if (path.isEmpty())
+        return;
+    if (!path.endsWith(QLatin1String(".xylar-skin-access")))
+        path += QStringLiteral(".xylar-skin-access");
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) {
+        setStatusMessage(tr("Could not save skin access: %1").arg(file.errorString()), true);
+        return;
+    }
+    file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+    if (file.write(access) != access.size() || !file.commit()) {
+        setStatusMessage(tr("Could not save skin access: %1").arg(file.errorString()), true);
+        return;
+    }
+    setStatusMessage(tr("Access saved. Import this file on your other device to change this skin there. Keep the file private."));
 }
 
 void XylarSkinsPage::onSiteLinkReady(const QString& uuid, const QString& code)

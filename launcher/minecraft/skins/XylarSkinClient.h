@@ -3,6 +3,7 @@
 #include <QByteArray>
 #include <QDir>
 #include <QFile>
+#include <QHash>
 #include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -13,12 +14,13 @@
 #include <QObject>
 #include <QStandardPaths>
 #include <QString>
+#include <functional>
 
 class XylarSkinClient : public QObject {
     Q_OBJECT
 
    public:
-    explicit XylarSkinClient(QObject* parent = nullptr);
+    explicit XylarSkinClient(QObject* parent = nullptr, QNetworkAccessManager* network = nullptr);
     ~XylarSkinClient() override = default;
 
     void setBackendUrl(const QString& url);
@@ -71,7 +73,9 @@ class XylarSkinClient : public QObject {
 
     // Ownership: a claimed player's skin changes only with its key, which is kept here.
     QString playerKey(const QString& uuid) const;
-    void claimPlayer(const QString& uuid);
+    void claimPlayer(const QString& uuid, std::function<void(bool)> done = {});
+    QByteArray exportPlayerAccess(const QString& uuid) const;
+    bool importPlayerAccess(const QString& uuid, const QByteArray& data, QString* outError = nullptr);
     /// Asks for a short code to link this player to a Xylar website account (claims it first if needed).
     void startSiteLink(const QString& uuid);
 
@@ -95,7 +99,8 @@ class XylarSkinClient : public QObject {
    private:
     QNetworkRequest makeRequest(const QString& endpoint, bool json = true, const QString& playerUuid = QString()) const;
     QString keysFile() const;
-    void setPlayerKey(const QString& uuid, const QString& key);
+    bool setPlayerKey(const QString& uuid, const QString& key);
+    void requirePlayerKey(const QString& uuid, const QString& action, std::function<void()> operation);
     void requestLinkCode(const QString& uuid);
     QString parseErrorMessage(QNetworkReply* reply, const QByteArray& responseBody) const;
     QString cachedCapePath(const QString& hash) const;
@@ -108,4 +113,6 @@ class XylarSkinClient : public QObject {
     QString m_capeBackendUrl;
     QString m_authToken;
     QString m_cacheDir;
+    QHash<QString, QList<std::function<void(bool)>>> m_claimCallbacks;
+    QHash<QString, QPair<int, QString>> m_claimFailures;
 };

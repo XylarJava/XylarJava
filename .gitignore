@@ -46,6 +46,7 @@ tags
 branding/
 secrets/
 auth-settings.ini
+*.xylar-skin-access
 run/
 
 .cache/

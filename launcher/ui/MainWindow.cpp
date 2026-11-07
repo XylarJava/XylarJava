@@ -561,6 +561,34 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         if (key == m_homeSkinKey)
             updateHomePlayer();
     });
+    APPLICATION->initSkinClient();
+    auto* skinClient = new XylarSkinClient(this);
+    m_homeSkinClient = skinClient;
+    connect(skinClient, &XylarSkinClient::skinMetadataReceived, this,
+            [this, skinClient](const QString& uuid, bool hasSkin, const QString& hash, const QString& model) {
+                if (uuid != m_homeXylarSkinUuid)
+                    return;
+                if (!hasSkin) {
+                    skinClient->deleteCachedSkin(uuid);
+                    updateHomePlayer();
+                } else if (XylarSkinClient::computeSha256(skinClient->loadCachedSkin(uuid)) == hash) {
+                    updateHomePlayer();
+                } else {
+                    skinClient->downloadSkin(uuid, hash, model);
+                }
+            });
+    connect(skinClient, &XylarSkinClient::skinDownloaded, this, [this](const QString& uuid) {
+        if (uuid == m_homeXylarSkinUuid)
+            updateHomePlayer();
+    });
+    auto refreshSkin = [this](const QString& uuid) {
+        if (uuid == m_homeXylarSkinUuid) {
+            m_homeXylarSkinRequest.clear();
+            updateHomePlayer();
+        }
+    };
+    connect(APPLICATION->skinClient(), &XylarSkinClient::skinUploaded, this, refreshSkin);
+    connect(APPLICATION->skinClient(), &XylarSkinClient::skinDeleted, this, refreshSkin);
 
     // Discord Rich Presence: time in the launcher, then in game, with where the player is.
     m_launcherStartedAt = QDateTime::currentSecsSinceEpoch();
@@ -1042,8 +1070,21 @@ void MainWindow::updateHomePlayer()
     bool slim = false;
     QString note;
 
-    // Online, a Microsoft account shows its Mojang skin to everyone; XylarSkins is for offline play.
-    if (!isMsa && !uuid.isEmpty()) {
+    // Fetch XylarSkins on a fresh installation too; another device's disk cache isn't available here.
+    if (!uuid.isEmpty()) {
+        auto* client = m_homeSkinClient;
+        if (client && APPLICATION->skinClient()) {
+            client->setBackendUrl(APPLICATION->skinClient()->backendUrl());
+            client->setAuthToken(APPLICATION->skinClient()->authToken());
+        }
+        if (client && !client->backendUrl().isEmpty()) {
+            const QString request = client->backendUrl() + QLatin1Char('\n') + uuid;
+            m_homeXylarSkinUuid = uuid;
+            if (request != m_homeXylarSkinRequest) {
+                m_homeXylarSkinRequest = request;
+                client->fetchSkinMetadata(uuid);
+            }
+        }
         QFile cached(QDir(XylarSkinClient::defaultCacheDir()).filePath(uuid + QStringLiteral(".png")));
         if (cached.open(QIODevice::ReadOnly) && skin.loadFromData(cached.readAll(), "PNG")) {
             slim = SkinPreview::looksSlim(skin);

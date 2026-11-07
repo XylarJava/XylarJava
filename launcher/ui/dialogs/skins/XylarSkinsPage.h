@@ -49,6 +49,8 @@ class XylarSkinsPage : public QDialog, public SkinProvider {
     void onSkinDeleted(const QString& uuid);
     void onRequestFailed(const QString& action, const QString& errorMessage, int httpStatusCode);
     void manageOnWebsite();
+    void importSkinAccess();
+    void exportSkinAccess();
     void onSiteLinkReady(const QString& uuid, const QString& code);
 
     // Capes
@@ -94,6 +96,7 @@ class XylarSkinsPage : public QDialog, public SkinProvider {
     SkinOpenGLWindow* m_skinPreview = nullptr;
     QLabel* m_skinPreviewLabel = nullptr;
     QPushButton* m_websiteBtn = nullptr;
+    QPushButton* m_accessButton = nullptr;
     bool m_uiEnabled = true;
 
     // The cape worn (empty hash: none), and the cape textures known so far, by hash.

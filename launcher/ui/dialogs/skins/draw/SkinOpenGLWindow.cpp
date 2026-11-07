@@ -2,6 +2,7 @@
 
 #include <QMouseEvent>
 #include <QOpenGLBuffer>
+#include <QOffscreenSurface>
 #include <QProcessEnvironment>
 #include <QVector2D>
 #include <QVector3D>
@@ -321,5 +322,29 @@ bool SkinOpenGLWindow::hasOpenGL()
     }
 
     QOpenGLContext ctx;
-    return ctx.create();
+    QSurfaceFormat format = QSurfaceFormat::defaultFormat();
+    format.setDepthBufferSize(24);
+    ctx.setFormat(format);
+    if (!ctx.create())
+        return false;
+    QOffscreenSurface surface;
+    surface.setFormat(ctx.format());
+    surface.create();
+    if (!surface.isValid() || !ctx.makeCurrent(&surface))
+        return false;
+    bool usable;
+    {
+        auto supports = [](const QString& vertex) {
+            QOpenGLShaderProgram program;
+            return program.addCacheableShaderFromSourceFile(QOpenGLShader::Vertex, vertex) &&
+                   program.addCacheableShaderFromSourceFile(QOpenGLShader::Fragment, QStringLiteral(":/shaders/fshader.glsl")) &&
+                   program.link();
+        };
+        // Some Windows drivers create a context but cannot compile the skin shaders.
+        // In that case the caller uses its image preview instead of an empty GL window.
+        usable = supports(QStringLiteral(":/shaders/vshader_skin_model.glsl")) &&
+                 supports(QStringLiteral(":/shaders/vshader_skin_background.glsl"));
+    }
+    ctx.doneCurrent();
+    return usable;
 }
