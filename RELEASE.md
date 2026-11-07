@@ -45,6 +45,28 @@ dispatches the Windows build, waits for its checks and downloads only
 `dist-single/XylarJava-Windows/XylarJava.exe`. It does not publish a release or
 change any version tags. A failed build prints its logs and stops.
 
+The Windows build now saves its EXE as `windows-package` before the separate
+`windows-smoke` job runs. Startup diagnostics are retained as `windows-smoke-logs`;
+`release-windows` contains the same EXE after successful verification.
+To repeat only the smoke test using a saved package from an earlier run:
+
+```bash
+scripts/test-windows.sh RUN_ID
+```
+
+No client compilation, launcher build, tests or EXE packaging runs in this mode.
+The command first checks that `windows-package` exists in the selected run and
+stops without starting any job if it is missing. An optional second argument
+selects another saved artifact containing `XylarJava.exe`.
+Files left only on a completed hosted runner cannot be recovered by this command.
+Older runs that uploaded the EXE after a failed smoke test may have no saved
+package to reuse.
+
+The smoke test allows 180 seconds for first-run extraction and 60 seconds for a
+second launch. It tests without the build SDK on PATH and records stdout, stderr,
+the package hash and process/window diagnostics on timeout. The longer cold-start
+limit does not establish that a previous timeout was caused by extraction.
+
 The only distributed Windows file is `XylarJava.exe`. It includes .NET and a ZIP
 of the launcher, Qt, native dependencies, plugins and client jar. On first launch
 it extracts into `%LOCALAPPDATA%\XylarJava\versions\<payload-hash>\app` and keeps

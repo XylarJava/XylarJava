@@ -12,14 +12,23 @@ on:
       request-id:
         description: Identifier used to retrieve this build
         type: string
+      smoke-run-id:
+        description: Test the package saved by this run, skipping all compilation and packaging
+        type: string
+      smoke-artifact:
+        description: Existing artifact containing XylarJava.exe
+        type: string
+        default: windows-package
   push:
     tags: ['v*']
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   client:
+    if: inputs.smoke-run-id == ''
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -39,6 +48,7 @@ jobs:
           if-no-files-found: error
 
   windows:
+    if: inputs.smoke-run-id == ''
     needs: client
     runs-on: windows-2022
     steps:
@@ -75,29 +85,45 @@ jobs:
         run: |
           $env:PATH = "$env:XYLARJAVA_MSYS_BIN;$env:XYLARJAVA_MSYS_USR_BIN;" + $env:PATH
           ./scripts/build-windows-single-exe.ps1 -BuildDir build -Configuration Release -SkipCmakeBuild
+      - name: Save packaged EXE before running smoke tests
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-package
+          path: dist-single/XylarJava-Windows/XylarJava.exe
+          if-no-files-found: error
+
+  windows-smoke:
+    needs: windows
+    if: ${{ always() && !cancelled() && (needs.windows.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.smoke-run-id != '')) }}
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v6
+      - name: Download existing packaged EXE
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.smoke-artifact || 'windows-package' }}
+          path: dist-single/XylarJava-Windows
+          run-id: ${{ inputs.smoke-run-id || github.run_id }}
+          github-token: ${{ github.token }}
       - name: Smoke test embedded runtime and desktop shortcuts
         shell: pwsh
-        run: |
-          $exe = Resolve-Path dist-single/XylarJava-Windows/XylarJava.exe
-          $process = Start-Process $exe -ArgumentList '--version' -PassThru
-          if (-not $process.WaitForExit(60000)) { $process.Kill(); throw 'Startup timed out' }
-          if ($process.ExitCode -ne 0) { throw "Startup failed: $($process.ExitCode)" }
-          $shell = New-Object -ComObject WScript.Shell
-          foreach ($folder in @('DesktopDirectory', 'Programs')) {
-            $directory = [Environment]::GetFolderPath([Environment+SpecialFolder]::$folder)
-            $path = Join-Path $directory 'XylarJava.lnk'
-            if (-not (Test-Path $path)) { throw "Missing shortcut: $path" }
-            $link = $shell.CreateShortcut($path)
-            if (-not (Test-Path $link.TargetPath)) { throw 'Shortcut target is missing' }
-          }
-      - uses: actions/upload-artifact@v7
+        run: ./scripts/test-windows-package.ps1
+      - name: Save startup diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-smoke-logs
+          path: dist-single/smoke-logs
+          if-no-files-found: ignore
+      - name: Upload verified EXE
+        uses: actions/upload-artifact@v7
         with:
           name: release-windows
           path: dist-single/XylarJava-Windows/XylarJava.exe
           if-no-files-found: error
 
   linux:
-    if: github.event_name == 'push' || inputs.target == 'all'
+    if: (github.event_name == 'push' || inputs.target == 'all') && inputs.smoke-run-id == ''
     needs: client
     runs-on: ubuntu-24.04
     steps:
