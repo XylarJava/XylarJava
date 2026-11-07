@@ -1,7 +1,17 @@
 name: Release packages
+run-name: XylarJava packages - ${{ inputs.request-id || github.ref_name }}
 
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        description: Packages to build
+        type: choice
+        options: [windows, all]
+        default: windows
+      request-id:
+        description: Identifier used to retrieve this build
+        type: string
   push:
     tags: ['v*']
 
@@ -51,7 +61,10 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Configure Windows
         shell: msys2 {0}
-        run: cmake --preset windows_mingw -DENABLE_LTO=OFF -DCMAKE_INSTALL_PREFIX="$(pwd)/install"
+        run: |
+          echo "XYLARJAVA_MSYS_BIN=$(cygpath -w "$MINGW_PREFIX/bin")" >> "$GITHUB_ENV"
+          echo "XYLARJAVA_MSYS_USR_BIN=$(cygpath -w /usr/bin)" >> "$GITHUB_ENV"
+          cmake --preset windows_mingw -DENABLE_LTO=OFF -DCMAKE_INSTALL_PREFIX="$(pwd)/install"
       - name: Build and test
         shell: msys2 {0}
         run: |
@@ -60,7 +73,7 @@ jobs:
       - name: Package single EXE
         shell: pwsh
         run: |
-          $env:PATH = "C:\msys64\clang64\bin;C:\msys64\usr\bin;" + $env:PATH
+          $env:PATH = "$env:XYLARJAVA_MSYS_BIN;$env:XYLARJAVA_MSYS_USR_BIN;" + $env:PATH
           ./scripts/build-windows-single-exe.ps1 -BuildDir build -Configuration Release -SkipCmakeBuild
       - name: Smoke test embedded runtime and desktop shortcuts
         shell: pwsh
@@ -84,6 +97,7 @@ jobs:
           if-no-files-found: error
 
   linux:
+    if: github.event_name == 'push' || inputs.target == 'all'
     needs: client
     runs-on: ubuntu-24.04
     steps:

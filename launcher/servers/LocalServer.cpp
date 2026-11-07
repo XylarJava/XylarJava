@@ -427,7 +427,7 @@ void LocalServer::allowPlayer(const QString& typed, std::function<void(const QSt
     QNetworkRequest request(QUrl(QStringLiteral("https://api.mojang.com/users/profiles/minecraft/%1").arg(name)));
     request.setHeader(QNetworkRequest::UserAgentHeader, BuildConfig.USER_AGENT);
     QNetworkReply* reply = m_network->get(request);
-    connect(reply, &QNetworkReply::finished, this, [this, reply, name, write, done] {
+    connect(reply, &QNetworkReply::finished, this, [reply, name, write, done] {
         reply->deleteLater();
         const QString id = QJsonDocument::fromJson(reply->readAll()).object().value("id").toString();
         if (id.size() != 32)

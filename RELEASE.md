@@ -19,7 +19,31 @@ packages, generates `SHA256SUMS`, and creates the release. Tags containing a hyp
 are published as prereleases. No release is created if a build or startup check fails.
 The downloaded files remain in `dist/release/<tag>/`.
 
+To publish just the two distributable files after building them locally:
+
+```bash
+scripts/publish-local-release.sh v0.0.0.4-ALPHA
+```
+
+This requires `dist-single/XylarJava-Windows/XylarJava.exe` and
+`XylarJava-Linux-x86_64.AppImage`. It checks both files before accessing GitHub,
+creates the tag only if missing, and creates the release or replaces its two
+matching assets. An existing tag keeps its original commit. Optional second and
+third arguments override the Windows and Linux file paths respectively.
+
 ## Windows
+
+From Linux, build the committed source on a Windows GitHub Actions runner and
+download the final executable with:
+
+```bash
+scripts/build-windows.sh
+```
+
+This needs authenticated GitHub CLI access. It pushes the current branch,
+dispatches the Windows build, waits for its checks and downloads only
+`dist-single/XylarJava-Windows/XylarJava.exe`. It does not publish a release or
+change any version tags. A failed build prints its logs and stops.
 
 The only distributed Windows file is `XylarJava.exe`. It includes .NET and a ZIP
 of the launcher, Qt, native dependencies, plugins and client jar. On first launch

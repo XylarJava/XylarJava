@@ -19,6 +19,7 @@
 #include <QPushButton>
 #include <QRegularExpressionValidator>
 #include <QScrollArea>
+#include <QStyle>
 #include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>

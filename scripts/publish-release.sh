@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 tag=${1:?Usage: scripts/publish-release.sh vX.Y.Z}
-[[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$ ]] || { echo 'Use a tag such as v1.0.0 or v1.0.0-beta.1' >&2; exit 1; }
+[[ "$tag" =~ ^v[0-9]+(\.[0-9]+){2,3}([.-][A-Za-z0-9.-]+)?$ ]] || { echo 'Use a tag such as v0.0.0.4-ALPHA or v1.0.0' >&2; exit 1; }
 command -v gh >/dev/null
 gh auth status
 if [ -n "$(git status --porcelain)" ]; then
