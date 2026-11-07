@@ -8,13 +8,13 @@
 set -euo pipefail
 
 PROJECT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# Fixed paths inside the project: AppImages (the Claude app among them) export APPDIR, so generic
+# Fixed paths inside the project: AppImages export APPDIR, so generic
 # names taken from the environment could point the clean-up below at someone else's folder.
 BUILD="$PROJECT/build"
 APPDIR="$PROJECT/install-appimage"
 OUT="$PROJECT/XylarJava-Linux-x86_64.AppImage"
 JOBS="${XYLARJAVA_BUILD_JOBS:-6}"  # more than this runs out of memory on 16 GB while linking
-QT_PLUGINS="$(qtpaths6 --plugin-dir 2>/dev/null || qmake6 -query QT_INSTALL_PLUGINS)"
+QT_PLUGINS="$(qtpaths6 --plugin-dir 2>/dev/null || qtpaths --plugin-dir 2>/dev/null || qmake6 -query QT_INSTALL_PLUGINS)"
 LOADER="$(readlink -f /lib64/ld-linux-x86-64.so.2)"
 
 command -v appimagetool >/dev/null || { echo "appimagetool is not installed" >&2; exit 1; }
@@ -40,7 +40,9 @@ for dir in platforms platforminputcontexts imageformats iconengines tls networki
 done
 rm -f "$APPDIR"/plugins/platforms/{libqlinuxfb,libqvnc,libqvkkhrdisplay}.so
 mkdir -p "$APPDIR/plugins/platformthemes"
-cp "$QT_PLUGINS/platformthemes/libqxdgdesktopportal.so" "$APPDIR/plugins/platformthemes/"
+if [ -f "$QT_PLUGINS/platformthemes/libqxdgdesktopportal.so" ]; then
+    cp "$QT_PLUGINS/platformthemes/libqxdgdesktopportal.so" "$APPDIR/plugins/platformthemes/"
+fi
 
 # Tells Qt (which looks next to the program) to use the plugins above and not the system's.
 printf '[Paths]\nPrefix=..\nPlugins=plugins\n' > "$APPDIR/bin/qt.conf"
@@ -74,10 +76,19 @@ done
 
 # The loader sits next to the launcher so the launcher still finds its own folder (themes, jars).
 cp -L "$LOADER" "$APPDIR/bin/ld-linux-x86-64.so.2"
+mkdir -p "$APPDIR/share/xylarjava"
+cp "$PROJECT/scripts/integrate-linux.sh" "$APPDIR/share/xylarjava/"
 
 cat > "$APPDIR/AppRun" <<'EOF'
 #!/bin/sh
 HERE="$(dirname "$(readlink -f "$0")")"
+if [ -n "${APPIMAGE:-}" ]; then
+    sh "$HERE/share/xylarjava/integrate-linux.sh" "$APPIMAGE" "$HERE" || \
+        echo 'XylarJava: could not register the application menu entry' >&2
+else
+    sh "$HERE/share/xylarjava/integrate-linux.sh" "$HERE/AppRun" "$HERE" native || \
+        echo 'XylarJava: could not register the application menu entry' >&2
+fi
 # Same as the official AppImage: OpenGL/Vulkan probing off, file pickers through the desktop portal.
 export XYLARJAVA_DISABLE_GLVULKAN="${XYLARJAVA_DISABLE_GLVULKAN:-1}"
 export QT_QPA_PLATFORMTHEME="${QT_QPA_PLATFORMTHEME:-xdgdesktopportal}"
@@ -91,5 +102,12 @@ ln -sf share/icons/hicolor/256x256/apps/io.xylarjava.XylarJava.png "$APPDIR/io.x
 ln -sf share/icons/hicolor/256x256/apps/io.xylarjava.XylarJava.png "$APPDIR/.DirIcon"
 ln -sf io.xylarjava.XylarJava.metainfo.xml "$APPDIR/share/metainfo/io.xylarjava.XylarJava.appdata.xml"
 
-ARCH=x86_64 appimagetool --no-appstream "$APPDIR" "$OUT"
+runtime_options=()
+if [ -n "${XYLARJAVA_APPIMAGE_RUNTIME:-}" ]; then
+    runtime_options=(--runtime-file "$XYLARJAVA_APPIMAGE_RUNTIME")
+fi
+ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 appimagetool --no-appstream "${runtime_options[@]}" "$APPDIR" "$OUT"
+chmod +x "$OUT"
+mkdir -p "$PROJECT/dist"
+tar -czf "$PROJECT/dist/XylarJava-Linux-x86_64.tar.gz" -C "$APPDIR" .
 echo "AppImage: $OUT"

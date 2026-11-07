@@ -1,60 +1,64 @@
-# Builds a single distributable XylarJava.exe (no sibling DLLs / helper EXEs).
-# Runtime files are embedded and extracted to %LocalAppData%\XylarJava\app on first run.
-
+# Build one distributable EXE. Qt, native libraries and .NET are embedded inside it.
 param(
     [string]$BuildDir = "$PSScriptRoot\..\build-win",
+    [string]$Configuration = "Release",
     [switch]$SkipCmakeBuild
 )
-
 $ErrorActionPreference = "Stop"
 $root = (Resolve-Path "$PSScriptRoot\..").Path
-$buildPath = Join-Path $root "build-win"
+$buildPath = (Resolve-Path $BuildDir).Path
 $dist = Join-Path $root "dist-single"
 $payload = Join-Path $dist "payload"
-$zip = Join-Path $dist "payload.zip"
 $packer = Join-Path $root "tools\SingleExePacker"
 $finalDir = Join-Path $dist "XylarJava-Windows"
-$env:PATH = "C:\msys64\clang64\bin;C:\msys64\usr\bin;" + $env:PATH
 
-Get-Process XylarJava -ErrorAction SilentlyContinue | Stop-Process -Force
-Start-Sleep -Seconds 1
-
+function Check-NativeExit([string]$Step) {
+    if ($LASTEXITCODE -ne 0) { throw "$Step failed (exit code $LASTEXITCODE)" }
+}
 if (-not $SkipCmakeBuild) {
-    cmake --build $buildPath --parallel --target XylarJava
+    cmake --build $buildPath --config $Configuration --parallel 2
+    Check-NativeExit "CMake build"
 }
-cmake --install $buildPath --component Runtime | Out-Null
-cmake --install $buildPath --component bundle | Out-Null
+if (Test-Path $dist) { Remove-Item -LiteralPath $dist -Recurse -Force }
+New-Item -ItemType Directory -Path $payload -Force | Out-Null
+cmake --install $buildPath --config $Configuration --prefix $payload
+Check-NativeExit "CMake install"
 
-if (Test-Path $dist) { Remove-Item $dist -Recurse -Force }
-New-Item -ItemType Directory -Path $payload | Out-Null
+# OpenSSL is loaded dynamically by Qt, so dependency scanners may miss these DLLs.
+foreach ($name in @("libssl-3-x64.dll", "libcrypto-3-x64.dll")) {
+    foreach ($directory in ($env:PATH -split ';')) {
+        if ([string]::IsNullOrWhiteSpace($directory)) { continue }
+        $candidate = Join-Path $directory $name
+        if (Test-Path -LiteralPath $candidate) {
+            Copy-Item -LiteralPath $candidate -Destination $payload -Force
+            break
+        }
+    }
+}
 
-Copy-Item (Join-Path $buildPath "XylarJava.exe") $payload
-Get-ChildItem (Join-Path $buildPath "*.dll") -File | Copy-Item -Destination $payload
-foreach ($d in @("platforms","imageformats","iconengines","styles","tls","jars","themes")) {
-    $src = Join-Path $buildPath $d
-    if (Test-Path $src) { Copy-Item $src (Join-Path $payload $d) -Recurse }
+# Account configuration and portable user data do not belong in a public package.
+Get-ChildItem $payload -Recurse -File -Filter "auth-settings.ini" | Remove-Item -Force
+Get-ChildItem $payload -Recurse -File -Filter "portable.txt" | Remove-Item -Force
+foreach ($required in @("XylarJava.exe", "platforms\qwindows.dll", "Qt6Core.dll", "Qt6Widgets.dll")) {
+    if (-not (Test-Path (Join-Path $payload $required))) { throw "Missing runtime file: $required" }
 }
-foreach ($f in @("qt.conf","qtlogging.ini","auth-settings.ini","portable.txt")) {
-    $src = Join-Path $buildPath $f
-    if (-not (Test-Path $src)) { $src = Join-Path $root $f }
-    if (Test-Path $src) { Copy-Item $src $payload }
-}
-if (-not (Test-Path (Join-Path $payload "portable.txt"))) {
-    Set-Content (Join-Path $payload "portable.txt") "portable" -NoNewline
-}
-Get-ChildItem $payload -Filter "*.exe" -Recurse | Where-Object { $_.Name -ne "XylarJava.exe" } | Remove-Item -Force
+$clientJar = Join-Path $root "client\build\libs\xylarjava-client-0.1.0.jar"
+if (-not (Test-Path $clientJar)) { throw "Build the client jar before packaging Windows" }
+Copy-Item $clientJar $payload
 
-& "C:\Program Files\7-Zip\7z.exe" a -tzip -mx=7 $zip "$payload\*" | Out-Null
+@"
+[Paths]
+Prefix=.
+Plugins=.
+"@ | Set-Content (Join-Path $payload "qt.conf") -Encoding ascii
+$zip = Join-Path $dist "payload.zip"
+Compress-Archive -Path (Join-Path $payload "*") -DestinationPath $zip -CompressionLevel Optimal
 Copy-Item $zip (Join-Path $packer "payload.zip") -Force
-
 $publish = Join-Path $dist "publish"
-dotnet publish $packer -c Release -r win-x64 --self-contained true `
-    -p:PublishSingleFile=true `
-    -p:IncludeNativeLibrariesForSelfExtract=true `
-    -p:EnableCompressionInSingleFile=true `
-    -o $publish
-
+dotnet publish (Join-Path $packer "XylarJava.csproj") -c Release -r win-x64 --self-contained true -o $publish
+Check-NativeExit "Single EXE publish"
 New-Item -ItemType Directory -Path $finalDir | Out-Null
-Copy-Item (Join-Path $publish "XylarJava.exe") (Join-Path $finalDir "XylarJava.exe")
+Copy-Item (Join-Path $publish "XylarJava.exe") $finalDir
+if (@(Get-ChildItem $finalDir -File).Count -ne 1) { throw "Expected exactly one distributable file" }
+Get-FileHash (Join-Path $finalDir "XylarJava.exe") -Algorithm SHA256
 Write-Host "Single EXE: $(Join-Path $finalDir 'XylarJava.exe')"
-Get-Item (Join-Path $finalDir "XylarJava.exe") | Format-List FullName, Length

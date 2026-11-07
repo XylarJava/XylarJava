@@ -1,0 +1,124 @@
+name: Release packages
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  client:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+      - name: Build bundled client
+        working-directory: client
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-client
+          path: client/build/libs/xylarjava-client-0.1.0.jar
+          if-no-files-found: error
+
+  windows:
+    needs: client
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-client
+          path: client/build/libs
+      - uses: ./.github/actions/setup-dependencies
+        with:
+          build-type: Release
+          artifact-name: Windows-x64
+          msystem: CLANG64
+          vcvars-arch: amd64
+          qt-version: '6.10.2'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Configure Windows
+        shell: msys2 {0}
+        run: cmake --preset windows_mingw -DENABLE_LTO=OFF -DCMAKE_INSTALL_PREFIX="$(pwd)/install"
+      - name: Build and test
+        shell: msys2 {0}
+        run: |
+          cmake --build build --config Release --parallel 2
+          ctest --test-dir build -C Release --output-on-failure
+      - name: Package single EXE
+        shell: pwsh
+        run: |
+          $env:PATH = "C:\msys64\clang64\bin;C:\msys64\usr\bin;" + $env:PATH
+          ./scripts/build-windows-single-exe.ps1 -BuildDir build -Configuration Release -SkipCmakeBuild
+      - name: Smoke test embedded runtime and desktop shortcuts
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path dist-single/XylarJava-Windows/XylarJava.exe
+          $process = Start-Process $exe -ArgumentList '--version' -PassThru
+          if (-not $process.WaitForExit(60000)) { $process.Kill(); throw 'Startup timed out' }
+          if ($process.ExitCode -ne 0) { throw "Startup failed: $($process.ExitCode)" }
+          $shell = New-Object -ComObject WScript.Shell
+          foreach ($folder in @('DesktopDirectory', 'Programs')) {
+            $directory = [Environment]::GetFolderPath([Environment+SpecialFolder]::$folder)
+            $path = Join-Path $directory 'XylarJava.lnk'
+            if (-not (Test-Path $path)) { throw "Missing shortcut: $path" }
+            $link = $shell.CreateShortcut($path)
+            if (-not (Test-Path $link.TargetPath)) { throw 'Shortcut target is missing' }
+          }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-windows
+          path: dist-single/XylarJava-Windows/XylarJava.exe
+          if-no-files-found: error
+
+  linux:
+    needs: client
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-client
+          path: client/build/libs
+      - uses: ./.github/actions/setup-dependencies
+        with:
+          build-type: Release
+          artifact-name: Linux-x86_64
+          qt-version: '6.10.2'
+      - name: Install packaging tools
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sudo apt-get install -y desktop-file-utils libfuse2t64
+          gh release download --repo AppImage/appimagetool --pattern 'appimagetool-x86_64.AppImage' --output "$HOME/bin/appimagetool"
+          chmod +x "$HOME/bin/appimagetool"
+      - name: Configure and package Linux
+        run: |
+          cmake --preset linux -DENABLE_LTO=OFF
+          scripts/build-linux-appimage.sh
+          ctest --test-dir build -C Release --output-on-failure
+          python3 tests/packaging/test_linux_integration.py
+      - name: Smoke test AppImage
+        run: |
+          QT_QPA_PLATFORM=offscreen ./XylarJava-Linux-x86_64.AppImage --appimage-extract-and-run --version
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-linux
+          path: |
+            XylarJava-Linux-x86_64.AppImage
+            dist/XylarJava-Linux-x86_64.tar.gz
+          if-no-files-found: error
