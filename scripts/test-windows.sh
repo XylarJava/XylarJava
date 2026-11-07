@@ -36,7 +36,15 @@ done
 [ -n "$run_id" ] || { echo 'The smoke-test run did not appear.' >&2; exit 1; }
 success=0
 if gh run watch "$run_id" --exit-status; then success=1; else gh run view "$run_id" --log-failed >&2 || true; fi
-gh run download "$run_id" --name windows-smoke-logs --dir "dist-single/smoke-logs/$run_id" || true
+stage=$(mktemp -d)
+trap 'rm -rf "$stage"' EXIT
+if gh run download "$run_id" --name windows-smoke-logs --dir "$stage/logs"; then
+    mkdir -p "dist-single/smoke-logs/$run_id"
+    cp -a "$stage/logs/." "dist-single/smoke-logs/$run_id/"
+fi
 [ "$success" = 1 ] || exit 1
-gh run download "$run_id" --name release-windows --dir dist-single/XylarJava-Windows
+gh run download "$run_id" --name release-windows --dir "$stage/package"
+[ -s "$stage/package/XylarJava.exe" ] || { echo 'The verified EXE is missing.' >&2; exit 1; }
+mkdir -p dist-single/XylarJava-Windows
+cp "$stage/package/XylarJava.exe" dist-single/XylarJava-Windows/XylarJava.exe
 printf '\nVerified EXE: %s/dist-single/XylarJava-Windows/XylarJava.exe\n' "$PWD"

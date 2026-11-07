@@ -25,6 +25,7 @@ else:
     elif args[:2] == ["run", "download"]:
         output = pathlib.Path(args[args.index("--dir") + 1]); output.mkdir(parents=True, exist_ok=True)
         if args[args.index("--name") + 1] == "release-windows":
+            if (output / "XylarJava.exe").exists(): sys.exit("file exists")
             (output / "XylarJava.exe").write_bytes(b"unchanged package")
 '''
 
@@ -46,12 +47,16 @@ class WindowsSmokeTest(unittest.TestCase):
         self.assertEqual(save["with"]["name"], "windows-package")
         self.assertEqual(save["with"]["if-no-files-found"], "error")
 
-    def run_command(self, missing=False):
+    def run_command(self, missing=False, existing=False):
         temporary = tempfile.TemporaryDirectory(prefix="xylar-smoke-command-")
         self.addCleanup(temporary.cleanup)
         root = Path(temporary.name)
         (root / "scripts").mkdir()
         shutil.copy(ROOT / "scripts/test-windows.sh", root / "scripts/test-windows.sh")
+        if existing:
+            output = root / "dist-single/XylarJava-Windows/XylarJava.exe"
+            output.parent.mkdir(parents=True)
+            output.write_bytes(b"previous download")
         tools = root / "tools"; tools.mkdir()
         for name in ("git", "gh"):
             path = tools / name; path.write_text(MOCK); path.chmod(0o755)
@@ -69,7 +74,7 @@ class WindowsSmokeTest(unittest.TestCase):
         self.assertNotIn("git push", calls)
 
     def test_reuses_selected_artifact_and_downloads_verified_exe(self):
-        root, result = self.run_command()
+        root, result = self.run_command(existing=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         calls = (root / "calls").read_text()
         self.assertIn("-f smoke-run-id=42376892443 -f smoke-artifact=windows-package", calls)

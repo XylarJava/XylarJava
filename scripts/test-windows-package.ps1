@@ -51,6 +51,9 @@ function Invoke-VersionCheck([string]$Name, [int]$TimeoutSeconds) {
     $info.RedirectStandardOutput = $true
     $info.RedirectStandardError = $true
     $info.ArgumentList.Add('--version')
+    # Qt otherwise displays --version in an OK dialog for Windows GUI executables.
+    # The outer EXE forwards this environment to the embedded native launcher.
+    $info.Environment['QT_COMMAND_LINE_PARSER_NO_GUI_MESSAGE_BOXES'] = '1'
     # The package must locate its own Qt plugins, independently of the runner's SDK.
     [void]$info.Environment.Remove('QT_PLUGIN_PATH')
     [void]$info.Environment.Remove('QT_QPA_PLATFORM_PLUGIN_PATH')

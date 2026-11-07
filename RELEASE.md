@@ -66,6 +66,10 @@ The smoke test allows 180 seconds for first-run extraction and 60 seconds for a
 second launch. It tests without the build SDK on PATH and records stdout, stderr,
 the package hash and process/window diagnostics on timeout. The longer cold-start
 limit does not establish that a previous timeout was caused by extraction.
+It sets `QT_COMMAND_LINE_PARSER_NO_GUI_MESSAGE_BOXES=1` for the tested process:
+without a console, Qt otherwise displays `--version` in a modal Windows dialog
+and waits for someone to press OK. This test-only setting leaves the saved EXE
+unchanged.
 
 The only distributed Windows file is `XylarJava.exe`. It includes .NET and a ZIP
 of the launcher, Qt, native dependencies, plugins and client jar. On first launch
