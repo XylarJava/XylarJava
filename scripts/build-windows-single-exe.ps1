@@ -52,13 +52,16 @@ Prefix=.
 Plugins=.
 "@ | Set-Content (Join-Path $payload "qt.conf") -Encoding ascii
 $zip = Join-Path $dist "payload.zip"
+& "$PSScriptRoot\sign-windows-file.ps1" -FilePath (Join-Path $payload "XylarJava.exe")
 Compress-Archive -Path (Join-Path $payload "*") -DestinationPath $zip -CompressionLevel Optimal
 Copy-Item $zip (Join-Path $packer "payload.zip") -Force
+(Get-FileHash $zip -Algorithm SHA256).Hash | Set-Content (Join-Path $packer "payload.sha256") -Encoding ascii
 $publish = Join-Path $dist "publish"
 dotnet publish (Join-Path $packer "XylarJava.csproj") -c Release -r win-x64 --self-contained true -o $publish
 Check-NativeExit "Single EXE publish"
 New-Item -ItemType Directory -Path $finalDir | Out-Null
 Copy-Item (Join-Path $publish "XylarJava.exe") $finalDir
+& "$PSScriptRoot\sign-windows-file.ps1" -FilePath (Join-Path $finalDir "XylarJava.exe")
 if (@(Get-ChildItem $finalDir -File).Count -ne 1) { throw "Expected exactly one distributable file" }
 Get-FileHash (Join-Path $finalDir "XylarJava.exe") -Algorithm SHA256
 Write-Host "Single EXE: $(Join-Path $finalDir 'XylarJava.exe')"

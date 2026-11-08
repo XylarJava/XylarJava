@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "XylarWelcomeWizardPage.h"
+#include "ui/dialogs/AccountIdentity.h"
 
 #include <QCheckBox>
 #include <QFrame>
@@ -137,14 +138,12 @@ bool XylarWelcomeWizardPage::validatePage()
 {
     auto settings = APPLICATION->settings();
 
-    // Persist the skin backend URL (empty disables remote skins but keeps cache).
+    // Identity protection uses the service even when game skin rendering is disabled.
     QString backend = m_backendEdit->text().trimmed();
     while (backend.endsWith('/')) {
         backend.chop(1);
     }
-    if (!m_enableSkinsCheck->isChecked()) {
-        backend.clear();
-    }
+    settings->set("XylarEnableSkins", m_enableSkinsCheck->isChecked());
     settings->set("XylarSkinBackendUrl", backend);
 
     // Optionally create an offline account from the chosen username.
@@ -152,6 +151,8 @@ bool XylarWelcomeWizardPage::validatePage()
     if (username.length() >= 3) {
         auto accounts = APPLICATION->accounts();
         if (MinecraftAccountPtr account = MinecraftAccount::createOffline(username)) {
+            if (!AccountIdentity::verify(this, account))
+                return false;
             account->login()->start();
             accounts->addAccount(account);
             if (accounts->count() == 1) {
@@ -186,7 +187,9 @@ void XylarWelcomeWizardPage::retranslate()
                               "or add more accounts later."));
     m_usernameEdit->setPlaceholderText(tr("3 to 16 letters, numbers or _"));
     m_accountLabel->setText(tr("Username"));
-    m_backendLabel->setText(tr("Skin server"));
-    m_enableSkinsCheck->setText(tr("Show my skin to other %1 players").arg(name));
-    m_hintLabel->setText(tr("Leave the skin server as it is unless you host your own."));
+    m_backendLabel->setText(tr("Profile and skin server"));
+    m_enableSkinsCheck->setText(tr("Enable Xylar skin rendering in my game"));
+    m_hintLabel->setText(
+        tr("Your username is reserved on this service, even when skin rendering is off. Leave the server unchanged unless you host your "
+           "own."));
 }

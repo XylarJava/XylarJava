@@ -20,8 +20,11 @@
 #include "BuildConfig.h"
 #include "JavaCommon.h"
 #include "launch/steps/TextPrint.h"
+#include "minecraft/skins/XylarSkinClient.h"
 #include "tasks/Task.h"
+#include "ui/dialogs/AccountIdentity.h"
 #include "ui/dialogs/ChooseOfflineNameDialog.h"
+#include "ui/dialogs/ElyLoginDialog.h"
 
 LaunchController::LaunchController() = default;
 
@@ -65,7 +68,7 @@ void LaunchController::decideAccount()
             dialog.setWindowTitle(tr("Create Offline Account"));
             if (dialog.exec() == QDialog::Accepted) {
                 const MinecraftAccountPtr account = MinecraftAccount::createOffline(dialog.getUsername());
-                if (account) {
+                if (account && AccountIdentity::verify(m_parentWidget, account)) {
                     account->login()->start();  // The task will complete here.
                     accounts->addAccount(account);
                     m_accountToUse = account;
@@ -94,7 +97,7 @@ LaunchDecision LaunchController::decideLaunchMode()
 {
     m_actualLaunchMode = LaunchMode::Normal;
     // Offline accounts need nothing from Microsoft.
-    if (!m_accountToUse || m_accountToUse->accountType() != AccountType::MSA)
+    if (!m_accountToUse || m_accountToUse->accountType() == AccountType::Offline)
         return LaunchDecision::Continue;
 
     switch (m_accountToUse->accountState()) {
@@ -124,8 +127,9 @@ LaunchDecision LaunchController::decideLaunchMode()
         case AccountState::Disabled:
         case AccountState::Expired:
         case AccountState::Gone: {
-            const QString reason = m_accountToUse->lastError().isEmpty() ? tr("The Microsoft sign-in of %1 expired").arg(m_accountToUse->profileName())
-                                                                         : m_accountToUse->lastError();
+            const QString reason = m_accountToUse->lastError().isEmpty()
+                                       ? tr("The sign-in of %1 expired").arg(m_accountToUse->profileName())
+                                       : m_accountToUse->lastError();
             if (reauthenticateAccount(m_accountToUse, reason.endsWith('.') ? reason.chopped(1) : reason))
                 return LaunchDecision::Undecided;
             return LaunchDecision::Abort;
@@ -219,6 +223,10 @@ void LaunchController::login()
             if (ok) {
                 m_session = std::make_shared<AuthSession>();
                 m_session->MakeDemo(name, MinecraftAccount::uuidFromUsername(name).toString(QUuid::Id128));
+                if (!AccountIdentity::verify(m_parentWidget, MinecraftAccount::createOffline(name))) {
+                    emitFailed(tr("Username ownership could not be verified."));
+                    return;
+                }
                 launchInstance();
                 return;
             }
@@ -255,6 +263,20 @@ void LaunchController::login()
         }
     }
 
+    if (m_session->launchMode != LaunchMode::Demo) {
+        auto identity = m_accountToUse;
+        if (m_session->user_type == QStringLiteral("offline") && identity->accountType() != AccountType::Offline)
+            identity = MinecraftAccount::createOffline(m_session->player_name);
+        if (!AccountIdentity::verify(m_parentWidget, identity)) {
+            emitFailed(tr("Username ownership could not be verified."));
+            return;
+        }
+        if (m_session->user_type == QStringLiteral("offline") && APPLICATION->skinClient()) {
+            const auto key = APPLICATION->skinClient()->playerKey(XylarSkinClient::computeOfflineUUID(m_session->player_name));
+            m_session->access_token = QStringLiteral("xylar:") + key;
+            m_session->session = QStringLiteral("token:") + m_session->access_token + QLatin1Char(':') + m_session->uuid;
+        }
+    }
     launchInstance();
 }
 
@@ -266,8 +288,9 @@ bool LaunchController::reauthenticateAccount(const MinecraftAccountPtr& account,
     if (button == QMessageBox::StandardButton::Yes) {
         auto* accounts = APPLICATION->accounts();
         const bool isDefault = accounts->defaultAccount() == account;
-        if (account->accountType() == AccountType::MSA) {
-            auto newAccount = MSALoginDialog::newAccount(m_parentWidget);
+        if (account->accountType() != AccountType::Offline) {
+            auto newAccount = account->accountType() == AccountType::Ely ? ElyAccountDialog::login(m_parentWidget)
+                                                                         : MSALoginDialog::newAccount(m_parentWidget);
 
             if (newAccount != nullptr) {
                 // The old entry goes only once the new sign-in worked: cancelling keeps the account.

@@ -137,13 +137,13 @@ QString withoutOption(const QString& args, const QString& option)
     QString name = option;
     name.remove(QRegularExpression(QStringLiteral("^-*(XX:)?[+-]?")));
     name = name.section(QLatin1Char('='), 0, 0);
-    QStringList kept;
-    for (const QString& arg : args.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts)) {
-        if (!name.isEmpty() && arg.contains(name))
-            continue;
-        kept << arg;
-    }
-    return kept.join(QLatin1Char(' '));
+    if (name.isEmpty())
+        return args;
+    const QRegularExpression pattern(
+        QStringLiteral("(^|\\s)(?:-XX:[+-]?|--?)%1(?:=[^\\s]+)?(?=\\s|$)").arg(QRegularExpression::escape(name)));
+    QString result = args;
+    result.replace(pattern, QStringLiteral(" "));
+    return result.trimmed();
 }
 
 /// Downloads mods from Modrinth one after the other, with the mods they need.
@@ -298,23 +298,8 @@ class ModrinthFetch : public std::enable_shared_from_this<ModrinthFetch> {
     void giveUp(const Item& item, const QString& why)
     {
         const QString name = nameOf(item.id);
-        if (!item.oldFile.isEmpty()) {
-            if (disableFile(item.oldFile))
-                failed << QObject::tr("%1: %2, so it's turned off").arg(name, why);
-            else
-                failed << QObject::tr("%1: %2").arg(name, why);
-        } else if (!item.neededBy.isEmpty()) {
-            QStringList off;
-            for (const QString& file : item.neededBy) {
-                if (disableFile(file))
-                    off << QFileInfo(file).fileName();
-            }
-            failed << (off.isEmpty() ? QObject::tr("Couldn't get %1 (%2)").arg(name, why)
-                                     : QObject::tr("Couldn't get %1 (%2), so the mods that need it are turned off: %3")
-                                           .arg(name, why, off.join(QStringLiteral(", "))));
-        } else {
-            failed << QObject::tr("Couldn't get %1 (%2)").arg(name, why);
-        }
+        failed
+            << QObject::tr("Couldn't get %1 (%2). Existing mods were kept; retry when a compatible download is available.").arg(name, why);
         next();
     }
 };
@@ -349,14 +334,22 @@ QString lastGameLog(BaseInstance* instance)
     QString text;
     const QDir root(instance->gameRoot());
     QFile latest(root.filePath(QStringLiteral("logs/latest.log")));
-    if (latest.open(QIODevice::ReadOnly))
-        text = QString::fromUtf8(latest.readAll().right(2 * 1024 * 1024));
+    if (latest.open(QIODevice::ReadOnly)) {
+        latest.seek(qMax(qint64(0), latest.size() - 2 * 1024 * 1024));
+        text = QString::fromUtf8(latest.read(2 * 1024 * 1024));
+    }
     // A crash report newer than the log belongs to the same run.
     const auto reports = QDir(root.filePath(QStringLiteral("crash-reports"))).entryInfoList({ QStringLiteral("crash-*.txt") }, QDir::Files, QDir::Time);
     if (!reports.isEmpty() && (!latest.exists() || reports.first().lastModified() >= QFileInfo(latest).lastModified().addSecs(-5))) {
         QFile report(reports.first().absoluteFilePath());
         if (report.open(QIODevice::ReadOnly))
-            text += QLatin1Char('\n') + QString::fromUtf8(report.readAll().left(512 * 1024));
+            text += QLatin1Char('\n') + QString::fromUtf8(report.read(512 * 1024));
+    }
+    const auto native = root.entryInfoList({ QStringLiteral("hs_err_pid*.log") }, QDir::Files, QDir::Time);
+    if (!native.isEmpty() && (!latest.exists() || native.first().lastModified() >= QFileInfo(latest).lastModified().addSecs(-5))) {
+        QFile report(native.first().absoluteFilePath());
+        if (report.open(QIODevice::ReadOnly))
+            text += QLatin1Char('\n') + QString::fromUtf8(report.read(512 * 1024));
     }
     return text;
 }
@@ -367,6 +360,9 @@ Diagnosis diagnose(BaseInstance* instance, const QString& gameLog)
     if (!instance)
         return d;
     const QString log = gameLog.trimmed().isEmpty() ? lastGameLog(instance) : gameLog;
+    d = diagnoseLog(log);
+    if (d.blocking)
+        return d;
     auto minecraft = dynamic_cast<MinecraftInstance*>(instance);
     const QString modsDir = minecraft ? QDir::cleanPath(minecraft->modsRoot()) : QString();
     const ModIndex mods = indexMods(modsDir);
@@ -494,6 +490,8 @@ Diagnosis diagnose(BaseInstance* instance, const QString& gameLog)
             addOnce(causes, QObject::tr("A mod file is damaged."));
         } else if (zipError.match(line).hasMatch()) {
             d.files = true;
+            if (!path.isEmpty())
+                addOnce(d.filesToRedownload, path);
             addOnce(causes, QObject::tr("Some game files are damaged."));
         }
     }
@@ -526,8 +524,8 @@ Diagnosis diagnose(BaseInstance* instance, const QString& gameLog)
         d.badJvmOption = badOptionMatch.captured(1);
         d.plan << QObject::tr("Remove the Java option %1, which this Java doesn't know").arg(d.badJvmOption);
         addOnce(causes, QObject::tr("A Java option in the settings isn't understood by this Java."));
-    } else if (log.contains(QLatin1String("Could not create the Java Virtual Machine")) &&
-               !log.contains(QLatin1String("heap"), Qt::CaseInsensitive)) {
+    } else if (log.contains(QLatin1String("Conflicting collector combinations")) ||
+               log.contains(QLatin1String("Improperly specified VM option"))) {
         d.resetJvmArgs = true;
         d.plan << QObject::tr("Go back to the default Java options");
         addOnce(causes, QObject::tr("Java didn't start with the options in the settings."));
@@ -612,11 +610,12 @@ Diagnosis diagnose(BaseInstance* instance, const QString& gameLog)
         addOnce(d.advice, QObject::tr("Free some space on the disk, then start again."));
     }
 
-    // Nothing specific: the files most likely to be damaged are downloaded again.
-    if (d.plan.isEmpty() && causes.isEmpty())
-        d.files = true;
+    // Without evidence of corruption, verify checksums instead of deleting working libraries.
+    d.verifyFiles = d.files || (d.plan.isEmpty() && causes.isEmpty());
+    if (d.verifyFiles)
+        d.plan << QObject::tr("Verify existing library checksums and download only missing or damaged files");
     if (d.files) {
-        d.plan << QObject::tr("Download the game files and libraries again and refresh the version info");
+        d.plan << QObject::tr("Refresh version metadata and clear only explicitly damaged library files");
     }
     d.plan << QObject::tr("Check that the Java in the settings still exists");
 
@@ -636,6 +635,15 @@ void repair(BaseInstance* instance, const Diagnosis& d, std::function<void(const
     auto minecraft = dynamic_cast<MinecraftInstance*>(instance);
     auto settings = instance->settings();
     auto global = APPLICATION->settings();
+
+    if (d.blocking) {
+        finished({}, d.advice);
+        return;
+    }
+    if (d.verifyFiles) {
+        instance->setProperty("VerifyLibraries", true);
+        done << QObject::tr("Scheduled a full library checksum verification for the next start");
+    }
 
     // 1. Mods that are broken, duplicated or crash the game
     for (const QString& file : d.modsToDisable) {
@@ -683,7 +691,7 @@ void repair(BaseInstance* instance, const Diagnosis& d, std::function<void(const
                     const QString relative = base.relativeFilePath(file);
                     if (relative.startsWith(QStringLiteral("..")))
                         continue;  // not in the shared libraries folder
-                    if (dropCacheEntry(QStringLiteral("libraries"), relative))
+                    if (d.filesToRedownload.contains(QDir::cleanPath(file)) && dropCacheEntry(QStringLiteral("libraries"), relative))
                         libraries++;
                 }
             }
@@ -734,37 +742,40 @@ void repair(BaseInstance* instance, const Diagnosis& d, std::function<void(const
         done << QObject::tr("Memory for this instance: %1 MiB").arg(d.memoryMiB);
     }
     if (!d.badJvmOption.isEmpty()) {
-        const bool own = settings->get("OverrideJavaArgs").toBool();
-        auto target = own ? settings : global;
-        const QString before = target->get("JvmArgs").toString();
+        const QString before = settings->get("JvmArgs").toString();
         const QString after = withoutOption(before, d.badJvmOption);
         if (after != before) {
-            target->set("JvmArgs", after);
+            settings->set("OverrideJavaArgs", true);
+            settings->set("JvmArgs", after);
             done << QObject::tr("Removed the Java option %1").arg(d.badJvmOption);
         } else {
             failed << QObject::tr("The Java option %1 isn't in the settings: it may come from a mod pack or the system").arg(d.badJvmOption);
         }
     }
     if (d.resetJvmArgs) {
-        if (settings->get("OverrideJavaArgs").toBool()) {
-            settings->set("OverrideJavaArgs", false);
-            done << QObject::tr("This instance uses the default Java options again");
-        } else if (!global->get("JvmArgs").toString().trimmed().isEmpty()) {
-            global->reset("JvmArgs");
-            done << QObject::tr("Java options are back to the defaults");
-        }
+        settings->set("OverrideJavaArgs", true);
+        settings->set("JvmArgs", QString());
+        done << QObject::tr("Reset conflicting JVM options for this instance");
     }
 
-    // 5. Graphics tweaks that stop OpenGL from starting. They're undone where they were set: on
-    //    the instance if it overrides them, otherwise in the global settings.
+    // 5. Scope graphics repairs to this instance and preserve its other inherited choices.
     if (d.graphics) {
         auto turnOff = [&](const QString& key, const QString& overrideKey) {
             if (!settings->get(key).toBool())
                 return false;
-            if (settings->get(overrideKey).toBool())
-                settings->set(key, false);
-            else
-                global->set(key, false);
+            if (!settings->get(overrideKey).toBool()) {
+                const QStringList siblings = overrideKey == QLatin1String("OverridePerformance")
+                                                 ? QStringList{ "UseZink", "UseDiscreteGpu", "EnableFeralGamemode", "EnableMangoHud" }
+                                                 : QStringList{ "UseNativeGLFW", "UseNativeOpenAL", "CustomGLFWPath", "CustomOpenALPath" };
+                QHash<QString, QVariant> inherited;
+                for (const auto& sibling : siblings)
+                    if (settings->getSetting(sibling))
+                        inherited.insert(sibling, settings->get(sibling));
+                settings->set(overrideKey, true);
+                for (auto it = inherited.begin(); it != inherited.end(); ++it)
+                    settings->set(it.key(), it.value());
+            }
+            settings->set(key, false);
             return true;
         };
         if (turnOff(QStringLiteral("UseZink"), QStringLiteral("OverridePerformance")))

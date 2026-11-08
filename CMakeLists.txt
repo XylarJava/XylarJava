@@ -188,7 +188,7 @@ set(Launcher_LEGACY_FMLLIBS_BASE_URL "https://xylarjava-meta.xylarinc.workers.de
 set(Launcher_VERSION_MAJOR 0)
 set(Launcher_VERSION_MINOR 0)
 set(Launcher_VERSION_PATCH 0)
-set(Launcher_VERSION_BUILD 4)
+set(Launcher_VERSION_BUILD 5)
 
 set(Launcher_VERSION_NAME "v${Launcher_VERSION_MAJOR}.${Launcher_VERSION_MINOR}.${Launcher_VERSION_PATCH}.${Launcher_VERSION_BUILD}-ALPHA")
 set(Launcher_VERSION_NAME4 "${Launcher_VERSION_MAJOR}.${Launcher_VERSION_MINOR}.${Launcher_VERSION_PATCH}.${Launcher_VERSION_BUILD}")

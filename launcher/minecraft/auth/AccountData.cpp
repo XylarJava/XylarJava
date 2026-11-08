@@ -257,6 +257,8 @@ bool AccountData::resumeStateFromV3(QJsonObject data)
     auto typeS = typeV.toString();
     if (typeS == "MSA") {
         type = AccountType::MSA;
+    } else if (typeS == "Ely") {
+        type = AccountType::Ely;
     } else if (typeS == "Offline") {
         type = AccountType::Offline;
     } else {
@@ -301,6 +303,8 @@ QJsonObject AccountData::saveState() const
         tokenToJSONV3(output, msaToken, "msa");
         tokenToJSONV3(output, userToken, "utoken");
         tokenToJSONV3(output, mojangservicesToken, "xrp-mc");
+    } else if (type == AccountType::Ely) {
+        output["type"] = "Ely";
     } else if (type == AccountType::Offline) {
         output["type"] = "Offline";
     }

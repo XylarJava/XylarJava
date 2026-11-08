@@ -22,23 +22,26 @@
 #include "ui/pages/global/LauncherPage.h"
 #include "ui/pages/global/MinecraftPage.h"
 
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QMessageBox>
+#include <QPointer>
+#include <QProgressDialog>
+#include <QPushButton>
+#include <QSaveFile>
+#include <QScreen>
+#include "InstanceRepair.h"
+#include "launch/LaunchTask.h"
+#include "launch/LogModel.h"
 #include "ui/setupwizard/AutoJavaWizardPage.h"
 #include "ui/setupwizard/JavaWizardPage.h"
 #include "ui/setupwizard/LanguageWizardPage.h"
 #include "ui/setupwizard/LoginWizardPage.h"
 #include "ui/setupwizard/PasteWizardPage.h"
-#include <QMessageBox>
-#include <QPointer>
-#include <QProgressDialog>
-#include <QScreen>
-#include <QPushButton>
-#include "InstanceRepair.h"
-#include "launch/LaunchTask.h"
-#include "launch/LogModel.h"
 #include "ui/setupwizard/SetupWizard.h"
+#include "ui/setupwizard/ThemeWizardPage.h"
 #include "ui/setupwizard/XylarDoneWizardPage.h"
 #include "ui/setupwizard/XylarWelcomeWizardPage.h"
-#include "ui/setupwizard/ThemeWizardPage.h"
 
 #include "ui/dialogs/CustomMessageBox.h"
 
@@ -875,6 +878,7 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
         m_settings->registerSetting("TechnicClientID", "");
 
         // XylarJava Skin Backend
+        m_settings->registerSetting("XylarEnableSkins", true);
         m_settings->registerSetting("XylarSkinBackendUrl", "https://xylarjava-skin-backend.xylarinc.workers.dev");
         m_settings->registerSetting("XylarCapeBackendUrl", "https://xylarjava-capes.xylarinc.workers.dev");
         m_settings->registerSetting("XylarSiteUrl", "https://xylarinc.xylarinc.workers.dev");
@@ -1666,6 +1670,8 @@ void Application::offerAutoRepair(const QString& instanceId, LaunchMode mode, co
         if (auto log = task->getLogModel())
             gameLog = log->toPlainText();
     }
+    if (!reason.isEmpty())
+        gameLog += QLatin1Char('\n') + reason;
     const InstanceRepair::Diagnosis diagnosis = InstanceRepair::diagnose(instance, gameLog);
     // A crash after a while of playing gets help only when the log says why.
     if (crashedLater && !diagnosis.specific())
@@ -1716,9 +1722,15 @@ void Application::showRepairDialog(BaseInstance* instance, const InstanceRepair:
     if (diagnosis.specific())
         text += QStringLiteral("<p>%1</p>").arg(diagnosis.cause.toHtmlEscaped());
     else if (context == RepairContext::Asked)
-        text += QStringLiteral("<p>%1</p>").arg(tr("The last game log doesn't show a known problem, so the usual fixes are tried.").toHtmlEscaped());
+        text += QStringLiteral("<p>%1</p>")
+                    .arg(tr("The last game log does not identify a known cause. The repair will verify library checksums; it cannot "
+                            "promise to fix an unidentified crash.")
+                             .toHtmlEscaped());
     else
-        text += QStringLiteral("<p>%1</p>").arg(tr("The log doesn't say exactly why, so the usual fixes are tried.").toHtmlEscaped());
+        text += QStringLiteral("<p>%1</p>")
+                    .arg(tr("The log does not identify a known cause. The repair will verify library checksums; it cannot promise to fix "
+                            "an unidentified crash.")
+                             .toHtmlEscaped());
 
     QString info = tr("What the repair will do:") + QStringLiteral("<ul>");
     for (const QString& step : diagnosis.plan)
@@ -1740,8 +1752,17 @@ void Application::showRepairDialog(BaseInstance* instance, const InstanceRepair:
     box.setTextFormat(Qt::RichText);
     box.setText(text);
     box.setInformativeText(info);
-    if (!reason.isEmpty())
+    const QString evidence = diagnosis.evidence.join(QLatin1Char('\n'));
+    if (!evidence.isEmpty())
+        box.setDetailedText(evidence);
+    else if (!reason.isEmpty())
         box.setDetailedText(reason);
+    if (diagnosis.blocking) {
+        box.setIcon(QMessageBox::Warning);
+        box.setStandardButtons(QMessageBox::Ok);
+        box.exec();
+        return;
+    }
     auto startButton = box.addButton(tr("Repair and start"), QMessageBox::AcceptRole);
     auto onlyButton = box.addButton(tr("Repair only"), QMessageBox::ActionRole);
     box.addButton(tr("Not now"), QMessageBox::RejectRole);
@@ -1765,26 +1786,39 @@ void Application::showRepairDialog(BaseInstance* instance, const InstanceRepair:
         progress->setAttribute(Qt::WA_DeleteOnClose);
         progress->show();
     }
-    InstanceRepair::repair(instance, diagnosis, [this, id, mode, start, progress](const QStringList& done, const QStringList& failed) {
-        if (progress)
-            progress->close();
-        auto repaired = m_instances->getInstanceById(id);
-        if (!repaired || !m_mainWindow)
-            return;
-        if (!failed.isEmpty() || !start) {
-            QString text = done.isEmpty() ? tr("Nothing needed changing.") : QStringLiteral("• ") + done.join(QStringLiteral("\n• "));
-            if (!failed.isEmpty())
-                text += QStringLiteral("\n\n") + tr("Not done:") + QStringLiteral("\n• ") + failed.join(QStringLiteral("\n• "));
-            QMessageBox box(failed.isEmpty() ? QMessageBox::Information : QMessageBox::Warning, tr("Repair of %1").arg(repaired->name()),
-                            text, QMessageBox::NoButton, m_mainWindow);
-            QAbstractButton* startButton = start ? box.addButton(tr("Start"), QMessageBox::AcceptRole) : nullptr;
-            box.addButton(start ? tr("Not now") : tr("OK"), start ? QMessageBox::RejectRole : QMessageBox::AcceptRole);
-            box.exec();
-            if (!startButton || box.clickedButton() != startButton)
+    InstanceRepair::repair(
+        instance, diagnosis, [this, id, mode, start, progress, diagnosis](const QStringList& done, const QStringList& failed) {
+            if (progress)
+                progress->close();
+            auto repaired = m_instances->getInstanceById(id);
+            if (!repaired || !m_mainWindow)
                 return;
-        }
-        launch(repaired, mode);
-    });
+            const QJsonObject report{ { "timestamp", QDateTime::currentDateTimeUtc().toString(Qt::ISODate) },
+                                      { "cause", diagnosis.cause },
+                                      { "evidence", QJsonArray::fromStringList(diagnosis.evidence) },
+                                      { "planned", QJsonArray::fromStringList(diagnosis.plan) },
+                                      { "completed", QJsonArray::fromStringList(done) },
+                                      { "failed", QJsonArray::fromStringList(failed) } };
+            QSaveFile reportFile(QDir(repaired->instanceRoot()).filePath(QStringLiteral("repair-report.json")));
+            if (reportFile.open(QIODevice::WriteOnly)) {
+                const auto bytes = QJsonDocument(report).toJson();
+                if (reportFile.write(bytes) == bytes.size())
+                    reportFile.commit();
+            }
+            if (!failed.isEmpty() || !start) {
+                QString text = done.isEmpty() ? tr("Nothing needed changing.") : QStringLiteral("• ") + done.join(QStringLiteral("\n• "));
+                if (!failed.isEmpty())
+                    text += QStringLiteral("\n\n") + tr("Not done:") + QStringLiteral("\n• ") + failed.join(QStringLiteral("\n• "));
+                QMessageBox box(failed.isEmpty() ? QMessageBox::Information : QMessageBox::Warning,
+                                tr("Repair of %1").arg(repaired->name()), text, QMessageBox::NoButton, m_mainWindow);
+                QAbstractButton* startButton = start ? box.addButton(tr("Start"), QMessageBox::AcceptRole) : nullptr;
+                box.addButton(start ? tr("Not now") : tr("OK"), start ? QMessageBox::RejectRole : QMessageBox::AcceptRole);
+                box.exec();
+                if (!startButton || box.clickedButton() != startButton)
+                    return;
+            }
+            launch(repaired, mode);
+        });
 }
 
 BasePageProvider* Application::globalSettingsProvider()

@@ -30,6 +30,10 @@ struct Diagnosis {
     QStringList plan;
     /// Things the repair can't do for the player, one line each.
     QStringList advice;
+    QStringList evidence;   ///< relevant, redacted lines from the failing run
+    bool blocking = false;  ///< requires user action; retrying or deleting game files cannot fix it
+    bool verifyFiles = false;
+    QStringList filesToRedownload;  ///< only explicitly identified damaged files
 
     bool graphics = false;
     bool files = false;  ///< download libraries, game jar, natives and metadata again
@@ -53,6 +57,9 @@ struct Diagnosis {
 
 /// True when the game log shows it couldn't open its window / OpenGL context.
 bool looksLikeGraphicsFailure(const QString& gameLog);
+
+/// Diagnoses external failures without touching the instance or scanning mods.
+Diagnosis diagnoseLog(const QString& gameLog);
 
 /// The instance's latest game log and newest crash report, for a repair asked for by hand.
 QString lastGameLog(BaseInstance* instance);

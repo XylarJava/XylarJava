@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.ComponentModel;
 using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -20,13 +21,13 @@ internal static class Program
             // Versioned payloads keep updates from replacing files used by a running launcher.
             using (var mutex = new Mutex(false, @"Local\XylarJava.PackageInstallation"))
             {
-                try { mutex.WaitOne(); }
+                try { if (!mutex.WaitOne(TimeSpan.FromMinutes(2))) throw new TimeoutException("Another XylarJava installation is still running."); }
                 catch (AbandonedMutexException) { /* The preceding installer exited unexpectedly. */ }
                 try
                 {
                     Directory.CreateDirectory(versionDir);
-                    if (!File.Exists(exePath))
-                        ExtractPayload(appDir);
+                    if (!File.Exists(exePath) || !File.Exists(Path.Combine(appDir, "platforms", "qwindows.dll")))
+                        ExtractPayload(appDir, hash);
 
                     var launcher = Path.Combine(versionDir, "XylarJava.exe");
                     var self = Environment.ProcessPath ?? throw new InvalidOperationException("Cannot locate XylarJava.exe.");
@@ -51,11 +52,18 @@ internal static class Program
                 psi.ArgumentList.Add(arg);
             using var proc = Process.Start(psi) ?? throw new InvalidOperationException("Cannot start XylarJava.");
             proc.WaitForExit();
+            if (proc.ExitCode != 0) WriteLog("Native launcher exited with code " + proc.ExitCode);
             return proc.ExitCode;
         }
         catch (Exception ex)
         {
-            System.Windows.Forms.MessageBox.Show("XylarJava failed to start:\n" + ex.Message, "XylarJava",
+            WriteLog(ex.ToString());
+            string message = ex is Win32Exception win32 && (win32.NativeErrorCode == 225 || win32.NativeErrorCode == 226)
+                ? "Windows security blocked a launcher file. Open Windows Security → Protection history to see the detection and file name. " +
+                  "Download the latest release from github.com/XylarJava/XylarJava/releases and report the detection name and SHA-256 to the maintainers. " +
+                  "Do not disable antivirus protection. Reinstalling game files will not resolve this block."
+                : ex.Message;
+            System.Windows.Forms.MessageBox.Show("XylarJava failed to start:\n" + message + "\n\nDetails: " + LogPath, "XylarJava",
                 System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
             return 1;
         }
@@ -75,6 +83,8 @@ internal static class Program
             shortcut = shellType.InvokeMember("CreateShortcut", BindingFlags.InvokeMethod, null, shell,
                 new object[] { Path.Combine(directory, "XylarJava.lnk") })!;
             var type = shortcut.GetType();
+            if (string.Equals(type.InvokeMember("TargetPath", BindingFlags.GetProperty, null, shortcut, null) as string,
+                launcher, StringComparison.OrdinalIgnoreCase)) return;
             type.InvokeMember("TargetPath", BindingFlags.SetProperty, null, shortcut, new object[] { launcher });
             type.InvokeMember("WorkingDirectory", BindingFlags.SetProperty, null, shortcut, new object[] { Path.GetDirectoryName(launcher)! });
             type.InvokeMember("IconLocation", BindingFlags.SetProperty, null, shortcut, new object[] { launcher + ",0" });
@@ -90,19 +100,37 @@ internal static class Program
 
     private static string ComputeEmbeddedHash()
     {
-        using var stream = OpenPayloadStream();
-        return Convert.ToHexString(SHA256.HashData(stream));
+        // Generated at packaging time. Avoid reading and hashing the entire payload on every launch.
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("XylarJava.Payload.sha256")
+            ?? throw new InvalidDataException("Package checksum missing.");
+        using var reader = new StreamReader(stream);
+        var hash = reader.ReadToEnd().Trim().ToUpperInvariant();
+        if (hash.Length != 64 || !hash.All(Uri.IsHexDigit)) throw new InvalidDataException("Invalid package checksum.");
+        return hash;
+    }
+
+    private static string LogPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "XylarJava", "bootstrap.log");
+    private static void WriteLog(string message)
+    {
+        try {
+            Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
+            if (File.Exists(LogPath) && new FileInfo(LogPath).Length > 1024 * 1024) File.Delete(LogPath);
+            File.AppendAllText(LogPath, DateTime.UtcNow.ToString("O") + " " + message + Environment.NewLine);
+        } catch { /* Logging must not obscure the original startup failure. */ }
     }
 
     private static Stream OpenPayloadStream() => Assembly.GetExecutingAssembly()
         .GetManifestResourceStream("XylarJava.Payload.zip") ?? throw new InvalidOperationException("Embedded payload missing.");
 
-    private static void ExtractPayload(string destination)
+    private static void ExtractPayload(string destination, string expectedHash)
     {
         var temp = destination + "." + Guid.NewGuid().ToString("N");
         Directory.CreateDirectory(temp);
         try
         {
+            using (var check = OpenPayloadStream())
+                if (!string.Equals(Convert.ToHexString(SHA256.HashData(check)), expectedHash, StringComparison.Ordinal))
+                    throw new InvalidDataException("The embedded payload checksum is incorrect. Download the release again.");
             using (var stream = OpenPayloadStream())
             using (var zip = new ZipArchive(stream, ZipArchiveMode.Read))
                 zip.ExtractToDirectory(temp);

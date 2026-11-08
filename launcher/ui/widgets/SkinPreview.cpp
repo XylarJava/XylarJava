@@ -38,10 +38,11 @@ bool SkinPreview::looksSlim(const QImage& texture)
 
 void SkinPreview::setSkin(const QImage& texture, bool slim)
 {
-    if (texture.isNull() || texture.width() != 64 || (texture.height() != 64 && texture.height() != 32)) {
+    if (texture.isNull() || texture.width() < 64 || texture.width() % 64 ||
+        (texture.height() != texture.width() && texture.height() * 2 != texture.width())) {
         m_skin = QImage();
     } else {
-        m_skin = texture.convertToFormat(QImage::Format_ARGB32);
+        m_skin = texture.scaledToWidth(64, Qt::FastTransformation).convertToFormat(QImage::Format_ARGB32);
     }
     m_slim = slim;
     update();

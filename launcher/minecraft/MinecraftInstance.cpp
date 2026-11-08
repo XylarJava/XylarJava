@@ -543,13 +543,16 @@ QStringList MinecraftInstance::javaArguments(const AuthSession* session)
     // and chat signing keys straight to Mojang, and a player XylarSkins doesn't know (or a Microsoft
     // account with no XylarSkins skin) is looked up at Mojang, so online servers and real skins work as before.
     const bool onlineMicrosoft = session && session->user_type == QStringLiteral("msa") && session->launchMode == LaunchMode::Normal;
-    if (!onlineMicrosoft) {
+    const bool ely = session && session->user_type == QStringLiteral("ely");
+    if (!onlineMicrosoft && !ely) {
         args << "-Dminecraft.api.auth.host=https://nope.invalid";
         args << "-Dminecraft.api.account.host=https://nope.invalid";
     }
     QString skinBackendUrl = APPLICATION->settings()->get("XylarSkinBackendUrl").toString().trimmed();
     while (skinBackendUrl.endsWith('/'))
         skinBackendUrl.chop(1);
+    if (!APPLICATION->settings()->get("XylarEnableSkins").toBool())
+        skinBackendUrl.clear();
     // XylarJava Client asks the cape backend for every player's cape, on any server.
     QString capeBackendUrl = APPLICATION->settings()->get("XylarCapeBackendUrl").toString().trimmed();
     while (capeBackendUrl.endsWith('/'))
@@ -557,7 +560,14 @@ QStringList MinecraftInstance::javaArguments(const AuthSession* session)
     if (!capeBackendUrl.isEmpty())
         args << QString("-Dxylarjava.capes=%1").arg(capeBackendUrl);
     QString injectorJar = APPLICATION->getJarPath("authlib-injector.jar");
-    if (!skinBackendUrl.isEmpty() && !injectorJar.isEmpty() && QFile::exists(injectorJar)) {
+    if (ely) {
+        if (injectorJar.isEmpty() || !QFile::exists(injectorJar))
+            qWarning() << "Ely.by requires the bundled authlib-injector.jar";
+        else {
+            args << QString("-javaagent:%1=https://ely.by").arg(injectorJar);
+            args << "-Dauthlibinjector.noShowServerName" << "-Dhttp.agent=XylarJava";
+        }
+    } else if (!skinBackendUrl.isEmpty() && !injectorJar.isEmpty() && QFile::exists(injectorJar)) {
 #ifdef Q_OS_WIN
         injectorJar = FS::getPathNameInLocal8bit(injectorJar);
 #endif
@@ -786,7 +796,7 @@ QStringList MinecraftInstance::processMinecraftArgs(AuthSessionPtr session, Mine
         tokenMapping["auth_player_name"] = session->player_name;
         tokenMapping["auth_uuid"] = session->uuid;
         tokenMapping["user_properties"] = session->serializeUserProperties();
-        tokenMapping["user_type"] = session->user_type;
+        tokenMapping["user_type"] = session->user_type == QStringLiteral("ely") ? QStringLiteral("mojang") : session->user_type;
 
         if (session->launchMode == LaunchMode::Demo) {
             args << "--demo";
@@ -1055,6 +1065,8 @@ QMap<QString, QString> MinecraftInstance::createCensorFilterFromSession(AuthSess
     }
     if (sessionRef.access_token != "0") {
         addToFilter(sessionRef.access_token, tr("<ACCESS TOKEN>"));
+        if (sessionRef.access_token.startsWith(QLatin1String("xylar:")))
+            addToFilter(sessionRef.access_token.mid(6), tr("<PROFILE ACCESS>"));
     }
     addToFilter(sessionRef.uuid, tr("<PROFILE ID>"));
 

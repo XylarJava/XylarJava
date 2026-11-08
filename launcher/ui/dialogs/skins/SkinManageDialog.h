@@ -10,6 +10,8 @@
 #include "minecraft/skins/SkinModel.h"
 #include "ui/dialogs/skins/draw/SkinOpenGLWindow.h"
 
+class Skin3DPreview;
+
 namespace Ui {
 class SkinManageDialog;
 }
@@ -51,5 +53,5 @@ class SkinManageDialog : public QDialog, public SkinProvider {
     QHash<QString, QImage> m_capes;
     QHash<QString, int> m_capesIdx;
     SkinOpenGLWindow* m_skinPreview = nullptr;
-    QLabel* m_skinPreviewLabel = nullptr;
+    Skin3DPreview* m_softwarePreview = nullptr;
 };

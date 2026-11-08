@@ -2,7 +2,7 @@
 # Upload exactly the Windows EXE and Linux AppImage after building them locally.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-tag=${1:-v0.0.0.4-ALPHA}
+tag=${1:-v0.0.0.5-ALPHA}
 exe=${2:-dist-single/XylarJava-Windows/XylarJava.exe}
 appimage=${3:-XylarJava-Linux-x86_64.AppImage}
 git check-ref-format "refs/tags/$tag"

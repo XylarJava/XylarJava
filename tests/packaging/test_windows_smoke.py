@@ -43,7 +43,14 @@ class WindowsSmokeTest(unittest.TestCase):
         self.assertNotIn("cmake", commands)
         self.assertNotIn("dotnet publish", commands)
         self.assertNotIn("build-windows-single-exe", commands)
-        save = jobs["windows"]["steps"][-1]
+        steps = jobs["windows"]["steps"]
+        save = next(step for step in steps if step.get("with", {}).get("name") == "windows-package")
+        release = next(step for step in steps if step.get("with", {}).get("name") == "release-windows")
+        self.assertLess(steps.index(save), steps.index(release))
+        self.assertIn("inputs.smoke-test != true", release["if"])
+        trigger = workflow.get("on", workflow.get(True))
+        self.assertIs(trigger["workflow_dispatch"]["inputs"]["smoke-test"]["default"], False)
+        self.assertIn("inputs.smoke-test == true", jobs["windows-smoke"]["if"])
         self.assertEqual(save["with"]["name"], "windows-package")
         self.assertEqual(save["with"]["if-no-files-found"], "error")
 

@@ -31,7 +31,7 @@ void LibrariesTask::executeTask()
                 emitFailed(tr("Null jar is specified in the metadata, aborting."));
                 return false;
             }
-            auto dls = lib->getDownloads(inst->runtimeContext(), metacache, errors, localPath);
+            auto dls = lib->getDownloads(inst->runtimeContext(), metacache, errors, localPath, inst->property("VerifyLibraries").toBool());
             for (auto dl : dls) {
                 downloadJob->addNetAction(dl);
             }
@@ -62,7 +62,10 @@ void LibrariesTask::executeTask()
         return;
     }
 
-    connect(downloadJob.get(), &NetJob::succeeded, this, &LibrariesTask::emitSucceeded);
+    connect(downloadJob.get(), &NetJob::succeeded, this, [this] {
+        m_inst->setProperty("VerifyLibraries", false);
+        emitSucceeded();
+    });
     connect(downloadJob.get(), &NetJob::failed, this, &LibrariesTask::jarlibFailed);
     connect(downloadJob.get(), &NetJob::aborted, this, &LibrariesTask::emitAborted);
     connect(downloadJob.get(), &NetJob::progress, this, &LibrariesTask::progress);

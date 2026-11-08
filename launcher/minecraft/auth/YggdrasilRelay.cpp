@@ -190,6 +190,10 @@ void YggdrasilRelay::forward(const QString& url, const Request& request, Done do
 
 void YggdrasilRelay::join(const Request& request, Done done)
 {
+    if (QJsonDocument::fromJson(request.body).object().value("accessToken").toString().startsWith(QLatin1String("xylar:"))) {
+        forward(m_backendUrl + QStringLiteral("/sessionserver/session/minecraft/join"), request, done);
+        return;
+    }
     forward(QStringLiteral("https://sessionserver.mojang.com/session/minecraft/join"), request, [this, request, done](const Answer& mojang) {
         if (mojang.status == 204 || mojang.status == 200)
             return done({ 204, {}, {} });

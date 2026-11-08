@@ -47,6 +47,7 @@ set(CORE_SOURCES
     InstanceCopyPrefs.cpp
     InstanceCopyTask.h
     InstanceCopyTask.cpp
+    InstanceRepairLogs.cpp
     InstanceRepair.cpp
     InstanceRepair.h
 
@@ -254,6 +255,8 @@ set(MINECRAFT_SOURCES
 
     minecraft/auth/steps/EntitlementsStep.cpp
     minecraft/auth/steps/EntitlementsStep.h
+    minecraft/auth/steps/ElyStep.cpp
+    minecraft/auth/steps/ElyStep.h
     minecraft/auth/steps/GetSkinStep.cpp
     minecraft/auth/steps/GetSkinStep.h
     minecraft/auth/steps/LauncherLoginStep.cpp
@@ -1122,6 +1125,10 @@ SET(LAUNCHER_SOURCES
     ui/dialogs/IconPickerDialog.h
     ui/dialogs/ImportResourceDialog.cpp
     ui/dialogs/ImportResourceDialog.h
+    ui/dialogs/AccountIdentity.cpp
+    ui/dialogs/AccountIdentity.h
+    ui/dialogs/ElyLoginDialog.cpp
+    ui/dialogs/ElyLoginDialog.h
     ui/dialogs/MSALoginDialog.cpp
     ui/dialogs/MSALoginDialog.h
     ui/dialogs/NetworkJobFailedDialog.cpp
@@ -1191,6 +1198,8 @@ SET(LAUNCHER_SOURCES
     ui/widgets/SideBar.h
     ui/widgets/SocialPanel.cpp
     ui/widgets/SocialPanel.h
+    ui/widgets/Skin3DPreview.cpp
+    ui/widgets/Skin3DPreview.h
     ui/widgets/SkinPreview.cpp
     ui/widgets/SkinPreview.h
     ui/widgets/LabeledToolButton.cpp

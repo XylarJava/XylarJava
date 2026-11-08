@@ -1,0 +1,22 @@
+{
+    "name": "Meimei",
+    "widgets": "Fusion",
+    "qssFilePath": "themeStyle.css",
+    "colors": {
+        "Window": "#202630",
+        "WindowText": "#f0f3fa",
+        "Base": "#252e3a",
+        "AlternateBase": "#303d4c",
+        "Text": "#f0f3fa",
+        "Button": "#344354",
+        "ButtonText": "#f0f3fa",
+        "BrightText": "#ffffff",
+        "Highlight": "#b9d5ea",
+        "HighlightedText": "#14202b",
+        "Link": "#c5e2f5",
+        "ToolTipBase": "#202630",
+        "ToolTipText": "#ffffff",
+        "fadeAmount": 0.45,
+        "fadeColor": "#202630"
+    }
+}

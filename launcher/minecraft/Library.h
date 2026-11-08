@@ -112,7 +112,8 @@ class Library {
     QList<Net::NetRequest::Ptr> getDownloads(const RuntimeContext& runtimeContext,
                                              class HttpMetaCache* cache,
                                              QStringList& failedLocalFiles,
-                                             const QString& overridePath) const;
+                                             const QString& overridePath,
+                                             bool verifyExisting = false) const;
 
     QString getCompatibleNative(const RuntimeContext& runtimeContext) const;
 

@@ -57,11 +57,13 @@ class Network : public QNetworkAccessManager {
     };
     QQueue<Answer> answers;
     QList<QNetworkRequest> requests;
+    QList<QByteArray> bodies;
 
    protected:
-    QNetworkReply* createRequest(Operation, const QNetworkRequest& request, QIODevice*) override
+    QNetworkReply* createRequest(Operation, const QNetworkRequest& request, QIODevice* body) override
     {
         requests.append(request);
+        bodies.append(body ? body->readAll() : QByteArray());
         const Answer answer = answers.isEmpty() ? Answer{ 500, R"({"error":"Unexpected request"})" } : answers.dequeue();
         return new Reply(request, answer.status, answer.data, this);
     }
@@ -92,8 +94,10 @@ class XylarSkinClientTest : public QObject {
     {
         QTemporaryDir cache;
         Network network;
-        network.answers.enqueue({ 201, QJsonDocument(QJsonObject{ { "player", QJsonObject{ { "uuid", PLAYER_UUID } } } }).toJson() });
-        network.answers.enqueue({ 201, QJsonDocument(QJsonObject{ { "key", PLAYER_KEY } }).toJson() });
+        network.answers.enqueue({ 201, QJsonDocument(QJsonObject{ { "identity_version", 2 },
+                                                                  { "player", QJsonObject{ { "uuid", PLAYER_UUID } } },
+                                                                  { "key", PLAYER_KEY } })
+                                           .toJson() });
         network.answers.enqueue({ 200, R"({"skin_hash":"saved"})" });
         XylarSkinClient client(nullptr, &network);
         client.setCacheDir(cache.path());
@@ -107,37 +111,105 @@ class XylarSkinClientTest : public QObject {
         client.registerPlayer(QStringLiteral("Player"));
         QTRY_COMPARE(uploaded.count(), 1);
         QVERIFY(ready);
-        QCOMPARE(network.requests.size(), 3);
+        QCOMPARE(network.requests.size(), 2);
+        QCOMPARE(network.requests.first().url().path(), QStringLiteral("/api/identity"));
         QCOMPARE(network.requests.last().rawHeader("X-Player-Key"), PLAYER_KEY.toLatin1());
     }
 
-    void concurrentMutationsShareOneClaim()
+    void duplicateNameDoesNotExposeProfileOrStartClaim()
     {
         QTemporaryDir cache;
         Network network;
-        network.answers.enqueue({ 201, QJsonDocument(QJsonObject{ { "key", PLAYER_KEY } }).toJson() });
+        network.answers.enqueue({ 409, R"({"error":"This username is already owned"})" });
         XylarSkinClient client(nullptr, &network);
         client.setCacheDir(cache.path());
         client.setBackendUrl(SKIN_BACKEND);
-        int completed = 0;
-        client.claimPlayer(PLAYER_UUID, [&](bool ok) { completed += ok; });
-        client.claimPlayer(PLAYER_UUID, [&](bool ok) { completed += ok; });
-        QTRY_COMPARE(completed, 2);
+        QSignalSpy accepted(&client, &XylarSkinClient::playerRegistered), rejected(&client, &XylarSkinClient::requestFailed);
+        client.registerPlayer(QStringLiteral("Player"));
+        QTRY_COMPARE(rejected.count(), 1);
+        QCOMPARE(accepted.count(), 0);
         QCOMPARE(network.requests.size(), 1);
+        QVERIFY(client.playerKey(PLAYER_UUID).isEmpty());
+    }
+    void outdatedBackendCannotBypassNameProtection()
+    {
+        QTemporaryDir cache;
+        Network network;
+        network.answers.enqueue({ 201, QJsonDocument(QJsonObject{ { "player", QJsonObject{ { "uuid", PLAYER_UUID } } } }).toJson() });
+        XylarSkinClient client(nullptr, &network);
+        client.setCacheDir(cache.path());
+        client.setBackendUrl(SKIN_BACKEND);
+        QSignalSpy accepted(&client, &XylarSkinClient::playerRegistered), rejected(&client, &XylarSkinClient::requestFailed);
+        client.registerPlayer(QStringLiteral("Player"));
+        QTRY_COMPARE(rejected.count(), 1);
+        QCOMPARE(accepted.count(), 0);
+        QCOMPARE(network.requests.size(), 1);
+    }
+
+    void providerProofAndCanonicalOwnerKeyAreSentTogether()
+    {
+        QTemporaryDir cache;
+        Network network;
+        network.answers.enqueue(
+            { 200,
+              QJsonDocument(QJsonObject{ { "identity_version", 2 }, { "player", QJsonObject{ { "uuid", PLAYER_UUID } } } }).toJson() });
+        XylarSkinClient client(nullptr, &network);
+        client.setCacheDir(cache.path());
+        client.setBackendUrl(SKIN_BACKEND);
+        QVERIFY(client.importPlayerAccess(PLAYER_UUID, access()));
+        QSignalSpy accepted(&client, &XylarSkinClient::playerRegistered);
+        client.registerPlayer(QStringLiteral("Player"), QStringLiteral("12345678123412341234123456789abc"),
+                              QStringLiteral("provider-token"), QStringLiteral("microsoft"), PLAYER_UUID);
+        QTRY_COMPARE(accepted.count(), 1);
+        QCOMPARE(network.requests.first().rawHeader("X-Player-Key"), PLAYER_KEY.toLatin1());
+        const auto body = QJsonDocument::fromJson(network.bodies.first()).object();
+        QCOMPARE(body["provider"].toString(), QStringLiteral("microsoft"));
+        QCOMPARE(body["identity_token"].toString(), QStringLiteral("provider-token"));
+        QVERIFY(!body.contains("msa_uuid"));
+    }
+    void malformedIdentityCannotChooseACachePath()
+    {
+        QTemporaryDir cache;
+        Network network;
+        network.answers.enqueue({ 201, QJsonDocument(QJsonObject{ { "identity_version", 2 },
+                                                                  { "key", PLAYER_KEY },
+                                                                  { "player", QJsonObject{ { "uuid", "../../outside" } } } })
+                                           .toJson() });
+        XylarSkinClient client(nullptr, &network);
+        client.setCacheDir(cache.path());
+        client.setBackendUrl(SKIN_BACKEND);
+        QSignalSpy accepted(&client, &XylarSkinClient::playerRegistered), failed(&client, &XylarSkinClient::requestFailed);
+        client.registerPlayer(QStringLiteral("Player"));
+        QTRY_COMPARE(failed.count(), 1);
+        QCOMPARE(accepted.count(), 0);
+        QVERIFY(client.playerKey("../../outside").isEmpty());
+    }
+
+    void missingAccessNeverAttemptsPublicUuidClaims()
+    {
+        QTemporaryDir cache;
+        Network network;
+        XylarSkinClient client(nullptr, &network);
+        client.setCacheDir(cache.path());
+        client.setBackendUrl(SKIN_BACKEND);
+        QSignalSpy failed(&client, &XylarSkinClient::requestFailed);
+        client.uploadSkinData(PLAYER_UUID, png());
+        client.deleteSkin(PLAYER_UUID);
+        QCOMPARE(failed.count(), 2);
+        QCOMPARE(network.requests.size(), 0);
     }
 
     void claimedElsewhereDoesNotSendUnauthenticatedUpload()
     {
         QTemporaryDir cache;
         Network network;
-        network.answers.enqueue({ 409, R"({"error":"Already claimed"})" });
         XylarSkinClient client(nullptr, &network);
         client.setCacheDir(cache.path());
         client.setBackendUrl(SKIN_BACKEND);
         QSignalSpy failed(&client, &XylarSkinClient::requestFailed);
         client.uploadSkinData(PLAYER_UUID, png());
         QTRY_COMPARE(failed.count(), 1);
-        QCOMPARE(network.requests.size(), 1);
+        QCOMPARE(network.requests.size(), 0);
         QCOMPARE(failed.first().at(2).toInt(), 403);
         QVERIFY(failed.first().at(1).toString().contains(QStringLiteral("Skin access")));
     }
@@ -150,6 +222,7 @@ class XylarSkinClientTest : public QObject {
         XylarSkinClient client(nullptr, &network);
         client.setCacheDir(cache.path());
         client.setBackendUrl(SKIN_BACKEND);
+        QVERIFY(client.importPlayerAccess(PLAYER_UUID, access()));
         QSignalSpy failed(&client, &XylarSkinClient::requestFailed);
         client.uploadSkinData(PLAYER_UUID, png());
         QTRY_COMPARE(failed.count(), 1);

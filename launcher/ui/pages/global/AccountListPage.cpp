@@ -18,6 +18,8 @@
 
 #include "Application.h"
 #include "DesktopServices.h"
+#include "ui/dialogs/AccountIdentity.h"
+#include "ui/dialogs/ElyLoginDialog.h"
 
 AccountListPage::AccountListPage(QWidget* parent) : QMainWindow(parent), ui(new Ui::AccountListPage)
 {
@@ -26,7 +28,7 @@ AccountListPage::AccountListPage(QWidget* parent) : QMainWindow(parent), ui(new 
     ui->toolBar->showAgain();
     ui->listView->setEmptyString(
         tr("Welcome!\n"
-           "If you're new here, you can select the \"Add Microsoft\" button to link your Microsoft account."));
+           "Choose Add Microsoft, Add Ely.by or Add Offline to create a profile."));
     ui->listView->setEmptyMode(VersionListView::String);
     ui->listView->setContextMenuPolicy(Qt::CustomContextMenu);
 
@@ -40,6 +42,16 @@ AccountListPage::AccountListPage(QWidget* parent) : QMainWindow(parent), ui(new 
     }
 
     m_accounts = APPLICATION->accounts();
+    auto* ely = new QAction(tr("Add Ely.by"), this);
+    ui->toolBar->addAction(ely);
+    connect(ely, &QAction::triggered, this, [this] {
+        auto account = ElyAccountDialog::login(this);
+        if (!account || !AccountIdentity::verify(this, account))
+            return;
+        m_accounts->addAccount(account);
+        if (m_accounts->count() == 1)
+            m_accounts->setDefaultAccount(account);
+    });
 
     ui->listView->setModel(m_accounts);
     ui->listView->header()->setSectionResizeMode(AccountList::VListColumns::ProfileNameColumn, QHeaderView::Stretch);
@@ -117,7 +129,7 @@ void AccountListPage::on_actionAddMicrosoft_triggered()
     }
 
     auto account = MSALoginDialog::newAccount(this);
-    if (account) {
+    if (account && AccountIdentity::verify(this, account)) {
         m_accounts->addAccount(account);
         if (m_accounts->count() == 1) {
             m_accounts->setDefaultAccount(account);
@@ -127,21 +139,15 @@ void AccountListPage::on_actionAddMicrosoft_triggered()
 
 void AccountListPage::on_actionAddOffline_triggered()
 {
-    if (!m_accounts->anyAccountIsValid()) {
-        QMessageBox::warning(this, tr("Error"),
-                             tr("You must add a Microsoft account that owns Minecraft before you can add an offline account."
-                                "<br><br>"
-                                "If you have lost your account you can contact Microsoft for support."));
-        return;
-    }
-
     ChooseOfflineNameDialog dialog(tr("Please enter your desired username to add your offline account."), this);
     if (dialog.exec() != QDialog::Accepted) {
         return;
     }
 
     if (const MinecraftAccountPtr account = MinecraftAccount::createOffline(dialog.getUsername())) {
-        account->login()->start();  // The task will complete here.
+        if (!AccountIdentity::verify(this, account))
+            return;
+        account->login()->start();
         m_accounts->addAccount(account);
         if (m_accounts->count() == 1) {
             m_accounts->setDefaultAccount(account);
@@ -233,6 +239,10 @@ void AccountListPage::on_actionManageSkins_triggered()
     if (selection.size() > 0) {
         QModelIndex selected = selection.first();
         MinecraftAccountPtr account = selected.data(AccountList::PointerRole).value<MinecraftAccountPtr>();
+        if (account->accountType() == AccountType::Ely) {
+            ElyAccountDialog::showSkin(this, account);
+            return;
+        }
         SkinManageDialog dialog(this, account);
         dialog.exec();
     }
@@ -262,6 +272,10 @@ void AccountListPage::on_actionXylarSkins_triggered()
     if (selection.size() > 0) {
         QModelIndex selected = selection.first();
         MinecraftAccountPtr account = selected.data(AccountList::PointerRole).value<MinecraftAccountPtr>();
+        if (account->accountType() == AccountType::Ely) {
+            ElyAccountDialog::showSkin(this, account);
+            return;
+        }
         XylarSkinsPage dialog(this, account);
         dialog.exec();
     }

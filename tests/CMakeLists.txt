@@ -62,3 +62,12 @@ ecm_add_test(MetaComponentParse_test.cpp LINK_LIBRARIES Launcher_logic Qt${QT_VE
 
 ecm_add_test(XmlLogs_test.cpp LINK_LIBRARIES Launcher_logic Qt${QT_VERSION_MAJOR}::Test
     TEST_NAME XmlLogs)
+
+ecm_add_test(InstanceRepairLogs_test.cpp LINK_LIBRARIES Launcher_logic Qt${QT_VERSION_MAJOR}::Test TEST_NAME InstanceRepairLogs)
+ecm_add_test(Skin3DPreview_test.cpp LINK_LIBRARIES Launcher_logic Qt${QT_VERSION_MAJOR}::Test TEST_NAME Skin3DPreview)
+set_tests_properties(Skin3DPreview PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+ecm_add_test(AccountProviders_test.cpp LINK_LIBRARIES Launcher_logic Qt${QT_VERSION_MAJOR}::Test TEST_NAME AccountProviders)
+
+ecm_add_test(MeimeiTheme_test.cpp LINK_LIBRARIES Launcher_logic Qt${QT_VERSION_MAJOR}::Test TEST_NAME MeimeiTheme)
+set_tests_properties(MeimeiTheme PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

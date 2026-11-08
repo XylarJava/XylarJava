@@ -1,5 +1,6 @@
 #include "SkinManageDialog.h"
 #include "ui/dialogs/skins/draw/SkinOpenGLWindow.h"
+#include "ui/widgets/Skin3DPreview.h"
 #include "ui_SkinManageDialog.h"
 
 #include <FileSystem.h>
@@ -44,8 +45,8 @@ SkinManageDialog::SkinManageDialog(QWidget* parent, MinecraftAccountPtr acct)
     if (SkinOpenGLWindow::hasOpenGL()) {
         m_skinPreview = new SkinOpenGLWindow(this, palette().color(QPalette::Normal, QPalette::Base));
     } else {
-        m_skinPreviewLabel = new QLabel(this);
-        m_skinPreviewLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        m_softwarePreview = new Skin3DPreview(this);
+        m_softwarePreview->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     }
 
     setWindowModality(Qt::WindowModal);
@@ -97,7 +98,7 @@ SkinManageDialog::SkinManageDialog(QWidget* parent, MinecraftAccountPtr acct)
     if (m_skinPreview) {
         m_ui->skinLayout->insertWidget(0, QWidget::createWindowContainer(m_skinPreview, this));
     } else {
-        m_ui->skinLayout->insertWidget(0, m_skinPreviewLabel);
+        m_ui->skinLayout->insertWidget(0, m_softwarePreview);
     }
 }
 
@@ -131,8 +132,7 @@ void SkinManageDialog::selectionChanged(QItemSelection selected, [[maybe_unused]
     if (m_skinPreview) {
         m_skinPreview->updateScene(skin);
     } else {
-        m_skinPreviewLabel->setPixmap(
-            QPixmap::fromImage(skin->getPreview()).scaled(m_skinPreviewLabel->size(), Qt::KeepAspectRatio, Qt::FastTransformation));
+        m_softwarePreview->setSkin(skin->getTexture(), skin->getModel() == SkinModel::SLIM);
     }
     m_ui->capeCombo->setCurrentIndex(m_capesIdx.value(skin->getCapeId()));
     m_ui->steveBtn->setChecked(skin->getModel() == SkinModel::CLASSIC);
@@ -249,13 +249,14 @@ void SkinManageDialog::on_capeCombo_currentIndexChanged(int index)
     if (m_skinPreview) {
         m_skinPreview->updateCape(cape);
     }
+    if (m_softwarePreview)
+        m_softwarePreview->setCape(cape);
     if (auto skin = getSelectedSkin(); skin) {
         skin->setCapeId(id.toString());
         if (m_skinPreview) {
             m_skinPreview->updateScene(skin);
         } else {
-            m_skinPreviewLabel->setPixmap(
-                QPixmap::fromImage(skin->getPreview()).scaled(m_skinPreviewLabel->size(), Qt::KeepAspectRatio, Qt::FastTransformation));
+            m_softwarePreview->setSkin(skin->getTexture(), skin->getModel() == SkinModel::SLIM);
         }
     }
 }
@@ -267,8 +268,7 @@ void SkinManageDialog::on_steveBtn_toggled(bool checked)
         if (m_skinPreview) {
             m_skinPreview->updateScene(skin);
         } else {
-            m_skinPreviewLabel->setPixmap(
-                QPixmap::fromImage(skin->getPreview()).scaled(m_skinPreviewLabel->size(), Qt::KeepAspectRatio, Qt::FastTransformation));
+            m_softwarePreview->setSkin(skin->getTexture(), skin->getModel() == SkinModel::SLIM);
         }
     }
 }
@@ -557,8 +557,7 @@ void SkinManageDialog::resizeEvent(QResizeEvent* event)
         m_ui->capeImage->clear();
     }
     if (auto skin = getSelectedSkin(); skin && !m_skinPreview) {
-        m_skinPreviewLabel->setPixmap(
-            QPixmap::fromImage(skin->getPreview()).scaled(m_skinPreviewLabel->size(), Qt::KeepAspectRatio, Qt::FastTransformation));
+        m_softwarePreview->setSkin(skin->getTexture(), skin->getModel() == SkinModel::SLIM);
     }
 }
 

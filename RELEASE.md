@@ -2,7 +2,8 @@
 
 Builds target Windows x64 and Linux x86_64. The workflow in
 `.github/workflows/release.yml` builds the client jar, launcher and packages,
-runs the launcher tests, and checks package startup before uploading artifacts.
+runs the launcher tests, and uploads the Windows EXE and Linux packages.
+The Windows startup smoke test is optional and disabled by default.
 
 ## Publish
 
@@ -10,19 +11,19 @@ Commit the changes, then run from the repository with GitHub CLI authenticated:
 
 ```bash
 git pull --rebase origin main
-scripts/publish-release.sh v0.0.5-alpha.1
+scripts/publish-release.sh v0.0.0.5-ALPHA
 ```
 
 Use a new version tag for each release. The script pushes the current commit and
 tag, waits for the matching GitHub Actions build, downloads its Windows and Linux
 packages, generates `SHA256SUMS`, and creates the release. Tags containing a hyphen
-are published as prereleases. No release is created if a build or startup check fails.
+are published as prereleases. No release is created if a required build or enabled check fails.
 The downloaded files remain in `dist/release/<tag>/`.
 
 To publish just the two distributable files after building them locally:
 
 ```bash
-scripts/publish-local-release.sh v0.0.0.4-ALPHA
+scripts/publish-local-release.sh v0.0.0.5-ALPHA
 ```
 
 This requires `dist-single/XylarJava-Windows/XylarJava.exe` and
@@ -45,9 +46,9 @@ dispatches the Windows build, waits for its checks and downloads only
 `dist-single/XylarJava-Windows/XylarJava.exe`. It does not publish a release or
 change any version tags. A failed build prints its logs and stops.
 
-The Windows build now saves its EXE as `windows-package` before the separate
-`windows-smoke` job runs. Startup diagnostics are retained as `windows-smoke-logs`;
-`release-windows` contains the same EXE after successful verification.
+The Windows build saves `windows-package` and uploads the EXE directly as
+`release-windows`. The separate `windows-smoke` job runs only when requested;
+its diagnostics are retained as `windows-smoke-logs`.
 To repeat only the smoke test using a saved package from an earlier run:
 
 ```bash
@@ -126,3 +127,5 @@ cannot install a menu entry: it must first be executed. No administrator access
 is needed.
 
 Check integration with `python3 tests/packaging/test_linux_integration.py`.
+
+The Windows startup smoke test is optional and disabled by default. For account/backend deployment and optional signing, see [v0.0.0.5 notes](docs/update-0.0.0.5.md).

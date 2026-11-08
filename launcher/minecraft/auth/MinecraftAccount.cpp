@@ -37,6 +37,13 @@ MinecraftAccountPtr MinecraftAccount::createBlankMSA()
     return account;
 }
 
+MinecraftAccountPtr MinecraftAccount::createBlankEly()
+{
+    auto account = makeShared<MinecraftAccount>();
+    account->data.type = AccountType::Ely;
+    return account;
+}
+
 MinecraftAccountPtr MinecraftAccount::createOffline(const QString& username)
 {
     auto account = makeShared<MinecraftAccount>();
@@ -71,8 +78,9 @@ QPixmap MinecraftAccount::getFace(int width, int height) const
     QPixmap skin = QPixmap(8, 8);
     skin.fill(QColorConstants::Transparent);
     QPainter painter(&skin);
-    painter.drawPixmap(0, 0, skinTexture.copy(8, 8, 8, 8));
-    painter.drawPixmap(0, 0, skinTexture.copy(40, 8, 8, 8));
+    const int scale = qMax(1, skinTexture.width() / 64);
+    painter.drawPixmap(QRect(0, 0, 8, 8), skinTexture, QRect(8 * scale, 8 * scale, 8 * scale, 8 * scale));
+    painter.drawPixmap(QRect(0, 0, 8, 8), skinTexture, QRect(40 * scale, 8 * scale, 8 * scale, 8 * scale));
     return skin.scaled(width, height, Qt::KeepAspectRatio);
 }
 

@@ -18,6 +18,8 @@
 class XylarSkinClient;
 class QListWidgetItem;
 
+class Skin3DPreview;
+
 namespace Ui {
 class XylarSkinsPage;
 }
@@ -78,8 +80,8 @@ class XylarSkinsPage : public QDialog, public SkinProvider {
     void removeCapeItem(const QString& id);
     void selectCurrentCape();
     void showCapeInPreview();
-    /// The front/back picture used without OpenGL, with the cape on the back.
-    void refreshFlatPreview();
+    /// Interactive raster 3D preview for machines without a usable OpenGL context.
+    void refreshSoftwarePreview();
     QIcon capeIcon(const QImage& cape) const;
 
    private:
@@ -94,7 +96,7 @@ class XylarSkinsPage : public QDialog, public SkinProvider {
 
     SkinModel* m_previewSkin = nullptr;
     SkinOpenGLWindow* m_skinPreview = nullptr;
-    QLabel* m_skinPreviewLabel = nullptr;
+    Skin3DPreview* m_softwarePreview = nullptr;
     QPushButton* m_websiteBtn = nullptr;
     QPushButton* m_accessButton = nullptr;
     bool m_uiEnabled = true;

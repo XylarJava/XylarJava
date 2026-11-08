@@ -52,7 +52,11 @@ class XylarSkinClient : public QObject {
     static bool validateCapePngData(const QByteArray& data, QString* outError = nullptr);
 
     // API Operations
-    void registerPlayer(const QString& username, const QString& msaUuid = QString());
+    void registerPlayer(const QString& username,
+                        const QString& profileId = QString(),
+                        const QString& identityToken = QString(),
+                        const QString& provider = QString(),
+                        const QString& ownedUuid = QString());
     void fetchPlayer(const QString& uuid);
     void fetchSkinMetadata(const QString& uuid);
     void downloadSkin(const QString& uuid, const QString& expectedHash = QString(), const QString& model = "classic");
@@ -73,10 +77,9 @@ class XylarSkinClient : public QObject {
 
     // Ownership: a claimed player's skin changes only with its key, which is kept here.
     QString playerKey(const QString& uuid) const;
-    void claimPlayer(const QString& uuid, std::function<void(bool)> done = {});
     QByteArray exportPlayerAccess(const QString& uuid) const;
     bool importPlayerAccess(const QString& uuid, const QByteArray& data, QString* outError = nullptr);
-    /// Asks for a short code to link this player to a Xylar website account (claims it first if needed).
+    /// Asks for a short code to link an owned profile to a Xylar website account.
     void startSiteLink(const QString& uuid);
 
    signals:
@@ -113,6 +116,4 @@ class XylarSkinClient : public QObject {
     QString m_capeBackendUrl;
     QString m_authToken;
     QString m_cacheDir;
-    QHash<QString, QList<std::function<void(bool)>>> m_claimCallbacks;
-    QHash<QString, QPair<int, QString>> m_claimFailures;
 };

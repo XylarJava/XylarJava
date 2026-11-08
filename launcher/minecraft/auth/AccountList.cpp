@@ -308,6 +308,9 @@ QVariant AccountList::data(const QModelIndex& index, int role) const
                         case AccountType::MSA: {
                             return tr("MSA", "Account type");
                         }
+                        case AccountType::Ely: {
+                            return QStringLiteral("Ely.by");
+                        }
                         case AccountType::Offline: {
                             return tr("Offline", "Account type");
                         }

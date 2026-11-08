@@ -52,7 +52,7 @@ struct MinecraftProfile {
     Validity validity = Validity::None;
 };
 
-enum class AccountType { MSA, Offline };
+enum class AccountType { MSA, Offline, Ely };
 
 enum class AccountState { Unchecked, Offline, Working, Online, Disabled, Errored, Expired, Gone };
 
@@ -79,6 +79,9 @@ struct AccountData {
     MinecraftProfile minecraftProfile;
     MinecraftEntitlement minecraftEntitlement;
     Validity validity_ = Validity::None;
+
+    QString elyLoginName;
+    QString elyPassword;  // transient: never serialized
 
     // runtime only information (not saved with the account)
     QString internalId;

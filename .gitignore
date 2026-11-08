@@ -57,6 +57,7 @@ run/
 # Single-exe packaging artifacts
 /dist-single/
 /tools/SingleExePacker/payload.zip
+/tools/SingleExePacker/payload.sha256
 /tools/SingleExePacker/bin/
 /tools/SingleExePacker/obj/
 *.AppImage

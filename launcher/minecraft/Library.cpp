@@ -6,6 +6,8 @@
 #include <FileSystem.h>
 #include <net/ApiDownload.h>
 #include <net/ChecksumValidator.h>
+#include <QCryptographicHash>
+#include <QFile>
 
 /**
  * @brief Collect applicable files for the library.
@@ -73,10 +75,11 @@ void Library::getApplicableFiles(const RuntimeContext& runtimeContext,
 QList<Net::NetRequest::Ptr> Library::getDownloads(const RuntimeContext& runtimeContext,
                                                   class HttpMetaCache* cache,
                                                   QStringList& failedLocalFiles,
-                                                  const QString& overridePath) const
+                                                  const QString& overridePath,
+                                                  bool verifyExisting) const
 {
     QList<Net::NetRequest::Ptr> out;
-    bool stale = isAlwaysStale();
+    bool stale = isAlwaysStale() || verifyExisting;
     bool local = isLocal();
 
     // Lambda function to check if a local file exists
@@ -93,18 +96,45 @@ QList<Net::NetRequest::Ptr> Library::getDownloads(const RuntimeContext& runtimeC
     };
 
     // Lambda function to add a download request
-    auto add_download = [this, local, check_local_file, cache, stale, &out](QString storage, QString url, QString sha1) {
+    auto add_download = [this, local, check_local_file, cache, stale, verifyExisting, &out](QString storage, QString url, QString sha1) {
         if (local) {
             return check_local_file(storage);
         }
         auto entry = cache->resolveEntry("libraries", storage);
+        if (verifyExisting) {
+            const QByteArray expected =
+                sha1.isEmpty() ? QByteArray::fromHex(entry->getMD5Sum().toLatin1()) : QByteArray::fromHex(sha1.toLatin1());
+            QFile current(entry->getFullPath());
+            QCryptographicHash hash(sha1.isEmpty() ? QCryptographicHash::Md5 : QCryptographicHash::Sha1);
+            QCryptographicHash md5(QCryptographicHash::Md5);
+            if (!expected.isEmpty() && current.open(QIODevice::ReadOnly)) {
+                while (!current.atEnd()) {
+                    const auto bytes = current.read(1024 * 1024);
+                    if (bytes.isEmpty())
+                        break;
+                    hash.addData(bytes);
+                    md5.addData(bytes);
+                }
+                if (current.error() == QFileDevice::NoError && hash.result() == expected && !isAlwaysStale()) {
+                    entry->setStale(false);
+                    entry->setMD5Sum(QString::fromLatin1(md5.result().toHex()));
+                    entry->setLocalChangedTimestamp(QFileInfo(current).lastModified().toUTC().toMSecsSinceEpoch());
+                    entry->makeEternal(true);
+                    cache->updateEntry(entry);
+                    return true;
+                }
+            }
+            // A 304 response or an offline cache fallback must never bless a known damaged file.
+            entry->setETag(QString());
+            entry->setRemoteChangedTimestamp(QString());
+        }
         if (stale) {
             entry->setStale(true);
         }
         if (!entry->isStale())
             return true;
         Net::Download::Options options;
-        if (stale) {
+        if (stale && !verifyExisting) {
             options |= Net::Download::Option::AcceptLocalFiles;
         }
 

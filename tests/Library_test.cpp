@@ -1,3 +1,5 @@
+#include <QCryptographicHash>
+#include <QTemporaryDir>
 #include <QTest>
 
 #include <FileSystem.h>
@@ -40,6 +42,45 @@ class LibraryTest : public QObject {
         cache->addBase("libraries", QDir("libraries").absolutePath());
         dataDir = QDir(QFINDTESTDATA("testdata/Libraries")).absolutePath();
     }
+    void repairVerifiesLocalChecksumAndKeepsOnlyValidFiles()
+    {
+        QTemporaryDir folder;
+        HttpMetaCache testCache;
+        testCache.addBase("libraries", folder.path());
+        Library lib("test:verified:1");
+        auto artifact = std::make_shared<MojangDownloadInfo>();
+        artifact->url = "https://example.test/library.jar";
+        const QByteArray original = "valid library content";
+        artifact->sha1 = QString::fromLatin1(QCryptographicHash::hash(original, QCryptographicHash::Sha1).toHex());
+        lib.setMojangDownloadInfo(std::make_shared<MojangLibraryDownloadInfo>(artifact));
+        const auto path = lib.storageSuffix(dummyContext());
+        auto entry = testCache.resolveEntry("libraries", path);
+        QDir().mkpath(QFileInfo(entry->getFullPath()).absolutePath());
+        QFile file(entry->getFullPath());
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write(original);
+        file.close();
+        QStringList errors;
+        auto requests = lib.getDownloads(dummyContext(), &testCache, errors, QString(), true);
+        QVERIFY(requests.isEmpty());
+        entry = testCache.resolveEntry("libraries", path);
+        QVERIFY(!entry->isStale());
+        const auto timestamp = QFileInfo(file).lastModified();
+        entry->setETag("cached-tag");
+        entry->setRemoteChangedTimestamp("yesterday");
+        QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        file.write("corrupt");
+        QVERIFY(file.flush());
+        QVERIFY(file.setFileTime(timestamp, QFileDevice::FileModificationTime));
+        file.close();
+        requests = lib.getDownloads(dummyContext(), &testCache, errors, QString(), true);
+        QCOMPARE(requests.size(), 1);
+        QVERIFY(entry->isStale());
+        QVERIFY(entry->getETag().isEmpty());
+        QVERIFY(entry->getRemoteChangedTimestamp().isEmpty());
+        QVERIFY(file.exists());
+    }
+
     void test_legacy()
     {
         RuntimeContext r = dummyContext();

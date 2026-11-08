@@ -1,0 +1,17 @@
+/* Meimei: the character is restricted to the main Home and Instances scenes. */
+QMainWindow#MainWindow, QDialog { border-image: url(theme:forest.png) 0 0 0 0 stretch stretch; }
+QStackedWidget#mainPages { border-image: url(theme:forest.png) 0 0 0 0 stretch stretch; }
+QStackedWidget#mainPages[characterScene="true"] { border-image: url(theme:meimei.png) 0 0 0 0 stretch stretch; }
+#homePage, #instancesPage, #settingsPage, #serversPage { background: transparent; }
+#instancesPage QAbstractItemView, #instancesPage QAbstractItemView > QWidget { background: transparent; }
+QToolBar, QStatusBar, QMenuBar { background-color: rgba(24, 32, 43, 215); border: none; }
+QMenu, QToolTip { background: #263444; color: #f0f3fa; border: 1px solid #637c91; padding: 6px; }
+QPushButton, QToolButton { border: 1px solid #5f788e; border-radius: 7px; padding: 6px 10px; background: rgba(38, 52, 68, 220); color: #f0f3fa; }
+QPushButton:hover, QToolButton:hover { background: #49677e; border-color: #c5e2f5; }
+QPushButton:pressed, QToolButton:checked { background: #b9d5ea; color: #14202b; }
+QPushButton:disabled, QToolButton:disabled { color: #82909c; border-color: #43505d; }
+QLineEdit, QComboBox, QSpinBox, QTextEdit, QPlainTextEdit, QAbstractItemView { background: rgba(24, 32, 43, 225); color: #f0f3fa; selection-background-color: #b9d5ea; selection-color: #14202b; border: 1px solid #52697e; border-radius: 5px; padding: 4px; }
+QTabBar::tab { background: #2c3b4c; padding: 8px 14px; }
+QTabBar::tab:selected { background: #49677e; color: #ffffff; }
+QGroupBox { border: 1px solid #52697e; border-radius: 8px; margin-top: 12px; padding-top: 12px; }
+QGroupBox::title { subcontrol-origin: margin; left: 10px; }

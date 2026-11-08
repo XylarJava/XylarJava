@@ -1,4 +1,5 @@
 #include "XylarSkinsPage.h"
+#include "ui/widgets/Skin3DPreview.h"
 #include "ui_XylarSkinsPage.h"
 
 #include <QDebug>
@@ -14,6 +15,7 @@
 #include <QUrlQuery>
 
 #include "Application.h"
+#include "minecraft/auth/AccountList.h"
 #include "DesktopServices.h"
 #include "settings/SettingsObject.h"
 #include "minecraft/skins/SkinModel.h"
@@ -126,11 +128,10 @@ void XylarSkinsPage::setupPreviewWidget()
         container->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
         m_ui->skinPreviewLayout->addWidget(container);
     } else {
-        m_skinPreviewLabel = new QLabel(this);
-        m_skinPreviewLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-        m_skinPreviewLabel->setAlignment(Qt::AlignCenter);
-        m_skinPreviewLabel->setMinimumSize(120, 200);
-        m_ui->skinPreviewLayout->addWidget(m_skinPreviewLabel);
+        m_softwarePreview = new Skin3DPreview(this);
+        m_softwarePreview->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        m_softwarePreview->setMinimumSize(120, 200);
+        m_ui->skinPreviewLayout->addWidget(m_softwarePreview);
     }
 }
 
@@ -146,26 +147,8 @@ QString XylarSkinsPage::xylarUuid() const
         return QString();
     }
 
-    // For premium (MSA) accounts: use minecraftProfile.id (real UUID)
-    QString profileId = m_acct->profileId();
-    if (!profileId.isEmpty()) {
-        // Insert dashes if not present (id128 format)
-        if (!profileId.contains('-') && profileId.length() == 32) {
-            profileId.insert(8, '-');
-            profileId.insert(13, '-');
-            profileId.insert(18, '-');
-            profileId.insert(23, '-');
-        }
-        return profileId;
-    }
-
-    // For offline accounts: compute offline UUID from username
-    QString username = m_acct->profileName();
-    if (!username.isEmpty()) {
-        return XylarSkinClient::computeOfflineUUID(username);
-    }
-
-    return QString();
+    const auto stored=m_acct->accountData()->yggdrasilToken.extra.value("xylarProfileId").toString();
+    return stored.isEmpty() ? XylarSkinClient::computeOfflineUUID(m_acct->profileName()) : stored;
 }
 
 QString XylarSkinsPage::currentModel() const
@@ -218,7 +201,7 @@ void XylarSkinsPage::loadCurrentSkin()
                 msaUuid.insert(23, '-');
             }
         }
-        m_client->registerPlayer(username, msaUuid);
+        m_client->registerPlayer(username, msaUuid, m_acct->accessToken(),QString(),xylarUuid());
     } else {
         m_client->fetchPlayer(uuid);
     }
@@ -253,8 +236,8 @@ void XylarSkinsPage::applySkinToPreview(const QByteArray& pngData, const QString
 
     if (m_skinPreview) {
         m_skinPreview->updateScene(m_previewSkin);
-    } else if (m_skinPreviewLabel) {
-        refreshFlatPreview();
+    } else if (m_softwarePreview) {
+        refreshSoftwarePreview();
     }
 
     // Sync the model radio buttons
@@ -292,8 +275,8 @@ void XylarSkinsPage::restoreAccountSkinPreview()
     m_previewSkin->setCapeId(m_currentCapeHash);
     if (m_skinPreview) {
         m_skinPreview->updateScene(m_previewSkin);
-    } else if (m_skinPreviewLabel) {
-        refreshFlatPreview();
+    } else if (m_softwarePreview) {
+        refreshSoftwarePreview();
     }
     m_ui->alexBtn->setChecked(model == "slim");
     m_ui->steveBtn->setChecked(model != "slim");
@@ -419,8 +402,8 @@ void XylarSkinsPage::on_steveBtn_toggled(bool checked)
         m_previewSkin->setModel(SkinModel::CLASSIC);
         if (m_skinPreview) {
             m_skinPreview->updateScene(m_previewSkin);
-        } else if (m_skinPreviewLabel) {
-            refreshFlatPreview();
+        } else if (m_softwarePreview) {
+            refreshSoftwarePreview();
         }
     }
 }
@@ -432,8 +415,8 @@ void XylarSkinsPage::on_alexBtn_toggled(bool checked)
         m_previewSkin->setModel(SkinModel::SLIM);
         if (m_skinPreview) {
             m_skinPreview->updateScene(m_previewSkin);
-        } else if (m_skinPreviewLabel) {
-            refreshFlatPreview();
+        } else if (m_softwarePreview) {
+            refreshSoftwarePreview();
         }
     }
 }
@@ -442,8 +425,11 @@ void XylarSkinsPage::on_alexBtn_toggled(bool checked)
 
 void XylarSkinsPage::onPlayerRegistered(const QString& uuid, const QString& username, const QString& skinHash, const QString& skinModel)
 {
-    (void)username;
+    if (!m_acct || username.compare(m_acct->profileName(), Qt::CaseInsensitive) != 0)
+        return;
     m_currentUuid = uuid;
+    m_acct->accountData()->yggdrasilToken.extra["xylarProfileId"] = uuid;
+    APPLICATION->accounts()->saveList();
     m_currentSkinHash = skinHash;
     requestCapes();
 
@@ -579,8 +565,15 @@ void XylarSkinsPage::onSkinDeleted(const QString& uuid)
 
 void XylarSkinsPage::onRequestFailed(const QString& action, const QString& errorMessage, int httpStatusCode)
 {
-    Q_UNUSED(httpStatusCode)
-
+    if ((action == "registerPlayer" || action == "fetchPlayer") &&
+        (httpStatusCode == 401 || httpStatusCode == 403 || httpStatusCode == 409)) {
+        restoreAccountSkinPreview();
+        setStatusMessage(errorMessage, true);
+        setUIEnabled(false);
+        if (m_accessButton)
+            m_accessButton->setEnabled(true);
+        return;
+    }
     QString msg;
     if (action == "registerPlayer" || action == "fetchPlayer") {
         // If server unreachable, fall back to local cache
@@ -804,24 +797,15 @@ void XylarSkinsPage::showCapeInPreview()
     if (m_skinPreview)
         m_skinPreview->updateCape(m_capeImages.value(m_currentCapeHash));  // a null image hides it
     else
-        refreshFlatPreview();
+        refreshSoftwarePreview();
 }
 
-void XylarSkinsPage::refreshFlatPreview()
+void XylarSkinsPage::refreshSoftwarePreview()
 {
-    if (!m_skinPreviewLabel || !m_previewSkin)
+    if (!m_softwarePreview || !m_previewSkin)
         return;
-    // Front and back side by side (36x36). The cape hangs on the back: its outside is the 10x16
-    // pixels at (1, 1) of a 64x32 texture, over the torso and the top of the legs.
-    QImage preview = m_previewSkin->getPreview();
-    const QImage cape = m_capeImages.value(m_currentCapeHash);
-    if (!cape.isNull()) {
-        const int scale = qMax(1, cape.width() / 64);
-        QPainter painter(&preview);
-        painter.drawImage(QRect(23, 10, 10, 16), cape.copy(scale, scale, 10 * scale, 16 * scale));
-    }
-    const QSize size = m_skinPreviewLabel->size().isValid() ? m_skinPreviewLabel->size() : QSize(200, 200);
-    m_skinPreviewLabel->setPixmap(QPixmap::fromImage(preview).scaled(size, Qt::KeepAspectRatio, Qt::FastTransformation));
+    m_softwarePreview->setSkin(m_previewSkin->getTexture(), m_previewSkin->getModel() == SkinModel::SLIM);
+    m_softwarePreview->setCape(m_capeImages.value(m_currentCapeHash));
 }
 
 void XylarSkinsPage::onCapesListed(const QJsonArray& capes)

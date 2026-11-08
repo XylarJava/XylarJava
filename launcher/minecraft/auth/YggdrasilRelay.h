@@ -20,7 +20,7 @@ class QTcpSocket;
  * those straight to Mojang from this computer (like the game would without authlib-injector) and
  * everything else (the XylarSkins skins, offline accounts' joins) to the backend:
  *
- * - join: Mojang first; when Mojang says no it's an offline account, so the backend records it.
+ * - join: an owned Xylar session goes to the backend; Microsoft sessions go to Mojang.
  * - hasJoined (for servers hosted here): Mojang first, with the player's XylarSkins skin swapped in
  *   when they have one; otherwise the backend checks for an offline account that joined.
  * - /minecraftservices/... and /api/...: Mojang.

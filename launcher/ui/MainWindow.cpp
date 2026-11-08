@@ -61,45 +61,46 @@
 #include <updater/XylarUpdater.h>
 #include "InstanceWindow.h"
 
+#include "MemoryTrim.h"
+#include "discord/DiscordPresence.h"
+#include "minecraft/VanillaInstanceCreationTask.h"
+#include "minecraft/launch/MinecraftTarget.h"
+#include "minecraft/skins/DefaultSkin.h"
+#include "minecraft/skins/MojangSkinFetcher.h"
+#include "servers/LocalServer.h"
+#include "settings/SettingsObject.h"
+#include "social/DesktopNotifier.h"
+#include "social/GameActivity.h"
+#include "social/ProfileClient.h"
+#include "social/SocialClient.h"
 #include "ui/GuiUtil.h"
 #include "ui/ViewLogWindow.h"
 #include "ui/dialogs/AboutDialog.h"
-#include "ui/dialogs/skins/XylarSkinsPage.h"
 #include "ui/dialogs/CopyInstanceDialog.h"
 #include "ui/dialogs/CreateShortcutDialog.h"
 #include "ui/dialogs/CustomMessageBox.h"
+#include "ui/dialogs/ElyLoginDialog.h"
 #include "ui/dialogs/ExportInstanceDialog.h"
 #include "ui/dialogs/ExportPackDialog.h"
 #include "ui/dialogs/IconPickerDialog.h"
 #include "ui/dialogs/ImportResourceDialog.h"
 #include "ui/dialogs/NewInstanceDialog.h"
 #include "ui/dialogs/NewsDialog.h"
+#include "ui/dialogs/PlayerProfileDialog.h"
 #include "ui/dialogs/ProgressDialog.h"
+#include "ui/dialogs/skins/XylarSkinsPage.h"
 #include "ui/instanceview/InstanceDelegate.h"
 #include "ui/instanceview/InstanceProxyModel.h"
 #include "ui/instanceview/InstanceView.h"
 #include "ui/themes/ITheme.h"
 #include "ui/themes/ThemeManager.h"
-#include "discord/DiscordPresence.h"
-#include "minecraft/skins/DefaultSkin.h"
-#include "minecraft/skins/MojangSkinFetcher.h"
 #include "ui/widgets/FadingStackedWidget.h"
-#include "ui/widgets/PageContainer.h"
-#include "settings/SettingsObject.h"
 #include "ui/widgets/HomePage.h"
-#include "ui/widgets/SideBar.h"
-#include "ui/widgets/SocialPanel.h"
-#include "social/SocialClient.h"
-#include "social/ProfileClient.h"
-#include "ui/dialogs/PlayerProfileDialog.h"
-#include "social/DesktopNotifier.h"
-#include "social/GameActivity.h"
-#include "minecraft/VanillaInstanceCreationTask.h"
-#include "minecraft/launch/MinecraftTarget.h"
-#include "servers/LocalServer.h"
-#include "MemoryTrim.h"
-#include "ui/widgets/SkinPreview.h"
 #include "ui/widgets/LabeledToolButton.h"
+#include "ui/widgets/PageContainer.h"
+#include "ui/widgets/SideBar.h"
+#include "ui/widgets/SkinPreview.h"
+#include "ui/widgets/SocialPanel.h"
 
 #include "minecraft/PackProfile.h"
 #include "minecraft/XylarClient.h"
@@ -329,6 +330,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     {
         m_pages = new FadingStackedWidget(ui->centralWidget);
         m_pages->setObjectName(QStringLiteral("mainPages"));
+        m_pages->setProperty("characterScene", true);
 
         m_homePage = new HomePage(m_pages);
         m_homePage->setLogo(APPLICATION->logo());
@@ -460,6 +462,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
             MinecraftAccountPtr account = APPLICATION->accounts()->defaultAccount();
             if (!account) {
                 on_actionManageAccounts_triggered();
+                return;
+            }
+            if (account->accountType() == AccountType::Ely) {
+                ElyAccountDialog::showSkin(this, account);
+                updateHomePlayer();
                 return;
             }
             XylarSkinsPage dialog(this, account);
@@ -756,8 +763,12 @@ void MainWindow::switchToPage(Page page)
         openSettings(QStringLiteral("global-settings"));
     m_currentPage = page;
     updateSocialVisibility();
-    if (m_pages)
+    if (m_pages) {
+        m_pages->setProperty("characterScene", page == Page::Home || page == Page::Instances);
+        m_pages->style()->unpolish(m_pages);
+        m_pages->style()->polish(m_pages);
         m_pages->setCurrentIndexAnimated(static_cast<int>(page));
+    }
     if (m_sideBar)
         m_sideBar->setCurrentPage(static_cast<int>(page));
     if (page == Page::Instances && view)
@@ -1048,15 +1059,16 @@ void MainWindow::updateHomePlayer()
 
     const QString name = account->profileName().isEmpty() ? account->displayName() : account->profileName();
     const bool isMsa = account->accountType() == AccountType::MSA;
+    const bool isEly = account->accountType() == AccountType::Ely;
 
     // XylarSkins stores every skin under the offline UUID of the player name, Microsoft accounts
     // included (their Mojang id is only linked to it), so the cache uses that UUID too.
-    QString uuid;
-    if (!name.isEmpty())
+    QString uuid = account->accountData()->yggdrasilToken.extra.value("xylarProfileId").toString();
+    if (uuid.isEmpty() && !name.isEmpty())
         uuid = XylarSkinClient::computeOfflineUUID(name);
     // The id the game itself plays with: the Mojang profile id online, the offline UUID otherwise.
     QString gameUuid = uuid;
-    if (isMsa) {
+    if (isMsa || isEly) {
         gameUuid = account->profileId();
         if (!gameUuid.contains(QLatin1Char('-')) && gameUuid.length() == 32) {
             gameUuid.insert(8, QLatin1Char('-'));
@@ -1071,7 +1083,8 @@ void MainWindow::updateHomePlayer()
     QString note;
 
     // Fetch XylarSkins on a fresh installation too; another device's disk cache isn't available here.
-    if (!uuid.isEmpty()) {
+    if (!isEly && APPLICATION->settings()->get("XylarEnableSkins").toBool() && !uuid.isEmpty() && APPLICATION->skinClient() &&
+        !APPLICATION->skinClient()->playerKey(uuid).isEmpty()) {
         auto* client = m_homeSkinClient;
         if (client && APPLICATION->skinClient()) {
             client->setBackendUrl(APPLICATION->skinClient()->backendUrl());
@@ -1098,7 +1111,7 @@ void MainWindow::updateHomePlayer()
         const auto& profileSkin = account->accountData()->minecraftProfile.skin;
         if (!profileSkin.data.isEmpty() && skin.loadFromData(profileSkin.data, "PNG")) {
             slim = profileSkin.variant.compare(QStringLiteral("slim"), Qt::CaseInsensitive) == 0 || SkinPreview::looksSlim(skin);
-            note = tr("Your Minecraft skin, straight from Mojang.");
+            note = isEly ? tr("Your Ely.by skin.") : tr("Your Minecraft skin, straight from Mojang.");
         } else {
             skin = QImage();
         }
@@ -1106,7 +1119,7 @@ void MainWindow::updateHomePlayer()
 
     // Ask Mojang: by profile UUID for Microsoft accounts, by username for offline ones.
     m_homeSkinKey.clear();
-    if (skin.isNull() && m_skinFetcher) {
+    if (skin.isNull() && m_skinFetcher && isMsa) {
         const QString key = isMsa ? MojangSkinFetcher::keyForUuid(gameUuid) : MojangSkinFetcher::keyForName(name);
         MojangSkinFetcher::Skin fetched;
         if (m_skinFetcher->cached(key, &fetched) && !fetched.texture.isNull()) {
@@ -1872,7 +1885,7 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* ev)
 
 void MainWindow::updateNewsLabel()
 {
-    newsLabel->setText(QStringLiteral("XylarJava v0.0.0.4-ALPHA just released!"));
+    newsLabel->setText(QStringLiteral("XylarJava v0.0.0.5-ALPHA just released!"));
     newsLabel->setEnabled(false);
     ui->actionMoreNews->setVisible(false);
 }

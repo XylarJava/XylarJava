@@ -230,6 +230,7 @@ QNetworkRequest XylarSkinClient::makeRequest(const QString& endpoint, bool json,
         req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     }
 
+    req.setTransferTimeout(30000);
     req.setAttribute(QNetworkRequest::Http2AllowedAttribute, true);
     return req;
 }
@@ -299,42 +300,50 @@ void XylarSkinClient::checkHealth()
     });
 }
 
-void XylarSkinClient::registerPlayer(const QString& username, const QString& msaUuid)
+void XylarSkinClient::registerPlayer(const QString& username,
+                                     const QString& profileId,
+                                     const QString& identityToken,
+                                     const QString& provider,
+                                     const QString& ownedUuid)
 {
     if (m_backendUrl.isEmpty()) {
-        emit requestFailed("registerPlayer", tr("Backend URL is not configured."), 0);
+        emit requestFailed("registerPlayer", tr("Profile protection requires a configured Xylar backend."), 0);
         return;
     }
-
-    QJsonObject body;
-    body["username"] = username;
-    if (!msaUuid.isEmpty()) {
-        body["msa_uuid"] = msaUuid;
+    const QString kind = provider.isEmpty() ? (profileId.isEmpty() ? QStringLiteral("offline") : QStringLiteral("microsoft")) : provider;
+    QJsonObject body{ { "username", username }, { "provider", kind } };
+    if (kind != "offline") {
+        body["profile_id"] = profileId;
+        body["identity_token"] = identityToken;
     }
-
-    QNetworkRequest req = makeRequest("/api/player");
-    QNetworkReply* reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
-
-    connect(reply, &QNetworkReply::finished, this, [this, reply, username]() {
+    QNetworkRequest req = makeRequest("/api/identity", true, ownedUuid.isEmpty() ? computeOfflineUUID(username) : ownedUuid);
+    req.setTransferTimeout(45000);
+    auto* reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, username] {
         reply->deleteLater();
-        QByteArray data = reply->readAll();
-        int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-
-        if (reply->error() != QNetworkReply::NoError || statusCode >= 400) {
-            QString err = parseErrorMessage(reply, data);
-            emit requestFailed("registerPlayer", err, statusCode);
+        const auto data = reply->readAll();
+        const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (reply->error() != QNetworkReply::NoError || status >= 400) {
+            emit requestFailed("registerPlayer", parseErrorMessage(reply, data), status);
             return;
         }
-
-        QJsonDocument doc = QJsonDocument::fromJson(data);
-        QJsonObject player = doc.object()["player"].toObject();
-        QString uuid = player["uuid"].toString();
-        QString skinHash = player["skin_hash"].toString();
-        QString skinModel = player["skin_model"].toString("classic");
-
-        // Keep this player's skin ours: ask for its key the first time we see it.
-        claimPlayer(uuid,
-                    [this, uuid, username, skinHash, skinModel](bool) { emit playerRegistered(uuid, username, skinHash, skinModel); });
+        const auto result = QJsonDocument::fromJson(data).object();
+        const auto player = result["player"].toObject();
+        const QString uuid = player["uuid"].toString();
+        if (result["identity_version"].toInt() != 2 ||
+            !QRegularExpression(QStringLiteral("^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$")).match(uuid).hasMatch()) {
+            emit requestFailed("registerPlayer", tr("Update the skin backend: it does not support protected usernames yet."), 502);
+            return;
+        }
+        const QString key = result["key"].toString();
+        if ((!key.isEmpty() &&
+             (!QRegularExpression(QStringLiteral("^[A-Za-z0-9_-]{43}$")).match(key).hasMatch() || !setPlayerKey(uuid, key))) ||
+            (key.isEmpty() && playerKey(uuid).isEmpty())) {
+            emit requestFailed("registerPlayer", tr("Could not save this profile's access key on this computer."), 0);
+            return;
+        }
+        emit playerRegistered(uuid, player["display_name"].toString(username), player["skin_hash"].toString(),
+                              player["skin_model"].toString("classic"));
     });
 }
 
@@ -761,76 +770,16 @@ bool XylarSkinClient::setPlayerKey(const QString& uuid, const QString& key)
     return false;
 }
 
-void XylarSkinClient::claimPlayer(const QString& uuid, std::function<void(bool)> done)
-{
-    if (m_backendUrl.isEmpty() || uuid.isEmpty()) {
-        if (done)
-            done(false);
-        return;
-    }
-    if (!playerKey(uuid).isEmpty()) {
-        if (done)
-            done(true);
-        return;
-    }
-    const QString identity = uuid.toLower();
-    const bool pending = m_claimCallbacks.contains(identity);
-    m_claimCallbacks[identity].append(std::move(done));
-    if (pending)
-        return;
-    QJsonObject body;
-    body["uuid"] = uuid;
-    QNetworkReply* reply = m_nam->post(makeRequest("/api/player/claim"), QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply, uuid]() {
-        reply->deleteLater();
-        const QByteArray data = reply->readAll();
-        const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        if (statusCode == 201) {
-            const QString key = QJsonDocument::fromJson(data).object().value("key").toString();
-            if (!key.isEmpty()) {
-                setPlayerKey(uuid, key);
-            }
-        } else if (statusCode == 409) {
-            // Claimed from another computer or an older install: skins still change from the website.
-            qWarning() << "XylarSkins: player" << uuid << "is already claimed elsewhere";
-        } else {
-            qWarning() << "XylarSkins: claiming player failed:" << parseErrorMessage(reply, data);
-        }
-        const bool ready = !playerKey(uuid).isEmpty();
-        if (ready) {
-            m_claimFailures.remove(uuid.toLower());
-        } else {
-            m_claimFailures.insert(
-                uuid.toLower(), { statusCode == 201 ? 0 : statusCode, statusCode == 201 ? tr("Could not save skin access on this computer.")
-                                                                                        : parseErrorMessage(reply, data) });
-        }
-        const auto callbacks = m_claimCallbacks.take(uuid.toLower());
-        for (const auto& callback : callbacks) {
-            if (callback)
-                callback(ready);
-        }
-    });
-}
-
 void XylarSkinClient::requirePlayerKey(const QString& uuid, const QString& action, std::function<void()> operation)
 {
-    claimPlayer(uuid, [this, uuid, action, operation = std::move(operation)](bool ready) {
-        if (ready) {
-            operation();
-        } else {
-            const auto failure = m_claimFailures.value(uuid.toLower());
-            if (failure.first != 409) {
-                emit requestFailed(action, failure.second.isEmpty() ? tr("Skin backend URL is not configured.") : failure.second,
-                                   failure.first);
-                return;
-            }
-            emit requestFailed(
-                action,
-                tr("This installation cannot change this profile yet. Use Skin access to import access exported from the device "
-                   "that owns the profile, or manage the skin from your linked Xylar website account."),
-                403);
-        }
-    });
+    if (!playerKey(uuid).isEmpty()) {
+        operation();
+        return;
+    }
+    emit requestFailed(action,
+                       tr("This installation cannot change this profile yet. Use Skin access to import access exported from the device "
+                          "that owns the profile, or sign in with its verified account."),
+                       403);
 }
 
 QByteArray XylarSkinClient::exportPlayerAccess(const QString& uuid) const
