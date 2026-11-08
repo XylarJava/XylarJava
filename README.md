@@ -34,6 +34,6 @@ Questions, bugs and new builds: the [Xylar Discord](https://discord.gg/CQ6Et3Kws
 
 XylarJava is free software under the [GNU GPL v3](LICENSE). It's built on the MultiMC family of open-source launchers; the full credits and the licenses of everything it includes are in [COPYING.md](COPYING.md).
 
-The interface is inspired by the Dawn launcher ([dawn.gg](https://dawn.gg)).
+
 
 XylarJava is not affiliated with or endorsed by Mojang Studios or Microsoft. Minecraft is a trademark of Mojang Studios.
