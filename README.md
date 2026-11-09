@@ -38,4 +38,4 @@ XylarJava is free software under the [GNU GPL v3](LICENSE). It's built on the Mu
 
 XylarJava is not affiliated with or endorsed by Mojang Studios or Microsoft. Minecraft is a trademark of Mojang Studios.
 
-See [v0.0.0.5 update notes](docs/update-0.0.0.5.md) for account protection, Ely.by skins, Meimei and Windows packaging.
+See [v0.0.0.5 update notes](docs/update-0.0.0.5.md) for account protection, Ely.by support and for the skins also and for the Meimei themes!!
