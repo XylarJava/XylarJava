@@ -724,9 +724,11 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
         m_settings->registerSetting("LastHostname", "");
         // Performance-tuned default JVM args (G1GC, Aikar-style) for smoother
         // gameplay out of the box. Users can still override these per instance.
+        // 8M regions: the size Aikar's flags use below 12 GB of heap (ours is at most 4 GB by default);
+        // 32M left a 4 GB heap with only 128 regions, which makes G1's pauses coarser.
         m_settings->registerSetting("JvmArgs",
                                     "-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 "
-                                    "-XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M "
+                                    "-XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=8M "
                                     "-XX:+ParallelRefProcEnabled -XX:+DisableExplicitGC -XX:+AlwaysPreTouch");
         m_settings->registerSetting("IgnoreJavaCompatibility", false);
         m_settings->registerSetting("IgnoreJavaWizard", false);

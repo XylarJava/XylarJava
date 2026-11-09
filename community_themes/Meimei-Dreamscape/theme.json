@@ -1,0 +1,22 @@
+{
+    "name": "Mei Mei \u00b7 Dreamscape",
+    "widgets": "Fusion",
+    "qssFilePath": "themeStyle.css",
+    "colors": {
+        "Window": "#1e1f23",
+        "WindowText": "#f0f3fa",
+        "Base": "#26272c",
+        "AlternateBase": "#2f3036",
+        "Text": "#f0f3fa",
+        "Button": "#36383f",
+        "ButtonText": "#f0f3fa",
+        "BrightText": "#ffffff",
+        "Highlight": "#c9ced9",
+        "HighlightedText": "#15161a",
+        "Link": "#d6dbe6",
+        "ToolTipBase": "#1e1f23",
+        "ToolTipText": "#ffffff",
+        "fadeAmount": 0.45,
+        "fadeColor": "#1e1f23"
+    }
+}

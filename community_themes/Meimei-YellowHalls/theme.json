@@ -1,0 +1,22 @@
+{
+    "name": "Mei Mei \u00b7 Yellow Halls",
+    "widgets": "Fusion",
+    "qssFilePath": "themeStyle.css",
+    "colors": {
+        "Window": "#1f1d12",
+        "WindowText": "#f0f3fa",
+        "Base": "#282615",
+        "AlternateBase": "#312e1a",
+        "Text": "#f0f3fa",
+        "Button": "#3a3720",
+        "ButtonText": "#f0f3fa",
+        "BrightText": "#ffffff",
+        "Highlight": "#d9cc6a",
+        "HighlightedText": "#1d1a07",
+        "Link": "#e6dc8c",
+        "ToolTipBase": "#1f1d12",
+        "ToolTipText": "#ffffff",
+        "fadeAmount": 0.45,
+        "fadeColor": "#1f1d12"
+    }
+}

@@ -1,0 +1,22 @@
+{
+    "name": "Mei Mei \u00b7 Monolith",
+    "widgets": "Fusion",
+    "qssFilePath": "themeStyle.css",
+    "colors": {
+        "Window": "#1d2a2c",
+        "WindowText": "#f0f3fa",
+        "Base": "#233436",
+        "AlternateBase": "#2b4042",
+        "Text": "#f0f3fa",
+        "Button": "#2f4a4a",
+        "ButtonText": "#f0f3fa",
+        "BrightText": "#ffffff",
+        "Highlight": "#8fcfc4",
+        "HighlightedText": "#0f2422",
+        "Link": "#a9e0d6",
+        "ToolTipBase": "#1d2a2c",
+        "ToolTipText": "#ffffff",
+        "fadeAmount": 0.45,
+        "fadeColor": "#1d2a2c"
+    }
+}

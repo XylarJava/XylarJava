@@ -1,0 +1,22 @@
+{
+    "name": "Mei Mei \u00b7 Misty Peaks",
+    "widgets": "Fusion",
+    "qssFilePath": "themeStyle.css",
+    "colors": {
+        "Window": "#1f2524",
+        "WindowText": "#f0f3fa",
+        "Base": "#252d2b",
+        "AlternateBase": "#2f3a37",
+        "Text": "#f0f3fa",
+        "Button": "#33403c",
+        "ButtonText": "#f0f3fa",
+        "BrightText": "#ffffff",
+        "Highlight": "#a9c7b4",
+        "HighlightedText": "#13201a",
+        "Link": "#c3dccc",
+        "ToolTipBase": "#1f2524",
+        "ToolTipText": "#ffffff",
+        "fadeAmount": 0.45,
+        "fadeColor": "#1f2524"
+    }
+}

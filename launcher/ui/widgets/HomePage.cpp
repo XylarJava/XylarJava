@@ -29,6 +29,14 @@
 #include "SkinPreview.h"
 
 namespace {
+/// The Mei Mei themes draw a picture behind the pages, so the page itself stays see-through.
+bool imageTheme()
+{
+    return APPLICATION->settings()->get("ApplicationTheme").toString().startsWith(QLatin1String("Meimei"));
+}
+}  // namespace
+
+namespace {
 
 QColor mix(const QColor& a, const QColor& b, qreal t)
 {
@@ -137,7 +145,7 @@ class PinIcon : public QWidget {
    protected:
     void paintEvent(QPaintEvent*) override
     {
-        if (APPLICATION->settings()->get("ApplicationTheme").toString() == QLatin1String("Meimei"))
+        if (imageTheme())
             return;
         const qreal dpr = devicePixelRatioF();
         QPixmap pin = QIcon(QStringLiteral(":/xylar/pin.png")).pixmap(size(), dpr);
@@ -176,8 +184,6 @@ class HeroScene : public QWidget {
 
     void setAnimating(bool on)
     {
-        if (APPLICATION->settings()->get("ApplicationTheme").toString() == QLatin1String("Meimei"))
-            on = false;
         if (on) {
             m_timer->start();
         } else {
@@ -197,8 +203,6 @@ class HeroScene : public QWidget {
    protected:
     void paintEvent(QPaintEvent*) override
     {
-        if (APPLICATION->settings()->get("ApplicationTheme").toString() == QLatin1String("Meimei"))
-            return;
         const qreal dpr = devicePixelRatioF();
         const QSize pixelSize = size() * dpr;
         if (m_dirty || m_backdrop.size() != pixelSize || m_backdropParallax != m_parallax) {
@@ -976,7 +980,7 @@ QColor HomePage::textOn(const QColor& background)
 void HomePage::paintEvent(QPaintEvent*)
 {
     // Image themes draw once behind the stacked pages, without tiling through child widgets.
-    if (APPLICATION->settings()->get("ApplicationTheme").toString() == QLatin1String("Meimei"))
+    if (imageTheme())
         return;
     // Page background: the window colour with two soft glows for depth.
     QPainter painter(this);
@@ -1098,7 +1102,7 @@ void HomePage::updateStyle()
 
     // Cards
     qss += QStringLiteral("QFrame[card=\"true\"] { background-color: %1; border: 1px solid %2; border-radius: 16px; }")
-               .arg(rgba(card, APPLICATION->settings()->get("ApplicationTheme").toString() == QLatin1String("Meimei") ? 170 : 235),
+               .arg(rgba(card, imageTheme() ? 170 : 235),
                     rgba(fg, 22));
     qss += QStringLiteral("QFrame#recentRow:hover { background-color: %1; }").arg(rgba(cardHover, 245));
     qss += QStringLiteral("QFrame#recentRow[running=\"true\"] { border: 1px solid %1; }").arg(accent.name());

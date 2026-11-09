@@ -1,0 +1,17 @@
+/* Mei Mei · Yellow Halls: Mei Mei is on the Home and Instances pages; everything else gets the same place without her. */
+QMainWindow#MainWindow, QDialog { border-image: url(theme:backdrop.jpg) 0 0 0 0 stretch stretch; }
+QStackedWidget#mainPages { border-image: url(theme:backdrop.jpg) 0 0 0 0 stretch stretch; }
+QStackedWidget#mainPages[characterScene="true"] { border-image: url(theme:scene.jpg) 0 0 0 0 stretch stretch; }
+#homePage, #instancesPage, #settingsPage, #serversPage { background: transparent; }
+#instancesPage QAbstractItemView, #instancesPage QAbstractItemView > QWidget { background: transparent; }
+QToolBar, QStatusBar, QMenuBar { background-color: rgba(31, 29, 18, 215); border: none; }
+QMenu, QToolTip { background: #312e1a; color: #f0f3fa; border: 1px solid #6b6640; padding: 6px; }
+QPushButton, QToolButton { border: 1px solid #6b6640; border-radius: 7px; padding: 6px 10px; background: rgba(58, 55, 32, 220); color: #f0f3fa; }
+QPushButton:hover, QToolButton:hover { background: #6b6640; border-color: #d9cc6a; }
+QPushButton:pressed, QToolButton:checked { background: #d9cc6a; color: #1d1a07; }
+QPushButton:disabled, QToolButton:disabled { color: #82909c; border-color: #312e1a; }
+QLineEdit, QComboBox, QSpinBox, QTextEdit, QPlainTextEdit, QAbstractItemView { background: rgba(31, 29, 18, 225); color: #f0f3fa; selection-background-color: #d9cc6a; selection-color: #1d1a07; border: 1px solid #6b6640; border-radius: 5px; padding: 4px; }
+QTabBar::tab { background: #312e1a; padding: 8px 14px; }
+QTabBar::tab:selected { background: #6b6640; color: #ffffff; }
+QGroupBox { border: 1px solid #6b6640; border-radius: 8px; margin-top: 12px; padding-top: 12px; }
+QGroupBox::title { subcontrol-origin: margin; left: 10px; }

@@ -144,11 +144,11 @@ void JavaChecker::finished(int exitcode, QProcess::ExitStatus status)
 void JavaChecker::error(QProcess::ProcessError err)
 {
     if (err == QProcess::FailedToStart) {
-        qDebug() << "Java checker has failed to start.";
-        qDebug() << "Process environment:";
-        qDebug() << process->environment();
-        qDebug() << "Native environment:";
-        qDebug() << QProcessEnvironment::systemEnvironment().toStringList();
+        // Only what explains a Java that won't start: the whole environment can hold tokens and
+        // passwords, and logs get shared when asking for help.
+        const QProcessEnvironment env = process->processEnvironment();
+        qDebug() << "Java checker has failed to start:" << m_path;
+        qDebug() << "PATH:" << env.value(QStringLiteral("PATH")) << "JAVA_HOME:" << env.value(QStringLiteral("JAVA_HOME"));
         killTimer.stop();
         emit checkFinished({ m_path, m_id });
     }

@@ -1,0 +1,22 @@
+{
+    "name": "Mei Mei \u00b7 Retro",
+    "widgets": "Fusion",
+    "qssFilePath": "themeStyle.css",
+    "colors": {
+        "Window": "#232323",
+        "WindowText": "#f0f3fa",
+        "Base": "#2b2b2b",
+        "AlternateBase": "#343434",
+        "Text": "#f0f3fa",
+        "Button": "#3a3a3a",
+        "ButtonText": "#f0f3fa",
+        "BrightText": "#ffffff",
+        "Highlight": "#e1a33b",
+        "HighlightedText": "#1e1606",
+        "Link": "#7fb37a",
+        "ToolTipBase": "#232323",
+        "ToolTipText": "#ffffff",
+        "fadeAmount": 0.45,
+        "fadeColor": "#232323"
+    }
+}

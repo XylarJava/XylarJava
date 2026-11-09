@@ -1,0 +1,22 @@
+{
+    "name": "Mei Mei \u00b7 Snowfall",
+    "widgets": "Fusion",
+    "qssFilePath": "themeStyle.css",
+    "colors": {
+        "Window": "#141c2b",
+        "WindowText": "#f0f3fa",
+        "Base": "#1a2436",
+        "AlternateBase": "#222f45",
+        "Text": "#f0f3fa",
+        "Button": "#263752",
+        "ButtonText": "#f0f3fa",
+        "BrightText": "#ffffff",
+        "Highlight": "#a8c4ef",
+        "HighlightedText": "#0e1828",
+        "Link": "#bcd3f5",
+        "ToolTipBase": "#141c2b",
+        "ToolTipText": "#ffffff",
+        "fadeAmount": 0.45,
+        "fadeColor": "#141c2b"
+    }
+}

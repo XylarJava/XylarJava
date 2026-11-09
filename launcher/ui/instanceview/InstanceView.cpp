@@ -220,7 +220,8 @@ QString InstanceView::groupNameAt(const QPoint& point)
 
 int InstanceView::calculateItemsPerRow() const
 {
-    return qFloor((qreal)(contentWidth()) / (qreal)(itemWidth() + m_spacing));
+    // At least one: while the page is hidden or squeezed by a page switch it can be narrower than an item.
+    return qMax(1, qFloor((qreal)(contentWidth()) / (qreal)(itemWidth() + m_spacing)));
 }
 
 int InstanceView::contentWidth() const
