@@ -97,6 +97,7 @@ SkinManageDialog::SkinManageDialog(QWidget* parent, MinecraftAccountPtr acct)
 
     if (m_skinPreview) {
         m_ui->skinLayout->insertWidget(0, QWidget::createWindowContainer(m_skinPreview, this));
+        m_ui->skinLayout->insertWidget(1, m_skinPreview->createViewControls(this));
     } else {
         m_ui->skinLayout->insertWidget(0, m_softwarePreview);
     }

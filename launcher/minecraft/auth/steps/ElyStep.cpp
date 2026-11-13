@@ -89,7 +89,7 @@ void ElyStep::perform()
 
 void ElyStep::profile()
 {
-    QNetworkRequest request(QUrl("https://authserver.ely.by/session/profile/" + m_data->minecraftProfile.id));
+    QNetworkRequest request(QUrl("https://account.ely.by/api/authlib-injector/sessionserver/session/minecraft/profile/" + m_data->minecraftProfile.id));
     request.setTransferTimeout(30000);
     auto* reply = m_network->get(request);
     m_reply = reply;

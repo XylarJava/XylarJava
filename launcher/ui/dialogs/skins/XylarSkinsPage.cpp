@@ -127,6 +127,7 @@ void XylarSkinsPage::setupPreviewWidget()
         container->setMinimumSize(180, 280);
         container->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
         m_ui->skinPreviewLayout->addWidget(container);
+        m_ui->skinPreviewLayout->addWidget(m_skinPreview->createViewControls(this));
     } else {
         m_softwarePreview = new Skin3DPreview(this);
         m_softwarePreview->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);

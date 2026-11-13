@@ -11,7 +11,7 @@
 namespace {
 class IdentityTask : public Task {
    public:
-    explicit IdentityTask(MinecraftAccountPtr account) : m_account(account), m_client(this) {}
+    explicit IdentityTask(MinecraftAccountPtr account, bool transfer) : m_account(account), m_client(this), m_transfer(transfer || account->accountData()->msaToken.extra.value("xylar_transfer_pending").toBool()) {}
     void executeTask() override
     {
         auto* global = APPLICATION->skinClient();
@@ -22,6 +22,7 @@ class IdentityTask : public Task {
         setStatus(tr("Verifying ownership of %1…").arg(m_account->profileName()));
         connect(&m_client, &XylarSkinClient::playerRegistered, this, [this](const QString& uuid) {
             m_account->accountData()->yggdrasilToken.extra["xylarProfileId"] = uuid;
+            m_account->accountData()->msaToken.extra.remove("xylar_transfer_pending");
             APPLICATION->accounts()->saveList();
             emitSucceeded();
         });
@@ -40,24 +41,29 @@ class IdentityTask : public Task {
                                 type == AccountType::MSA   ? QStringLiteral("microsoft")
                                 : type == AccountType::Ely ? QStringLiteral("ely")
                                                            : QStringLiteral("offline"),
-                                m_account->accountData()->yggdrasilToken.extra.value("xylarProfileId").toString());
+                                m_account->accountData()->yggdrasilToken.extra.value("xylarProfileId").toString(), m_transfer);
     }
 
    private:
     MinecraftAccountPtr m_account;
     XylarSkinClient m_client;
+    bool m_transfer;
 };
 }  // namespace
 
-bool AccountIdentity::verify(QWidget* parent, const MinecraftAccountPtr& account)
+bool AccountIdentity::verify(QWidget* parent, const MinecraftAccountPtr& account, QString* inlineError, bool transferSession)
 {
     APPLICATION->initSkinClient();
-    IdentityTask task(account);
+    IdentityTask task(account, transferSession);
     ProgressDialog progress(parent);
     const auto result = progress.execWithTask(&task);
     if (result == QDialog::Accepted && task.wasSuccessful())
         return true;
     if (task.isFinished() && !task.wasSuccessful()) {
+        if (inlineError) {
+            *inlineError = task.failReason();
+            return false;
+        }
         QMessageBox message(QMessageBox::Warning, QObject::tr("Username could not be verified"), task.failReason(), QMessageBox::Cancel,
                             parent);
         auto* importButton = message.addButton(QObject::tr("Import my profile access…"), QMessageBox::ActionRole);

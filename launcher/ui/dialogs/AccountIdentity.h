@@ -3,5 +3,5 @@
 class QWidget;
 namespace AccountIdentity {
 /** Verifies ownership and reserves the username. Shows progress and explains a rejection. */
-bool verify(QWidget* parent, const MinecraftAccountPtr& account);
+bool verify(QWidget* parent, const MinecraftAccountPtr& account, QString* inlineError = nullptr, bool transferSession = false);
 }  // namespace AccountIdentity

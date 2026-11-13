@@ -6,55 +6,49 @@
 
 static void setAlpha(QImage& image, const QRect& region, const int alpha)
 {
-    for (int y = region.top(); y < region.bottom(); ++y) {
+    for (int y = region.top(); y <= region.bottom(); ++y) {
         QRgb* line = reinterpret_cast<QRgb*>(image.scanLine(y));
-        for (int x = region.left(); x < region.right(); ++x) {
+        for (int x = region.left(); x <= region.right(); ++x) {
             QRgb pixel = line[x];
             line[x] = qRgba(qRed(pixel), qGreen(pixel), qBlue(pixel), alpha);
         }
     }
 }
 
-static void doNotchTransparencyHack(QImage& image)
+static void doNotchTransparencyHack(QImage& image, int scale)
 {
-    for (int y = 0; y < 32; y++) {
+    for (int y = 0; y < 32 * scale; y++) {
         QRgb* line = reinterpret_cast<QRgb*>(image.scanLine(y));
-        for (int x = 32; x < 64; x++) {
+        for (int x = 32 * scale; x < 64 * scale; x++) {
             if (qAlpha(line[x]) < 128) {
                 return;
             }
         }
     }
 
-    setAlpha(image, { 32, 0, 32, 32 }, 0);
+    setAlpha(image, { 32 * scale, 0, 32 * scale, 32 * scale }, 0);
 }
 
-static QImage improveSkin(QImage skin)
+QImage SkinModel::normalizeTexture(QImage skin)
 {
-    int height = skin.height();
-    int width = skin.width();
-    if (width != 64 || (height != 32 && height != 64)) {  // this is no minecraft skin
-        return skin;
-    }
-    // It seems some older skins may use this format, which can't be drawn onto
-    // https://github.com/XylarJava/XylarJava/issues/4032
-    // https://doc.qt.io/qt-6/qpainter.html#begin
-    if (skin.format() <= QImage::Format_Indexed8 || !skin.hasAlphaChannel()) {
-        skin = skin.convertToFormat(QImage::Format_ARGB32);
-    }
+    const int height = skin.height(), width = skin.width();
+    if (skin.isNull() || width < 64 || width > 2048 || width % 64 || (height != width && height * 2 != width))
+        return {};
+    const int scale = width / 64;
+    skin = skin.convertToFormat(QImage::Format_ARGB32);
 
-    auto isLegacy = height == 32;  // old format
+    auto isLegacy = height * 2 == width;  // old format
     if (isLegacy) {
-        auto newSkin = QImage(QSize(64, 64), skin.format());
+        auto newSkin = QImage(QSize(width, width), skin.format());
         newSkin.fill(Qt::transparent);
         QPainter p(&newSkin);
         p.drawImage(0, 0, skin);
 
-        auto copyRect = [&p, &newSkin](int startX, int startY, int offsetX, int offsetY, int sizeX, int sizeY) {
-            QImage region = newSkin.copy(startX, startY, sizeX, sizeY);
+        auto copyRect = [&p, &skin, scale](int startX, int startY, int offsetX, int offsetY, int sizeX, int sizeY) {
+            QImage region = skin.copy(startX * scale, startY * scale, sizeX * scale, sizeY * scale);
             region = region.mirrored(true, false);
 
-            p.drawImage(startX + offsetX, startY + offsetY, region);
+            p.drawImage((startX + offsetX) * scale, (startY + offsetY) * scale, region);
         };
         static const struct {
             int x;
@@ -72,7 +66,8 @@ static QImage improveSkin(QImage skin)
         for (const auto& face : faces) {
             copyRect(face.x, face.y, face.offsetX, face.offsetY, face.width, face.height);
         }
-        doNotchTransparencyHack(newSkin);
+        p.end();
+        doNotchTransparencyHack(newSkin, scale);
         skin = newSkin;
     }
     static const QRect opaqueParts[] = {
@@ -82,14 +77,14 @@ static QImage improveSkin(QImage skin)
     };
 
     for (const auto& p : opaqueParts) {
-        setAlpha(skin, p, 255);
+        setAlpha(skin, QRect(p.topLeft() * scale, p.size() * scale), 255);
     }
     return skin;
 }
 
 static QImage getSkin(const QString path)
 {
-    return improveSkin(QImage(path));
+    return SkinModel::normalizeTexture(QImage(path));
 }
 
 static QImage generatePreviews(QImage texture, bool slim)
@@ -213,15 +208,14 @@ void SkinModel::setModel(Model model)
     m_preview = generatePreviews(m_texture, m_model == Model::SLIM);
 }
 
-SkinModel::SkinModel(const QImage& texture, Model model)
-    : m_model(model)
+SkinModel::SkinModel(const QImage& texture, Model model) : m_model(model)
 {
     setTexture(texture);
 }
 
 void SkinModel::setTexture(const QImage& texture)
 {
-    m_texture = improveSkin(texture);
+    m_texture = normalizeTexture(texture);
     m_preview = generatePreviews(m_texture, m_model == Model::SLIM);
 }
 
@@ -250,7 +244,7 @@ QImage SkinModel::defaultSteveTexture()
     p.fillRect(QRect(20, 52, 4, 10), QColor(0x2a, 0x3c, 0x7c));
     p.fillRect(QRect(20, 62, 4, 2), QColor(0x35, 0x35, 0x35));
     p.end();
-    return improveSkin(img);
+    return normalizeTexture(img);
 }
 
 QImage SkinModel::defaultAlexTexture()
@@ -278,6 +272,5 @@ QImage SkinModel::defaultAlexTexture()
     p.fillRect(QRect(20, 52, 4, 10), QColor(0x52, 0x40, 0x2b));
     p.fillRect(QRect(20, 62, 4, 2), QColor(0x3c, 0x30, 0x24));
     p.end();
-    return improveSkin(img);
+    return normalizeTexture(img);
 }
-

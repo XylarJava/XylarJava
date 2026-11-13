@@ -1,0 +1,7 @@
+<RCC>
+ <qresource prefix="/translations">
+  <file>it_IT.po</file>
+  <file>ru_RU.po</file>
+  <file>es_ES.po</file>
+ </qresource>
+</RCC>

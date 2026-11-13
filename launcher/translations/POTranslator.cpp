@@ -303,7 +303,10 @@ QString POTranslator::translate(const char* context, const char* sourceText, con
         }
         return entry.text;
     }
-    return QString();
+    // Bundled catalogues share common controls across the launcher's pages.
+    // Context-specific entries (including downloaded translations) take priority.
+    const auto common = d->mapping.constFind(QByteArray("Common|") + sourceText);
+    return common == d->mapping.cend() ? QString() : common->text;
 }
 
 bool POTranslator::isEmpty() const

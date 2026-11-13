@@ -2,6 +2,7 @@
 #include "ui_CustomPage.h"
 
 #include <QTabBar>
+#include <QLabel>
 
 #include "Application.h"
 #include "Filter.h"
@@ -14,6 +15,32 @@
 CustomPage::CustomPage(NewInstanceDialog* dialog, QWidget* parent) : QWidget(parent), dialog(dialog), ui(new Ui::CustomPage)
 {
     ui->setupUi(this);
+    m_rustFilter = new QCheckBox(tr("Rust"), this);
+    m_rustFilter->setObjectName("rustFilter");
+    m_rustFilter->setToolTip(tr("Rust 26.3 is in beta and does not support Java mod loaders."));
+    ui->verticalLayout->insertWidget(6, m_rustFilter);
+    m_rustVersion = new QLabel(tr("Rust — 26.3 Beta"), this);
+    m_rustVersion->setObjectName("rustVersion");
+    m_rustVersion->setAlignment(Qt::AlignCenter);
+    m_rustVersion->setWordWrap(true);
+    ui->minecraftLayout->insertWidget(0, m_rustVersion, 1);
+    m_rustVersion->hide();
+    connect(m_rustFilter, &QCheckBox::toggled, this, [this](bool rust) {
+        ui->versionList->setVisible(!rust);
+        m_rustVersion->setVisible(rust);
+        for (auto* filter : {ui->releaseFilter, ui->snapshotFilter, ui->betaFilter, ui->alphaFilter, ui->experimentsFilter})
+            filter->setEnabled(!rust);
+        for (auto* loader : {ui->neoForgeFilter, ui->forgeFilter, ui->fabricFilter, ui->quiltFilter, ui->liteLoaderFilter})
+            loader->setEnabled(!rust);
+        ui->noneFilter->setChecked(true);
+        ui->loaderVersionList->setEnabled(!rust);
+        ui->loaderRefreshBtn->setEnabled(!rust);
+        ui->refreshBtn->setEnabled(!rust);
+        m_selectedLoader.clear();
+        m_selectedLoaderVersion.reset();
+        suggestCurrent();
+        loaderFilterChanged();
+    });
     connect(ui->versionList, &VersionSelectWidget::selectedVersionChanged, this, &CustomPage::setSelectedVersion);
     filterChanged();
     connect(ui->alphaFilter, &QCheckBox::stateChanged, this, &CustomPage::filterChanged);
@@ -74,6 +101,12 @@ void CustomPage::filterChanged()
 
 void CustomPage::loaderFilterChanged()
 {
+    if (m_rustFilter->isChecked()) {
+        ui->loaderVersionList->setExactFilter(BaseVersionList::ParentVersionRole, "AAA");
+        ui->loaderVersionList->setEmptyString(tr("Rust 26.3 is in beta and does not support Java mod loaders."));
+        ui->loaderVersionList->setEmptyMode(VersionListView::String);
+        return;
+    }
     QString minecraftVersion;
     if (m_selectedVersion) {
         minecraftVersion = m_selectedVersion->descriptor();
@@ -132,6 +165,8 @@ bool CustomPage::shouldDisplay() const
 void CustomPage::retranslate()
 {
     ui->retranslateUi(this);
+    m_rustFilter->setText(tr("Rust"));
+    m_rustVersion->setText(tr("Rust — 26.3 Beta"));
 }
 
 BaseVersion::Ptr CustomPage::selectedVersion() const
@@ -155,6 +190,13 @@ void CustomPage::suggestCurrent()
         return;
     }
 
+    if (m_rustFilter->isChecked()) {
+        auto* task = new VanillaCreationTask(QStringLiteral("26.3"));
+        task->setNativeRust(true);
+        dialog->setSuggestedPack(tr("Rust — 26.3 Beta"), task);
+        dialog->setSuggestedIcon("minecraft");
+        return;
+    }
     if (!m_selectedVersion) {
         dialog->setSuggestedPack();
         return;

@@ -640,6 +640,12 @@ void repair(BaseInstance* instance, const Diagnosis& d, std::function<void(const
         finished({}, d.advice);
         return;
     }
+    if (settings->get("NativeRust").toBool()) {
+        settings->set("NativeRustRepair", true);
+        done << QObject::tr("Scheduled Rust engine verification and complete resource preparation for the next start");
+        finished(done, failed);
+        return;
+    }
     if (d.verifyFiles) {
         instance->setProperty("VerifyLibraries", true);
         done << QObject::tr("Scheduled a full library checksum verification for the next start");

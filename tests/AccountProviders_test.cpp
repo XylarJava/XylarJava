@@ -7,6 +7,7 @@
 #include <QTest>
 #include <QTimer>
 #include "minecraft/auth/AccountData.h"
+#include "minecraft/auth/AccountTokenCipher.h"
 #include "minecraft/auth/AuthSession.h"
 #include "minecraft/auth/steps/ElyStep.h"
 namespace {
@@ -81,6 +82,26 @@ QByteArray profile()
 class AccountProvidersTest : public QObject {
     Q_OBJECT
    private slots:
+    void microsoftRefreshCredentialsSurviveSaveWithoutPlaintextCopies()
+    {
+        AccountData original;
+        original.type = AccountType::MSA;
+        original.msaClientID = "application-id";
+        original.msaToken.token = "private-access-token";
+        original.msaToken.refresh_token = "long-lived-refresh-token";
+        original.msaToken.extra = {{"access_token", original.msaToken.token}, {"refresh_token", original.msaToken.refresh_token}, {"wam_account_id", "broker-account"}};
+        original.minecraftProfile.id = id;
+        original.minecraftProfile.name = "MicrosoftUser";
+        const auto saved = original.saveState();
+        const auto serialized = QJsonDocument(saved).toJson();
+        QVERIFY(!serialized.contains("private-access-token"));
+        QVERIFY(!serialized.contains("long-lived-refresh-token"));
+        AccountData restored;
+        QVERIFY(restored.resumeStateFromV3(saved));
+        QCOMPARE(restored.msaToken.refresh_token, original.msaToken.refresh_token);
+        QCOMPARE(restored.msaToken.extra.value("wam_account_id").toString(), QStringLiteral("broker-account"));
+        QVERIFY(!restored.msaToken.extra.contains("refresh_token"));
+    }
     void offlineAliasCannotKeepMicrosoftIdentity()
     {
         AuthSession session;

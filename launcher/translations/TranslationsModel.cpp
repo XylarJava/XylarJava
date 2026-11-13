@@ -277,6 +277,14 @@ void TranslationsModel::reloadLocalFiles()
 {
     QMap<QString, Language> languages = { { defaultLangCode, Language(defaultLangCode) } };
 
+    // Always available offline, including during first-run setup.
+    for (const auto& code : { "it_IT", "ru_RU", "es_ES" }) {
+        Language bundled(QString::fromLatin1(code));
+        bundled.localFileType = FileType::PO;
+        bundled.updated = true;
+        languages.insert(bundled.key, bundled);
+    }
+
     readIndex(d->m_dir.absoluteFilePath("index_v2.json"), languages);
     auto entries = d->m_dir.entryInfoList({ "mmc_*.qm", "*.po" }, QDir::Files | QDir::NoDotAndDotDot);
     for (auto& entry : entries) {
@@ -333,7 +341,7 @@ void TranslationsModel::reloadLocalFiles()
     if (languages.isEmpty()) {
         return;
     }
-    beginInsertRows(QModelIndex(), 0, d->m_languages.size() + languages.size() - 1);
+    beginResetModel();
     for (auto& language : languages) {
         d->m_languages.append(language);
     }
@@ -348,7 +356,7 @@ void TranslationsModel::reloadLocalFiles()
         }
         return a.languageName().toLower() < b.languageName().toLower();
     });
-    endInsertRows();
+    endResetModel();
 }
 
 namespace {
@@ -502,7 +510,8 @@ bool TranslationsModel::selectLanguage(QString key)
 
     if (langPtr->localFileType == FileType::PO) {
         qDebug() << "Loading Application Language File for" << langCode.toLocal8Bit().constData() << "...";
-        auto poTranslator = new POTranslator(FS::PathCombine(d->m_dir.path(), langCode + ".po"));
+        const auto localPath = FS::PathCombine(d->m_dir.path(), langCode + ".po");
+        auto poTranslator = new POTranslator(QFile::exists(localPath) ? localPath : ":/translations/" + langCode + ".po");
         if (!poTranslator->isEmpty()) {
             if (!QCoreApplication::installTranslator(poTranslator)) {
                 delete poTranslator;

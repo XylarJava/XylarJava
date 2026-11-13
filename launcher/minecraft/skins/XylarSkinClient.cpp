@@ -304,7 +304,8 @@ void XylarSkinClient::registerPlayer(const QString& username,
                                      const QString& profileId,
                                      const QString& identityToken,
                                      const QString& provider,
-                                     const QString& ownedUuid)
+                                     const QString& ownedUuid,
+                                     bool transferSession)
 {
     if (m_backendUrl.isEmpty()) {
         emit requestFailed("registerPlayer", tr("Profile protection requires a configured Xylar backend."), 0);
@@ -316,13 +317,24 @@ void XylarSkinClient::registerPlayer(const QString& username,
         body["profile_id"] = profileId;
         body["identity_token"] = identityToken;
     }
-    QNetworkRequest req = makeRequest("/api/identity", true, ownedUuid.isEmpty() ? computeOfflineUUID(username) : ownedUuid);
+    body["transfer_session"] = transferSession;
+    submitIdentity(body, ownedUuid.isEmpty() ? computeOfflineUUID(username) : ownedUuid, kind != "offline");
+}
+
+void XylarSkinClient::submitIdentity(QJsonObject body, const QString& uuid, bool allowChallenge)
+{
+    const QString username = body["username"].toString();
+    QNetworkRequest req = makeRequest("/api/identity", true, uuid);
     req.setTransferTimeout(45000);
     auto* reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply, username] {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, username, body, ownedUuid = uuid, allowChallenge] {
         reply->deleteLater();
         const auto data = reply->readAll();
         const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if ((status == 503 || status == 401) && allowChallenge) {
+            proveIdentity(body, ownedUuid);
+            return;
+        }
         if (reply->error() != QNetworkReply::NoError || status >= 400) {
             emit requestFailed("registerPlayer", parseErrorMessage(reply, data), status);
             return;
@@ -344,6 +356,54 @@ void XylarSkinClient::registerPlayer(const QString& username,
         }
         emit playerRegistered(uuid, player["display_name"].toString(username), player["skin_hash"].toString(),
                               player["skin_model"].toString("classic"));
+    });
+}
+
+void XylarSkinClient::proveIdentity(QJsonObject body, const QString& uuid)
+{
+    QJsonObject challengeBody{{"username", body["username"]}, {"provider", body["provider"]}, {"profile_id", body["profile_id"]}};
+    auto* challengeReply = m_nam->post(makeRequest("/api/identity/challenge"), QJsonDocument(challengeBody).toJson(QJsonDocument::Compact));
+    connect(challengeReply, &QNetworkReply::finished, this, [this, challengeReply, body, uuid]() mutable {
+        challengeReply->deleteLater();
+        const auto data = challengeReply->readAll();
+        const int status = challengeReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const QString challenge = QJsonDocument::fromJson(data).object()["challenge"].toString();
+        if (challengeReply->error() != QNetworkReply::NoError || !QRegularExpression("^[a-zA-Z0-9]{32}$").match(challenge).hasMatch()) {
+            emit requestFailed("registerPlayer", tr("Could not verify this account. Update the profile server and try again. %1").arg(parseErrorMessage(challengeReply, data)), status);
+            return;
+        }
+        // Use fixed official HTTPS endpoints, never an address provided by the backend.
+        const QUrl endpoint(body["provider"] == "ely" ? "https://account.ely.by/api/minecraft/session/join"
+                                                     : "https://sessionserver.mojang.com/session/minecraft/join");
+        QNetworkRequest join(endpoint);
+        join.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        join.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
+        join.setTransferTimeout(20000);
+        QJsonObject proof{{"accessToken", body["identity_token"]}, {"selectedProfile", body["profile_id"].toString().remove('-')}, {"serverId", challenge}};
+        auto* joinReply = m_nam->post(join, QJsonDocument(proof).toJson(QJsonDocument::Compact));
+        connect(joinReply, &QNetworkReply::finished, this, [this, joinReply, body, uuid, challenge]() mutable {
+            joinReply->deleteLater();
+            const int status = joinReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            if (joinReply->error() != QNetworkReply::NoError || (status != 200 && status != 204)) {
+                emit requestFailed("registerPlayer", tr("The account provider could not confirm this sign-in (HTTP %1). Try again.").arg(status), status);
+                return;
+            }
+            body["identity_challenge"] = challenge;
+            body.remove("identity_token");
+            submitIdentity(body, uuid, false);
+        });
+    });
+}
+
+void XylarSkinClient::checkIdentitySession(const QString& uuid)
+{
+    if (m_backendUrl.isEmpty() || playerKey(uuid).isEmpty())
+        return;
+    auto* reply = m_nam->get(makeRequest("/api/identity/session/" + uuid, false, uuid));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, uuid] {
+        reply->deleteLater();
+        if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 409)
+            emit identitySessionRevoked(uuid);
     });
 }
 

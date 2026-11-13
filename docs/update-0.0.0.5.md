@@ -12,9 +12,12 @@ system does not supply capes. The interactive Ely viewer includes Refresh.
 The Xylar skin Worker must be upgraded together with the launcher. `/api/identity`
 reserves names case-insensitively and issues an owner key in the same database
 transaction. Microsoft identities are checked against Minecraft Services; Ely
-identities use an Ely session join/hasJoined challenge. A supplied username or UUID
+identities are checked through Ely.by's authenticated Minecraft Services profile
+endpoint, without simulating a Minecraft server join. A supplied username or UUID
 is not proof. Further requests require the existing key or the same verified provider
-identity. Existing owners keep their keys and textures; a second authenticated
+identity. An existing owner key can resume only the same provider and subject already verified
+for the reserved name; new devices and changed identities still need provider proof.
+Existing owners keep their keys and textures; a second authenticated
 device gets a separate key. Offline owners transfer a `.xylar-skin-access` file
 using the import action in the rejection dialog or Skins & Capes. Keep this file
 private. Offline spelling must match the original reservation because Minecraft's
@@ -55,7 +58,9 @@ OAuth credentials.
 
 Skins & Capes retains the OpenGL preview when available and uses an interactive
 textured 3D raster renderer otherwise: drag to rotate, scroll to zoom, double-click
-to reset. No OpenGL dependency or continuously running render timer is needed for
+to reset. Front/back/reset buttons are also available, with camera panning, arrow-key
+rotation, lighting, a floor shadow and correct legacy/HD skin normalization.
+No OpenGL dependency or continuously running render timer is needed for
 the fallback. Meimei appears in Settings → Appearance with the bundled community
 themes. Its original image appears only on Home and Instances; Servers, Settings
 and dialogs use the separate forest background. Both assets are local.

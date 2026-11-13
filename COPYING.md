@@ -411,3 +411,11 @@
     HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
     CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
     OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+## Rust engine (`horizon-rust/horizon`)
+
+    Native Rust instances download the engine from https://github.com/horizon-rust/horizon.
+    The engine is distributed under the MIT License. Its original LICENSE and notices are
+    retained in every downloaded engine directory. Minecraft code, assets and prepared
+    resources are not distributed with XylarJava; they are prepared locally from the
+    signed-in player's own Minecraft: Java Edition files.

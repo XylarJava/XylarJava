@@ -1,0 +1,1342 @@
+# XylarJava user interface translations; GPL-3.0-only
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: ru_RU\n"
+
+msgctxt "Common"
+msgid "Home"
+msgstr "Главная"
+
+msgctxt "Common"
+msgid "&Home"
+msgstr "&Главная"
+
+msgctxt "Common"
+msgid "Instances"
+msgstr "Сборки"
+
+msgctxt "Common"
+msgid "&Instances"
+msgstr "&Сборки"
+
+msgctxt "Common"
+msgid "Settings"
+msgstr "Настройки"
+
+msgctxt "Common"
+msgid "&Settings"
+msgstr "&Настройки"
+
+msgctxt "Common"
+msgid "Accounts"
+msgstr "Аккаунты"
+
+msgctxt "Common"
+msgid "&Accounts"
+msgstr "&Аккаунты"
+
+msgctxt "Common"
+msgid "Appearance"
+msgstr "Оформление"
+
+msgctxt "Common"
+msgid "&Appearance"
+msgstr "&Оформление"
+
+msgctxt "Common"
+msgid "Language"
+msgstr "Язык"
+
+msgctxt "Common"
+msgid "&Language"
+msgstr "&Язык"
+
+msgctxt "Common"
+msgid "Servers"
+msgstr "Серверы"
+
+msgctxt "Common"
+msgid "&Servers"
+msgstr "&Серверы"
+
+msgctxt "Common"
+msgid "News"
+msgstr "Новости"
+
+msgctxt "Common"
+msgid "&News"
+msgstr "&Новости"
+
+msgctxt "Common"
+msgid "Mods"
+msgstr "Моды"
+
+msgctxt "Common"
+msgid "&Mods"
+msgstr "&Моды"
+
+msgctxt "Common"
+msgid "Screenshots"
+msgstr "Снимки экрана"
+
+msgctxt "Common"
+msgid "&Screenshots"
+msgstr "&Снимки экрана"
+
+msgctxt "Common"
+msgid "Help"
+msgstr "Помощь"
+
+msgctxt "Common"
+msgid "&Help"
+msgstr "&Помощь"
+
+msgctxt "Common"
+msgid "About"
+msgstr "О программе"
+
+msgctxt "Common"
+msgid "&About"
+msgstr "&О программе"
+
+msgctxt "Common"
+msgid "Launch"
+msgstr "Запустить"
+
+msgctxt "Common"
+msgid "&Launch"
+msgstr "&Запустить"
+
+msgctxt "Common"
+msgid "Play"
+msgstr "Играть"
+
+msgctxt "Common"
+msgid "&Play"
+msgstr "&Играть"
+
+msgctxt "Common"
+msgid "Repair and start"
+msgstr "Исправить и запустить"
+
+msgctxt "Common"
+msgid "&Repair and start"
+msgstr "&Исправить и запустить"
+
+msgctxt "Common"
+msgid "Repair"
+msgstr "Исправить"
+
+msgctxt "Common"
+msgid "&Repair"
+msgstr "&Исправить"
+
+msgctxt "Common"
+msgid "Add Instance"
+msgstr "Добавить сборку"
+
+msgctxt "Common"
+msgid "&Add Instance"
+msgstr "&Добавить сборку"
+
+msgctxt "Common"
+msgid "Add instance"
+msgstr "Добавить сборку"
+
+msgctxt "Common"
+msgid "&Add instance"
+msgstr "&Добавить сборку"
+
+msgctxt "Common"
+msgid "Add Microsoft"
+msgstr "Добавить Microsoft"
+
+msgctxt "Common"
+msgid "&Add Microsoft"
+msgstr "&Добавить Microsoft"
+
+msgctxt "Common"
+msgid "Add Offline"
+msgstr "Добавить офлайн"
+
+msgctxt "Common"
+msgid "&Add Offline"
+msgstr "&Добавить офлайн"
+
+msgctxt "Common"
+msgid "Add Ely.by"
+msgstr "Добавить Ely.by"
+
+msgctxt "Common"
+msgid "&Add Ely.by"
+msgstr "&Добавить Ely.by"
+
+msgctxt "Common"
+msgid "Remove"
+msgstr "Удалить"
+
+msgctxt "Common"
+msgid "&Remove"
+msgstr "&Удалить"
+
+msgctxt "Common"
+msgid "Remove account"
+msgstr "Удалить аккаунт"
+
+msgctxt "Common"
+msgid "&Remove account"
+msgstr "&Удалить аккаунт"
+
+msgctxt "Common"
+msgid "Set Default"
+msgstr "По умолчанию"
+
+msgctxt "Common"
+msgid "&Set Default"
+msgstr "&По умолчанию"
+
+msgctxt "Common"
+msgid "Default"
+msgstr "По умолчанию"
+
+msgctxt "Common"
+msgid "&Default"
+msgstr "&По умолчанию"
+
+msgctxt "Common"
+msgid "Refresh"
+msgstr "Обновить"
+
+msgctxt "Common"
+msgid "&Refresh"
+msgstr "&Обновить"
+
+msgctxt "Common"
+msgid "Refresh Account"
+msgstr "Обновить аккаунт"
+
+msgctxt "Common"
+msgid "&Refresh Account"
+msgstr "&Обновить аккаунт"
+
+msgctxt "Common"
+msgid "Username"
+msgstr "Имя пользователя"
+
+msgctxt "Common"
+msgid "&Username"
+msgstr "&Имя пользователя"
+
+msgctxt "Common"
+msgid "Password"
+msgstr "Пароль"
+
+msgctxt "Common"
+msgid "&Password"
+msgstr "&Пароль"
+
+msgctxt "Common"
+msgid "Sign in"
+msgstr "Войти"
+
+msgctxt "Common"
+msgid "&Sign in"
+msgstr "&Войти"
+
+msgctxt "Common"
+msgid "Sign out"
+msgstr "Выйти"
+
+msgctxt "Common"
+msgid "&Sign out"
+msgstr "&Выйти"
+
+msgctxt "Common"
+msgid "Sign in with Microsoft"
+msgstr "Войти через Microsoft"
+
+msgctxt "Common"
+msgid "&Sign in with Microsoft"
+msgstr "&Войти через Microsoft"
+
+msgctxt "Common"
+msgid "Sign in with Ely.by"
+msgstr "Войти через Ely.by"
+
+msgctxt "Common"
+msgid "&Sign in with Ely.by"
+msgstr "&Войти через Ely.by"
+
+msgctxt "Common"
+msgid "Account"
+msgstr "Аккаунт"
+
+msgctxt "Common"
+msgid "&Account"
+msgstr "&Аккаунт"
+
+msgctxt "Common"
+msgid "Name"
+msgstr "Имя"
+
+msgctxt "Common"
+msgid "&Name"
+msgstr "&Имя"
+
+msgctxt "Common"
+msgid "Type"
+msgstr "Тип"
+
+msgctxt "Common"
+msgid "&Type"
+msgstr "&Тип"
+
+msgctxt "Common"
+msgid "Status"
+msgstr "Состояние"
+
+msgctxt "Common"
+msgid "&Status"
+msgstr "&Состояние"
+
+msgctxt "Common"
+msgid "Online"
+msgstr "В сети"
+
+msgctxt "Common"
+msgid "&Online"
+msgstr "&В сети"
+
+msgctxt "Common"
+msgid "Offline"
+msgstr "Не в сети"
+
+msgctxt "Common"
+msgid "&Offline"
+msgstr "&Не в сети"
+
+msgctxt "Common"
+msgid "Expired"
+msgstr "Срок истёк"
+
+msgctxt "Common"
+msgid "&Expired"
+msgstr "&Срок истёк"
+
+msgctxt "Common"
+msgid "Working"
+msgstr "Выполняется"
+
+msgctxt "Common"
+msgid "&Working"
+msgstr "&Выполняется"
+
+msgctxt "Common"
+msgid "Cancel"
+msgstr "Отмена"
+
+msgctxt "Common"
+msgid "&Cancel"
+msgstr "&Отмена"
+
+msgctxt "Common"
+msgid "OK"
+msgstr "ОК"
+
+msgctxt "Common"
+msgid "&OK"
+msgstr "&ОК"
+
+msgctxt "Common"
+msgid "Apply"
+msgstr "Применить"
+
+msgctxt "Common"
+msgid "&Apply"
+msgstr "&Применить"
+
+msgctxt "Common"
+msgid "Close"
+msgstr "Закрыть"
+
+msgctxt "Common"
+msgid "&Close"
+msgstr "&Закрыть"
+
+msgctxt "Common"
+msgid "Save"
+msgstr "Сохранить"
+
+msgctxt "Common"
+msgid "&Save"
+msgstr "&Сохранить"
+
+msgctxt "Common"
+msgid "Delete"
+msgstr "Удалить"
+
+msgctxt "Common"
+msgid "&Delete"
+msgstr "&Удалить"
+
+msgctxt "Common"
+msgid "Edit"
+msgstr "Изменить"
+
+msgctxt "Common"
+msgid "&Edit"
+msgstr "&Изменить"
+
+msgctxt "Common"
+msgid "Add"
+msgstr "Добавить"
+
+msgctxt "Common"
+msgid "&Add"
+msgstr "&Добавить"
+
+msgctxt "Common"
+msgid "Open"
+msgstr "Открыть"
+
+msgctxt "Common"
+msgid "&Open"
+msgstr "&Открыть"
+
+msgctxt "Common"
+msgid "Browse"
+msgstr "Обзор"
+
+msgctxt "Common"
+msgid "&Browse"
+msgstr "&Обзор"
+
+msgctxt "Common"
+msgid "Browse..."
+msgstr "Обзор…"
+
+msgctxt "Common"
+msgid "&Browse..."
+msgstr "&Обзор…"
+
+msgctxt "Common"
+msgid "Browse…"
+msgstr "Обзор…"
+
+msgctxt "Common"
+msgid "&Browse…"
+msgstr "&Обзор…"
+
+msgctxt "Common"
+msgid "Reset"
+msgstr "Сбросить"
+
+msgctxt "Common"
+msgid "&Reset"
+msgstr "&Сбросить"
+
+msgctxt "Common"
+msgid "Front"
+msgstr "Спереди"
+
+msgctxt "Common"
+msgid "&Front"
+msgstr "&Спереди"
+
+msgctxt "Common"
+msgid "Back"
+msgstr "Назад"
+
+msgctxt "Common"
+msgid "&Back"
+msgstr "&Назад"
+
+msgctxt "Common"
+msgid "Next"
+msgstr "Далее"
+
+msgctxt "Common"
+msgid "&Next"
+msgstr "&Далее"
+
+msgctxt "Common"
+msgid "Finish"
+msgstr "Готово"
+
+msgctxt "Common"
+msgid "&Finish"
+msgstr "&Готово"
+
+msgctxt "Common"
+msgid "Welcome"
+msgstr "Добро пожаловать"
+
+msgctxt "Common"
+msgid "&Welcome"
+msgstr "&Добро пожаловать"
+
+msgctxt "Common"
+msgid "Welcome to %1"
+msgstr "Добро пожаловать в %1"
+
+msgctxt "Common"
+msgid "&Welcome to %1"
+msgstr "&Добро пожаловать в %1"
+
+msgctxt "Common"
+msgid "Select the language to use in %1"
+msgstr "Выберите язык для %1"
+
+msgctxt "Common"
+msgid "&Select the language to use in %1"
+msgstr "&Выберите язык для %1"
+
+msgctxt "Common"
+msgid "General"
+msgstr "Основные"
+
+msgctxt "Common"
+msgid "&General"
+msgstr "&Основные"
+
+msgctxt "Common"
+msgid "Features"
+msgstr "Возможности"
+
+msgctxt "Common"
+msgid "&Features"
+msgstr "&Возможности"
+
+msgctxt "Common"
+msgid "Folders"
+msgstr "Папки"
+
+msgctxt "Common"
+msgid "&Folders"
+msgstr "&Папки"
+
+msgctxt "Common"
+msgid "Console"
+msgstr "Консоль"
+
+msgctxt "Common"
+msgid "&Console"
+msgstr "&Консоль"
+
+msgctxt "Common"
+msgid "Log"
+msgstr "Журнал"
+
+msgctxt "Common"
+msgid "&Log"
+msgstr "&Журнал"
+
+msgctxt "Common"
+msgid "Logs"
+msgstr "Журналы"
+
+msgctxt "Common"
+msgid "&Logs"
+msgstr "&Журналы"
+
+msgctxt "Common"
+msgid "Custom"
+msgstr "Своя сборка"
+
+msgctxt "Common"
+msgid "&Custom"
+msgstr "&Своя сборка"
+
+msgctxt "Common"
+msgid "Filter"
+msgstr "Фильтр"
+
+msgctxt "Common"
+msgid "&Filter"
+msgstr "&Фильтр"
+
+msgctxt "Common"
+msgid "Version"
+msgstr "Версия"
+
+msgctxt "Common"
+msgid "&Version"
+msgstr "&Версия"
+
+msgctxt "Common"
+msgid "Versions"
+msgstr "Версии"
+
+msgctxt "Common"
+msgid "&Versions"
+msgstr "&Версии"
+
+msgctxt "Common"
+msgid "Releases"
+msgstr "Релизы"
+
+msgctxt "Common"
+msgid "&Releases"
+msgstr "&Релизы"
+
+msgctxt "Common"
+msgid "Snapshots"
+msgstr "Снапшоты"
+
+msgctxt "Common"
+msgid "&Snapshots"
+msgstr "&Снапшоты"
+
+msgctxt "Common"
+msgid "Experiments"
+msgstr "Экспериментальные"
+
+msgctxt "Common"
+msgid "&Experiments"
+msgstr "&Экспериментальные"
+
+msgctxt "Common"
+msgid "Mod Loader"
+msgstr "Загрузчик модов"
+
+msgctxt "Common"
+msgid "&Mod Loader"
+msgstr "&Загрузчик модов"
+
+msgctxt "Common"
+msgid "None"
+msgstr "Нет"
+
+msgctxt "Common"
+msgid "&None"
+msgstr "&Нет"
+
+msgctxt "Common"
+msgid "No mod loader is selected."
+msgstr "Загрузчик модов не выбран."
+
+msgctxt "Common"
+msgid "&No mod loader is selected."
+msgstr "&Загрузчик модов не выбран."
+
+msgctxt "Common"
+msgid "No Minecraft version is selected."
+msgstr "Версия Minecraft не выбрана."
+
+msgctxt "Common"
+msgid "&No Minecraft version is selected."
+msgstr "&Версия Minecraft не выбрана."
+
+msgctxt "Common"
+msgid "No versions are currently available for Minecraft %1"
+msgstr "Для Minecraft %1 пока нет версий"
+
+msgctxt "Common"
+msgid "&No versions are currently available for Minecraft %1"
+msgstr "&Для Minecraft %1 пока нет версий"
+
+msgctxt "Common"
+msgid "Import"
+msgstr "Импорт"
+
+msgctxt "Common"
+msgid "&Import"
+msgstr "&Импорт"
+
+msgctxt "Common"
+msgid "Export"
+msgstr "Экспорт"
+
+msgctxt "Common"
+msgid "&Export"
+msgstr "&Экспорт"
+
+msgctxt "Common"
+msgid "Copy"
+msgstr "Копировать"
+
+msgctxt "Common"
+msgid "&Copy"
+msgstr "&Копировать"
+
+msgctxt "Common"
+msgid "Copy the code"
+msgstr "Скопировать код"
+
+msgctxt "Common"
+msgid "&Copy the code"
+msgstr "&Скопировать код"
+
+msgctxt "Common"
+msgid "Copied"
+msgstr "Скопировано"
+
+msgctxt "Common"
+msgid "&Copied"
+msgstr "&Скопировано"
+
+msgctxt "Common"
+msgid "Contacting Microsoft..."
+msgstr "Подключение к Microsoft…"
+
+msgctxt "Common"
+msgid "&Contacting Microsoft..."
+msgstr "&Подключение к Microsoft…"
+
+msgctxt "Common"
+msgid "Open microsoft.com/link"
+msgstr "Открыть microsoft.com/link"
+
+msgctxt "Common"
+msgid "&Open microsoft.com/link"
+msgstr "&Открыть microsoft.com/link"
+
+msgctxt "Common"
+msgid "Sign in with the Microsoft account that owns Minecraft: Java Edition."
+msgstr "Войдите в аккаунт Microsoft, на котором куплен Minecraft: Java Edition."
+
+msgctxt "Common"
+msgid "&Sign in with the Microsoft account that owns Minecraft: Java Edition."
+msgstr "&Войдите в аккаунт Microsoft, на котором куплен Minecraft: Java Edition."
+
+msgctxt "Common"
+msgid "Skins & Capes"
+msgstr "Скины и плащи"
+
+msgctxt "Common"
+msgid "&Skins & Capes"
+msgstr "&Скины и плащи"
+
+msgctxt "Common"
+msgid "Skin and Capes"
+msgstr "Скины и плащи"
+
+msgctxt "Common"
+msgid "&Skin and Capes"
+msgstr "&Скины и плащи"
+
+msgctxt "Common"
+msgid "Skin"
+msgstr "Скин"
+
+msgctxt "Common"
+msgid "&Skin"
+msgstr "&Скин"
+
+msgctxt "Common"
+msgid "Skins"
+msgstr "Скины"
+
+msgctxt "Common"
+msgid "&Skins"
+msgstr "&Скины"
+
+msgctxt "Common"
+msgid "Cape"
+msgstr "Плащ"
+
+msgctxt "Common"
+msgid "&Cape"
+msgstr "&Плащ"
+
+msgctxt "Common"
+msgid "Capes"
+msgstr "Плащи"
+
+msgctxt "Common"
+msgid "&Capes"
+msgstr "&Плащи"
+
+msgctxt "Common"
+msgid "Upload"
+msgstr "Загрузить"
+
+msgctxt "Common"
+msgid "&Upload"
+msgstr "&Загрузить"
+
+msgctxt "Common"
+msgid "Download"
+msgstr "Скачать"
+
+msgctxt "Common"
+msgid "&Download"
+msgstr "&Скачать"
+
+msgctxt "Common"
+msgid "Upload skin"
+msgstr "Загрузить скин"
+
+msgctxt "Common"
+msgid "&Upload skin"
+msgstr "&Загрузить скин"
+
+msgctxt "Common"
+msgid "Upload cape"
+msgstr "Загрузить плащ"
+
+msgctxt "Common"
+msgid "&Upload cape"
+msgstr "&Загрузить плащ"
+
+msgctxt "Common"
+msgid "Classic"
+msgstr "Классический"
+
+msgctxt "Common"
+msgid "&Classic"
+msgstr "&Классический"
+
+msgctxt "Common"
+msgid "Slim"
+msgstr "Тонкий"
+
+msgctxt "Common"
+msgid "&Slim"
+msgstr "&Тонкий"
+
+msgctxt "Common"
+msgid "Community themes"
+msgstr "Темы сообщества"
+
+msgctxt "Common"
+msgid "&Community themes"
+msgstr "&Темы сообщества"
+
+msgctxt "Common"
+msgid "Theme"
+msgstr "Тема"
+
+msgctxt "Common"
+msgid "&Theme"
+msgstr "&Тема"
+
+msgctxt "Common"
+msgid "Dark"
+msgstr "Тёмная"
+
+msgctxt "Common"
+msgid "&Dark"
+msgstr "&Тёмная"
+
+msgctxt "Common"
+msgid "Light"
+msgstr "Светлая"
+
+msgctxt "Common"
+msgid "&Light"
+msgstr "&Светлая"
+
+msgctxt "Common"
+msgid "System"
+msgstr "Системная"
+
+msgctxt "Common"
+msgid "&System"
+msgstr "&Системная"
+
+msgctxt "Common"
+msgid "Icon theme"
+msgstr "Тема значков"
+
+msgctxt "Common"
+msgid "&Icon theme"
+msgstr "&Тема значков"
+
+msgctxt "Common"
+msgid "Search"
+msgstr "Поиск"
+
+msgctxt "Common"
+msgid "&Search"
+msgstr "&Поиск"
+
+msgctxt "Common"
+msgid "Search..."
+msgstr "Поиск…"
+
+msgctxt "Common"
+msgid "&Search..."
+msgstr "&Поиск…"
+
+msgctxt "Common"
+msgid "Search…"
+msgstr "Поиск…"
+
+msgctxt "Common"
+msgid "&Search…"
+msgstr "&Поиск…"
+
+msgctxt "Common"
+msgid "Update"
+msgstr "Обновить"
+
+msgctxt "Common"
+msgid "&Update"
+msgstr "&Обновить"
+
+msgctxt "Common"
+msgid "Updates"
+msgstr "Обновления"
+
+msgctxt "Common"
+msgid "&Updates"
+msgstr "&Обновления"
+
+msgctxt "Common"
+msgid "Check for updates"
+msgstr "Проверить обновления"
+
+msgctxt "Common"
+msgid "&Check for updates"
+msgstr "&Проверить обновления"
+
+msgctxt "Common"
+msgid "Manage"
+msgstr "Управление"
+
+msgctxt "Common"
+msgid "&Manage"
+msgstr "&Управление"
+
+msgctxt "Common"
+msgid "Options"
+msgstr "Параметры"
+
+msgctxt "Common"
+msgid "&Options"
+msgstr "&Параметры"
+
+msgctxt "Common"
+msgid "Install"
+msgstr "Установить"
+
+msgctxt "Common"
+msgid "&Install"
+msgstr "&Установить"
+
+msgctxt "Common"
+msgid "Installed"
+msgstr "Установлено"
+
+msgctxt "Common"
+msgid "&Installed"
+msgstr "&Установлено"
+
+msgctxt "Common"
+msgid "Enabled"
+msgstr "Включено"
+
+msgctxt "Common"
+msgid "&Enabled"
+msgstr "&Включено"
+
+msgctxt "Common"
+msgid "Disabled"
+msgstr "Отключено"
+
+msgctxt "Common"
+msgid "&Disabled"
+msgstr "&Отключено"
+
+msgctxt "Common"
+msgid "Enable"
+msgstr "Включить"
+
+msgctxt "Common"
+msgid "&Enable"
+msgstr "&Включить"
+
+msgctxt "Common"
+msgid "Disable"
+msgstr "Отключить"
+
+msgctxt "Common"
+msgid "&Disable"
+msgstr "&Отключить"
+
+msgctxt "Common"
+msgid "Memory"
+msgstr "Память"
+
+msgctxt "Common"
+msgid "&Memory"
+msgstr "&Память"
+
+msgctxt "Common"
+msgid "Minimum memory allocation"
+msgstr "Минимум памяти"
+
+msgctxt "Common"
+msgid "&Minimum memory allocation"
+msgstr "&Минимум памяти"
+
+msgctxt "Common"
+msgid "Maximum memory allocation"
+msgstr "Максимум памяти"
+
+msgctxt "Common"
+msgid "&Maximum memory allocation"
+msgstr "&Максимум памяти"
+
+msgctxt "Common"
+msgid "Window"
+msgstr "Окно"
+
+msgctxt "Common"
+msgid "&Window"
+msgstr "&Окно"
+
+msgctxt "Common"
+msgid "Width"
+msgstr "Ширина"
+
+msgctxt "Common"
+msgid "&Width"
+msgstr "&Ширина"
+
+msgctxt "Common"
+msgid "Height"
+msgstr "Высота"
+
+msgctxt "Common"
+msgid "&Height"
+msgstr "&Высота"
+
+msgctxt "Common"
+msgid "Fullscreen"
+msgstr "Полный экран"
+
+msgctxt "Common"
+msgid "&Fullscreen"
+msgstr "&Полный экран"
+
+msgctxt "Common"
+msgid "Game"
+msgstr "Игра"
+
+msgctxt "Common"
+msgid "&Game"
+msgstr "&Игра"
+
+msgctxt "Common"
+msgid "Controls"
+msgstr "Управление"
+
+msgctxt "Common"
+msgid "&Controls"
+msgstr "&Управление"
+
+msgctxt "Common"
+msgid "Advanced"
+msgstr "Дополнительно"
+
+msgctxt "Common"
+msgid "&Advanced"
+msgstr "&Дополнительно"
+
+msgctxt "Common"
+msgid "Network"
+msgstr "Сеть"
+
+msgctxt "Common"
+msgid "&Network"
+msgstr "&Сеть"
+
+msgctxt "Common"
+msgid "Proxy"
+msgstr "Прокси"
+
+msgctxt "Common"
+msgid "&Proxy"
+msgstr "&Прокси"
+
+msgctxt "Common"
+msgid "Confirm"
+msgstr "Подтвердить"
+
+msgctxt "Common"
+msgid "&Confirm"
+msgstr "&Подтвердить"
+
+msgctxt "Common"
+msgid "Yes"
+msgstr "Да"
+
+msgctxt "Common"
+msgid "&Yes"
+msgstr "&Да"
+
+msgctxt "Common"
+msgid "No"
+msgstr "Нет"
+
+msgctxt "Common"
+msgid "&No"
+msgstr "&Нет"
+
+msgctxt "Common"
+msgid "Error"
+msgstr "Ошибка"
+
+msgctxt "Common"
+msgid "&Error"
+msgstr "&Ошибка"
+
+msgctxt "Common"
+msgid "Warning"
+msgstr "Предупреждение"
+
+msgctxt "Common"
+msgid "&Warning"
+msgstr "&Предупреждение"
+
+msgctxt "Common"
+msgid "Information"
+msgstr "Информация"
+
+msgctxt "Common"
+msgid "&Information"
+msgstr "&Информация"
+
+msgctxt "Common"
+msgid "Loading..."
+msgstr "Загрузка…"
+
+msgctxt "Common"
+msgid "&Loading..."
+msgstr "&Загрузка…"
+
+msgctxt "Common"
+msgid "Waiting..."
+msgstr "Ожидание…"
+
+msgctxt "Common"
+msgid "&Waiting..."
+msgstr "&Ожидание…"
+
+msgctxt "Common"
+msgid "Done"
+msgstr "Готово"
+
+msgctxt "Common"
+msgid "&Done"
+msgstr "&Готово"
+
+msgctxt "Common"
+msgid "Retry"
+msgstr "Повторить"
+
+msgctxt "Common"
+msgid "&Retry"
+msgstr "&Повторить"
+
+msgctxt "Common"
+msgid "Skip"
+msgstr "Пропустить"
+
+msgctxt "Common"
+msgid "&Skip"
+msgstr "&Пропустить"
+
+msgctxt "Common"
+msgid "Play anyway"
+msgstr "Играть всё равно"
+
+msgctxt "Common"
+msgid "&Play anyway"
+msgstr "&Играть всё равно"
+
+msgctxt "Common"
+msgid "Fast and light"
+msgstr "Быстрый и лёгкий"
+
+msgctxt "Common"
+msgid "&Fast and light"
+msgstr "&Быстрый и лёгкий"
+
+msgctxt "Common"
+msgid "Your skin, everywhere"
+msgstr "Ваш скин повсюду"
+
+msgctxt "Common"
+msgid "&Your skin, everywhere"
+msgstr "&Ваш скин повсюду"
+
+msgctxt "Common"
+msgid "Starts quickly, stays out of the way and keeps itself up to date."
+msgstr "Быстро запускается, не мешает и обновляется сам."
+
+msgctxt "Common"
+msgid "&Starts quickly, stays out of the way and keeps itself up to date."
+msgstr "&Быстро запускается, не мешает и обновляется сам."
+
+msgctxt "Common"
+msgid "Play offline right away (optional)"
+msgstr "Играйте офлайн сразу (необязательно)"
+
+msgctxt "Common"
+msgid "&Play offline right away (optional)"
+msgstr "&Играйте офлайн сразу (необязательно)"
+
+msgctxt "Common"
+msgid "Pick a username to create an offline account now. You can sign in with Microsoft on the next steps or add more accounts later."
+msgstr "Выберите имя для офлайн-аккаунта. Войти через Microsoft можно на следующих шагах или добавить аккаунты позже."
+
+msgctxt "Common"
+msgid "&Pick a username to create an offline account now. You can sign in with Microsoft on the next steps or add more accounts later."
+msgstr "&Выберите имя для офлайн-аккаунта. Войти через Microsoft можно на следующих шагах или добавить аккаунты позже."
+
+msgctxt "Common"
+msgid "3 to 16 letters, numbers or _"
+msgstr "От 3 до 16 букв, цифр или _"
+
+msgctxt "Common"
+msgid "&3 to 16 letters, numbers or _"
+msgstr "&От 3 до 16 букв, цифр или _"
+
+msgctxt "Common"
+msgid "Choose a username with 3 to 16 letters, numbers or underscores."
+msgstr "Выберите имя из 3–16 букв, цифр или подчёркиваний."
+
+msgctxt "Common"
+msgid "&Choose a username with 3 to 16 letters, numbers or underscores."
+msgstr "&Выберите имя из 3–16 букв, цифр или подчёркиваний."
+
+msgctxt "Common"
+msgid "No account was created. Choose another username or try again."
+msgstr "Аккаунт не создан. Выберите другое имя или повторите попытку."
+
+msgctxt "Common"
+msgid "&No account was created. Choose another username or try again."
+msgstr "&Аккаунт не создан. Выберите другое имя или повторите попытку."
+
+msgctxt "Common"
+msgid "Profile and skin server"
+msgstr "Сервер профилей и скинов"
+
+msgctxt "Common"
+msgid "&Profile and skin server"
+msgstr "&Сервер профилей и скинов"
+
+msgctxt "Common"
+msgid "Enable Xylar skin rendering in my game"
+msgstr "Включить скины Xylar в игре"
+
+msgctxt "Common"
+msgid "&Enable Xylar skin rendering in my game"
+msgstr "&Включить скины Xylar в игре"
+
+msgctxt "Common"
+msgid "Your username is reserved on this service, even when skin rendering is off. Leave the server unchanged unless you host your own."
+msgstr "Имя закреплено за вами даже при отключённых скинах. Меняйте сервер только если используете свой."
+
+msgctxt "Common"
+msgid "&Your username is reserved on this service, even when skin rendering is off. Leave the server unchanged unless you host your own."
+msgstr "&Имя закреплено за вами даже при отключённых скинах. Меняйте сервер только если используете свой."
+
+msgctxt "Common"
+msgid "Username could not be verified"
+msgstr "Не удалось проверить имя"
+
+msgctxt "Common"
+msgid "&Username could not be verified"
+msgstr "&Не удалось проверить имя"
+
+msgctxt "Common"
+msgid "Verifying ownership of %1…"
+msgstr "Проверка владельца %1…"
+
+msgctxt "Common"
+msgid "&Verifying ownership of %1…"
+msgstr "&Проверка владельца %1…"
+
+msgctxt "Common"
+msgid "Import my profile access…"
+msgstr "Импортировать доступ к профилю…"
+
+msgctxt "Common"
+msgid "&Import my profile access…"
+msgstr "&Импортировать доступ к профилю…"
+
+msgctxt "Common"
+msgid "Import profile access"
+msgstr "Импорт доступа к профилю"
+
+msgctxt "Common"
+msgid "&Import profile access"
+msgstr "&Импорт доступа к профилю"
+
+msgctxt "Common"
+msgid "Cannot import access"
+msgstr "Не удалось импортировать доступ"
+
+msgctxt "Common"
+msgid "&Cannot import access"
+msgstr "&Не удалось импортировать доступ"
+
+msgctxt "Common"
+msgid "This account was signed in on another computer. Sign in again to use it here."
+msgstr "В этот аккаунт вошли на другом компьютере. Войдите снова, чтобы использовать его здесь."
+
+msgctxt "Common"
+msgid "&This account was signed in on another computer. Sign in again to use it here."
+msgstr "&В этот аккаунт вошли на другом компьютере. Войдите снова, чтобы использовать его здесь."
+
+msgctxt "Common"
+msgid "This username is already owned by another player. Choose another name, or import your profile access from your other device."
+msgstr "Это имя уже принадлежит другому игроку. Выберите другое имя или импортируйте доступ с другого устройства."
+
+msgctxt "Common"
+msgid "&This username is already owned by another player. Choose another name, or import your profile access from your other device."
+msgstr "&Это имя уже принадлежит другому игроку. Выберите другое имя или импортируйте доступ с другого устройства."
+
+msgctxt "Common"
+msgid "Rust — 26.3 Beta"
+msgstr "Rust — 26.3 Бета"
+
+msgctxt "Common"
+msgid "&Rust — 26.3 Beta"
+msgstr "&Rust — 26.3 Бета"
+
+msgctxt "Common"
+msgid "Rust 26.3 is in beta and does not support Java mod loaders."
+msgstr "Rust 26.3 находится в бета-версии и не поддерживает загрузчики Java-модов."
+
+msgctxt "Common"
+msgid "&Rust 26.3 is in beta and does not support Java mod loaders."
+msgstr "&Rust 26.3 находится в бета-версии и не поддерживает загрузчики Java-модов."
+
+msgctxt "Common"
+msgid "A Microsoft account that owns Minecraft: Java Edition is required for Rust."
+msgstr "Для Rust нужен аккаунт Microsoft с купленным Minecraft: Java Edition."
+
+msgctxt "Common"
+msgid "&A Microsoft account that owns Minecraft: Java Edition is required for Rust."
+msgstr "&Для Rust нужен аккаунт Microsoft с купленным Minecraft: Java Edition."
+
+msgctxt "Common"
+msgid "The Microsoft session expired. Sign in with Microsoft again."
+msgstr "Сеанс Microsoft истёк. Войдите через Microsoft снова."
+
+msgctxt "Common"
+msgid "&The Microsoft session expired. Sign in with Microsoft again."
+msgstr "&Сеанс Microsoft истёк. Войдите через Microsoft снова."
+
+msgctxt "Common"
+msgid "Refreshing the Microsoft sign-in."
+msgstr "Обновление сеанса Microsoft."
+
+msgctxt "Common"
+msgid "&Refreshing the Microsoft sign-in."
+msgstr "&Обновление сеанса Microsoft."
+
+msgctxt "Common"
+msgid "Couldn’t reach Microsoft to refresh the sign-in."
+msgstr "Не удалось связаться с Microsoft для обновления сеанса."
+
+msgctxt "Common"
+msgid "&Couldn’t reach Microsoft to refresh the sign-in."
+msgstr "&Не удалось связаться с Microsoft для обновления сеанса."
+

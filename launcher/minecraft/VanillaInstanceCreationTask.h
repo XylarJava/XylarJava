@@ -13,12 +13,14 @@ class VanillaCreationTask final : public InstanceCreationTask {
     explicit VanillaCreationTask(QString minecraftVersion) : InstanceCreationTask(), m_versionId(std::move(minecraftVersion)) {}
 
     std::unique_ptr<MinecraftInstance> createInstance() override;
+    void setNativeRust(bool value) { m_nativeRust = value; }
 
    private:
     // Version to update to / create of the instance.
     BaseVersion::Ptr m_version;
     QString m_versionId;  ///< used when m_version is null
 
+    bool m_nativeRust = false;
     bool m_using_loader = false;
     QString m_loader;
     BaseVersion::Ptr m_loader_version;

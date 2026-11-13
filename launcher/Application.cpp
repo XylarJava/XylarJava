@@ -1240,7 +1240,6 @@ bool Application::createSetupWizard()
         m_setupWizard->setLogo(logo());
         if (welcomeRequired) {
             m_setupWizard->addPage(new XylarWelcomeWizardPage(m_setupWizard));
-            settings()->set("XylarSetupCompleted", true);
         }
         if (languageRequired) {
             m_setupWizard->addPage(new LanguageWizardPage(m_setupWizard));
@@ -1320,6 +1319,8 @@ bool Application::event(QEvent* event)
 void Application::setupWizardFinished(int status)
 {
     qDebug() << "Wizard result =" << status;
+    if (status == QDialog::Accepted)
+        settings()->set("XylarSetupCompleted", true);
     performMainStartupAction();
 }
 
@@ -2340,4 +2341,41 @@ void Application::initSkinClient()
     }
 
     m_skinClient->setCacheDir(XylarSkinClient::defaultCacheDir());
+
+    connect(m_skinClient, &XylarSkinClient::identitySessionRevoked, this, [this](const QString& uuid) {
+        for (int i = 0; i < m_accounts->count(); ++i) {
+            auto account = m_accounts->at(i);
+            auto* data = account->accountData();
+            if (account->accountType() != AccountType::MSA || data->yggdrasilToken.extra.value("xylarProfileId").toString() != uuid)
+                continue;
+            // A confirmed transfer signs out this launcher only. Network failures never do.
+            if (account->currentTask())
+                account->currentTask()->abort();
+            data->msaToken.token.clear();
+            data->msaToken.refresh_token.clear();
+            data->msaToken.extra["xylar_session_revoked"] = true;
+            data->yggdrasilToken.token.clear();
+            data->validity_ = Validity::None;
+            data->accountState = AccountState::Expired;
+            data->errorString = tr("This account was signed in on another computer. Sign in again to use it here.");
+            m_accounts->accountChanged();
+        }
+    });
+    auto* sessionTimer = new QTimer(m_skinClient);
+    sessionTimer->setInterval(60000);
+    auto checkSessions = [this] {
+        m_skinClient->setBackendUrl(m_settings->get("XylarSkinBackendUrl").toString());
+        for (int i = 0; i < m_accounts->count(); ++i) {
+            auto account = m_accounts->at(i);
+            if (account->accountType() != AccountType::MSA || account->currentTask() ||
+                account->accountData()->msaToken.extra.value("xylar_session_revoked").toBool())
+                continue;
+            const auto uuid = account->accountData()->yggdrasilToken.extra.value("xylarProfileId").toString();
+            if (!uuid.isEmpty())
+                m_skinClient->checkIdentitySession(uuid);
+        }
+    };
+    connect(sessionTimer, &QTimer::timeout, this, checkSessions);
+    sessionTimer->start();
+    QTimer::singleShot(5000, this, checkSessions);
 }

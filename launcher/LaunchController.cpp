@@ -36,7 +36,7 @@ void LaunchController::executeTask()
         return;
     }
 
-    if (!JavaCommon::checkJVMArgs(m_instance->settings()->get("JvmArgs").toString(), m_parentWidget)) {
+    if (!m_instance->settings()->get("NativeRust").toBool() && !JavaCommon::checkJVMArgs(m_instance->settings()->get("JvmArgs").toString(), m_parentWidget)) {
         emitFailed(tr("Invalid Java arguments specified. Please fix this first."));
         return;
     }
@@ -292,7 +292,7 @@ bool LaunchController::reauthenticateAccount(const MinecraftAccountPtr& account,
             auto newAccount = account->accountType() == AccountType::Ely ? ElyAccountDialog::login(m_parentWidget)
                                                                          : MSALoginDialog::newAccount(m_parentWidget);
 
-            if (newAccount != nullptr) {
+            if (newAccount != nullptr && AccountIdentity::verify(m_parentWidget, newAccount)) {
                 // The old entry goes only once the new sign-in worked: cancelling keeps the account.
                 accounts->removeAccount(accounts->index(accounts->findAccountByProfileId(account->profileId())));
                 accounts->addAccount(newAccount);

@@ -125,6 +125,7 @@ XylarWelcomeWizardPage::XylarWelcomeWizardPage(QWidget* parent) : BaseWizardPage
     m_hintLabel = new QLabel(this);
     m_hintLabel->setObjectName(QStringLiteral("setupMuted"));
     m_hintLabel->setWordWrap(true);
+    m_hintLabel->setTextFormat(Qt::PlainText);
     layout->addWidget(m_hintLabel);
 
     layout->addStretch(1);
@@ -148,11 +149,23 @@ bool XylarWelcomeWizardPage::validatePage()
 
     // Optionally create an offline account from the chosen username.
     QString username = m_usernameEdit->text().trimmed();
+    if (!username.isEmpty() && username.length() < 3) {
+        m_hintLabel->setText(tr("Choose a username with 3 to 16 letters, numbers or underscores."));
+        m_usernameEdit->setFocus();
+        return false;
+    }
     if (username.length() >= 3) {
         auto accounts = APPLICATION->accounts();
+        if (accounts->getAccountByProfileName(username))
+            return true;
         if (MinecraftAccountPtr account = MinecraftAccount::createOffline(username)) {
-            if (!AccountIdentity::verify(this, account))
+            QString error;
+            if (!AccountIdentity::verify(this, account, &error)) {
+                m_hintLabel->setText(error.isEmpty() ? tr("No account was created. Choose another username or try again.") : error);
+                m_usernameEdit->setFocus();
+                m_usernameEdit->selectAll();
                 return false;
+            }
             account->login()->start();
             accounts->addAccount(account);
             if (accounts->count() == 1) {

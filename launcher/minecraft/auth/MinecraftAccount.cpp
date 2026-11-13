@@ -66,6 +66,8 @@ QJsonObject MinecraftAccount::saveToJson() const
 
 AccountState MinecraftAccount::accountState() const
 {
+    if (data.msaToken.extra.value("xylar_session_revoked").toBool())
+        return AccountState::Expired;
     return data.accountState;
 }
 
@@ -98,6 +100,8 @@ shared_qobject_ptr<AuthFlow> MinecraftAccount::login(bool useDeviceCode)
 
 shared_qobject_ptr<AuthFlow> MinecraftAccount::refresh()
 {
+    if (data.msaToken.extra.value("xylar_session_revoked").toBool())
+        return shared_qobject_ptr<AuthFlow>();
     if (m_currentTask) {
         return m_currentTask;
     }
@@ -136,7 +140,10 @@ void MinecraftAccount::authFailed(QString reason)
         case AccountTaskState::STATE_FAILED_HARD: {
             if (accountType() == AccountType::MSA) {
                 data.msaToken.token = QString();
-                data.msaToken.refresh_token = QString();
+                // Xbox, Minecraft and cancelled browser requests must not destroy a renewable
+                // Microsoft login. Only an explicit OAuth revocation invalidates its refresh token.
+                if (data.msaToken.extra.value("refresh_revoked").toBool())
+                    data.msaToken.refresh_token.clear();
                 data.msaToken.validity = Validity::None;
                 data.validity_ = Validity::None;
             } else {

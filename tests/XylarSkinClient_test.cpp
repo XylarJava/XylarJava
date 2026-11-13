@@ -90,6 +90,69 @@ QByteArray access()
 class XylarSkinClientTest : public QObject {
     Q_OBJECT
    private slots:
+    void cloudProviderFailureUsesDesktopJoinProofWithoutForwardingTokens()
+    {
+        QTemporaryDir cache;
+        Network network;
+        network.answers.enqueue({503, R"({"error":"Provider unavailable"})"});
+        network.answers.enqueue({200, R"({"challenge":"0123456789abcdefghijklmnopqrstuv"})"});
+        network.answers.enqueue({204, {}});
+        network.answers.enqueue({201, QJsonDocument(QJsonObject{{"identity_version",2},{"player",QJsonObject{{"uuid",PLAYER_UUID}}},{"key",PLAYER_KEY}}).toJson()});
+        XylarSkinClient client(nullptr, &network);
+        client.setCacheDir(cache.path());
+        client.setBackendUrl(SKIN_BACKEND);
+        QSignalSpy accepted(&client, &XylarSkinClient::playerRegistered);
+        QSignalSpy failed(&client, &XylarSkinClient::requestFailed);
+        client.registerPlayer("Player", "12345678123412341234123456789abc", "private-provider-token", "microsoft", {}, true);
+        QTRY_COMPARE(accepted.count(), 1);
+        QCOMPARE(failed.count(), 0);
+        QCOMPARE(network.requests.size(), 4);
+        QCOMPARE(network.requests[1].url().path(), QStringLiteral("/api/identity/challenge"));
+        QVERIFY(!network.bodies[1].contains("private-provider-token"));
+        QCOMPARE(network.requests[2].url(), QUrl("https://sessionserver.mojang.com/session/minecraft/join"));
+        QVERIFY(network.bodies[2].contains("private-provider-token"));
+        QVERIFY(network.requests[2].rawHeader("X-Player-Key").isEmpty());
+        const auto finalBody = QJsonDocument::fromJson(network.bodies[3]).object();
+        QVERIFY(!finalBody.contains("identity_token"));
+        QVERIFY(finalBody["transfer_session"].toBool());
+        QCOMPARE(finalBody["identity_challenge"].toString(), QStringLiteral("0123456789abcdefghijklmnopqrstuv"));
+        QCOMPARE(client.playerKey(PLAYER_UUID), PLAYER_KEY);
+    }
+    void failedDesktopProofCannotRegisterOrSaveAKey()
+    {
+        QTemporaryDir cache;
+        Network network;
+        network.answers.enqueue({503, R"({"error":"Provider unavailable"})"});
+        network.answers.enqueue({200, R"({"challenge":"0123456789abcdefghijklmnopqrstuv"})"});
+        network.answers.enqueue({401, R"({"error":"Expired token"})"});
+        XylarSkinClient client(nullptr, &network);
+        client.setCacheDir(cache.path()); client.setBackendUrl(SKIN_BACKEND);
+        QSignalSpy accepted(&client, &XylarSkinClient::playerRegistered);
+        QSignalSpy failed(&client, &XylarSkinClient::requestFailed);
+        client.registerPlayer("Player", "12345678123412341234123456789abc", "expired-token", "ely");
+        QTRY_COMPARE(failed.count(), 1);
+        QCOMPARE(accepted.count(), 0);
+        QCOMPARE(network.requests.size(), 3);
+        QCOMPARE(network.requests[2].url(), QUrl("https://account.ely.by/api/minecraft/session/join"));
+        QVERIFY(client.playerKey(PLAYER_UUID).isEmpty());
+    }
+    void networkFailuresDoNotSignOutAnActiveDevice()
+    {
+        QTemporaryDir cache;
+        Network network;
+        network.answers.enqueue({503, R"({"error":"Service unavailable"})"});
+        network.answers.enqueue({409, R"({"error":"Session transferred"})"});
+        XylarSkinClient client(nullptr, &network);
+        client.setCacheDir(cache.path()); client.setBackendUrl(SKIN_BACKEND);
+        QVERIFY(client.importPlayerAccess(PLAYER_UUID, access()));
+        QSignalSpy revoked(&client, &XylarSkinClient::identitySessionRevoked);
+        client.checkIdentitySession(PLAYER_UUID);
+        QTest::qWait(30);
+        QCOMPARE(revoked.count(), 0);
+        client.checkIdentitySession(PLAYER_UUID);
+        QTRY_COMPARE(revoked.count(), 1);
+        QCOMPARE(revoked.first().first().toString(), PLAYER_UUID);
+    }
     void registrationWaitsForOwnershipBeforeAutomaticUpload()
     {
         QTemporaryDir cache;

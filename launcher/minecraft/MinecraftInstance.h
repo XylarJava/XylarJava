@@ -32,6 +32,7 @@ class MinecraftInstance : public BaseInstance {
     QSet<QString> traits() const override;
 
     bool canEdit() const override { return true; }
+    bool canLaunch() const override;
 
     bool canExport() const override { return true; }
 

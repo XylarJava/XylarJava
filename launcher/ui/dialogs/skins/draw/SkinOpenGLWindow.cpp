@@ -1,8 +1,8 @@
 #include "ui/dialogs/skins/draw/SkinOpenGLWindow.h"
 
 #include <QMouseEvent>
-#include <QOpenGLBuffer>
 #include <QOffscreenSurface>
+#include <QOpenGLBuffer>
 #include <QProcessEnvironment>
 #include <QVector2D>
 #include <QVector3D>
@@ -347,4 +347,42 @@ bool SkinOpenGLWindow::hasOpenGL()
     }
     ctx.doneCurrent();
     return usable;
+}
+
+void SkinOpenGLWindow::resetView()
+{
+    m_yaw = 90;
+    m_pitch = 0;
+    m_distance = 48;
+    update();
+}
+void SkinOpenGLWindow::showFront()
+{
+    m_yaw = 90;
+    m_pitch = 0;
+    update();
+}
+void SkinOpenGLWindow::showBack()
+{
+    m_yaw = 270;
+    m_pitch = 0;
+    update();
+}
+QWidget* SkinOpenGLWindow::createViewControls(QWidget* parent)
+{
+    auto* controls = new QWidget(parent);
+    auto* row = new QHBoxLayout(controls);
+    row->setContentsMargins(0, 0, 0, 0);
+    row->addStretch();
+    auto add = [&](const QString& text, auto action) {
+        auto* button = new QToolButton(controls);
+        button->setText(text);
+        connect(button, &QToolButton::clicked, this, action);
+        row->addWidget(button);
+    };
+    add(tr("Front"), &SkinOpenGLWindow::showFront);
+    add(tr("Back"), &SkinOpenGLWindow::showBack);
+    add(tr("Reset"), &SkinOpenGLWindow::resetView);
+    row->addStretch();
+    return controls;
 }

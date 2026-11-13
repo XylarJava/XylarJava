@@ -56,7 +56,9 @@ class XylarSkinClient : public QObject {
                         const QString& profileId = QString(),
                         const QString& identityToken = QString(),
                         const QString& provider = QString(),
-                        const QString& ownedUuid = QString());
+                        const QString& ownedUuid = QString(),
+                        bool transferSession = false);
+    void checkIdentitySession(const QString& uuid);
     void fetchPlayer(const QString& uuid);
     void fetchSkinMetadata(const QString& uuid);
     void downloadSkin(const QString& uuid, const QString& expectedHash = QString(), const QString& model = "classic");
@@ -83,6 +85,7 @@ class XylarSkinClient : public QObject {
     void startSiteLink(const QString& uuid);
 
    signals:
+    void identitySessionRevoked(const QString& uuid);
     void playerRegistered(const QString& uuid, const QString& username, const QString& skinHash, const QString& skinModel);
     void playerFetched(const QString& uuid, const QString& username, const QString& skinHash, const QString& skinModel);
     void skinMetadataReceived(const QString& uuid, bool hasSkin, const QString& skinHash, const QString& model);
@@ -100,6 +103,8 @@ class XylarSkinClient : public QObject {
     void requestFailed(const QString& action, const QString& errorMessage, int httpStatusCode);
 
    private:
+    void submitIdentity(QJsonObject body, const QString& uuid, bool allowChallenge);
+    void proveIdentity(QJsonObject body, const QString& uuid);
     QNetworkRequest makeRequest(const QString& endpoint, bool json = true, const QString& playerUuid = QString()) const;
     QString keysFile() const;
     bool setPlayerKey(const QString& uuid, const QString& key);

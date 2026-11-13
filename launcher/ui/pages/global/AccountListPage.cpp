@@ -43,7 +43,7 @@ AccountListPage::AccountListPage(QWidget* parent) : QMainWindow(parent), ui(new 
 
     m_accounts = APPLICATION->accounts();
     auto* ely = new QAction(tr("Add Ely.by"), this);
-    ui->toolBar->addAction(ely);
+    ui->toolBar->insertActionAfter(ui->actionAddMicrosoft, ely);
     connect(ely, &QAction::triggered, this, [this] {
         auto account = ElyAccountDialog::login(this);
         if (!account || !AccountIdentity::verify(this, account))
@@ -129,7 +129,7 @@ void AccountListPage::on_actionAddMicrosoft_triggered()
     }
 
     auto account = MSALoginDialog::newAccount(this);
-    if (account && AccountIdentity::verify(this, account)) {
+    if (account && AccountIdentity::verify(this, account, nullptr, true)) {
         m_accounts->addAccount(account);
         if (m_accounts->count() == 1) {
             m_accounts->setDefaultAccount(account);

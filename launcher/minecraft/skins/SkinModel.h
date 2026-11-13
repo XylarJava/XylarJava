@@ -14,6 +14,9 @@ class SkinModel {
     SkinModel(const QImage& texture, Model model = CLASSIC);
     virtual ~SkinModel() = default;
 
+    /// Normalize base alpha and mirrored legacy limbs while preserving HD texture resolution.
+    static QImage normalizeTexture(QImage skin);
+
     static QImage defaultSteveTexture();
     static QImage defaultAlexTexture();
 

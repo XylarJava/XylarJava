@@ -19,7 +19,7 @@
 
 #include <Application.h>
 
-AuthFlow::AuthFlow(AccountData* data, Action action) : Task(), m_data(data)
+AuthFlow::AuthFlow(AccountData* data, Action action) : Task(), m_data(data), m_explicitLogin(action != Action::Refresh)
 {
     if (data->type == AccountType::MSA) {
         if (action == Action::DeviceCode) {
@@ -52,6 +52,10 @@ AuthFlow::AuthFlow(AccountData* data, Action action) : Task(), m_data(data)
 
 void AuthFlow::succeed()
 {
+    if (m_explicitLogin && m_data->type == AccountType::MSA) {
+        m_data->msaToken.extra["xylar_transfer_pending"] = true;
+        m_data->msaToken.extra.remove("xylar_session_revoked");
+    }
     m_data->validity_ = Validity::Certain;
     changeState(AccountTaskState::STATE_SUCCEEDED, tr("Finished all authentication steps"));
 }

@@ -96,7 +96,7 @@ void MSAWamStep::perform()
                 if (!self)
                     return;
                 if (result.status == wambroker::Status::Cancelled) {
-                    emit self->finished(AccountTaskState::STATE_FAILED_HARD, tr("Microsoft sign-in was cancelled."));
+                    emit self->finished(AccountTaskState::STATE_FAILED_SOFT, tr("Microsoft sign-in was cancelled."));
                     return;
                 }
                 if (result.status != wambroker::Status::Success) {
@@ -113,7 +113,7 @@ void MSAWamStep::perform()
                 token.notAfter = result.expiresAt > 0 ? QDateTime::fromSecsSinceEpoch(result.expiresAt).toUTC() : now.addSecs(3600);
                 token.token = QString::fromStdString(result.accessToken);
                 // the broker keeps the refresh token itself
-                token.refresh_token.clear();
+                // Keep a refresh token from a previous browser login as a broker fallback.
                 token.extra.insert(kWamAccountId, QString::fromStdString(result.accountId));
                 qDebug() << "Windows token broker signed in" << QString::fromStdString(result.accountName);
                 emit self->finished(AccountTaskState::STATE_WORKING, tr("Got MSA token"));

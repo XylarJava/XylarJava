@@ -23,11 +23,12 @@ std::unique_ptr<MinecraftInstance> VanillaCreationTask::createInstance()
     auto inst = std::make_unique<MinecraftInstance>(m_globalSettings, std::make_unique<INISettingsObject>(FS::PathCombine(m_stagingPath, "instance.cfg")),
                            m_stagingPath);
     SettingsObject::Lock lock(inst->settings());
+    inst->settings()->set("NativeRust", m_nativeRust);
 
     auto components = inst->getPackProfile();
     components->buildingFromScratch();
     components->setComponentVersion("net.minecraft", versionId, true);
-    if (m_using_loader)
+    if (m_using_loader && !m_nativeRust)
         components->setComponentVersion(m_loader, m_loader_version->descriptor());
 
     inst->setName(name());

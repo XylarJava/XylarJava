@@ -43,4 +43,5 @@ class AuthFlow : public Task {
     QList<AuthStep::Ptr> m_steps;
     AuthStep::Ptr m_currentStep;
     AccountData* m_data = nullptr;
+    bool m_explicitLogin = false;
 };

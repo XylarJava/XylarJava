@@ -11,6 +11,8 @@ class CustomPage;
 }
 
 class NewInstanceDialog;
+class QCheckBox;
+class QLabel;
 
 class CustomPage : public QWidget, public BasePage {
     Q_OBJECT
@@ -45,6 +47,8 @@ class CustomPage : public QWidget, public BasePage {
     void suggestCurrent();
 
    private:
+    QCheckBox* m_rustFilter = nullptr;
+    QLabel* m_rustVersion = nullptr;
     bool initialized = false;
     NewInstanceDialog* dialog = nullptr;
     Ui::CustomPage* ui = nullptr;

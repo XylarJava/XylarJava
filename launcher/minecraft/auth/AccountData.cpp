@@ -33,7 +33,10 @@ void tokenToJSONV3(QJsonObject& parent, const Token& t, const char* tokenName)
         save = true;
     }
     if (t.extra.size()) {
-        out["extra"] = QJsonObject::fromVariantMap(t.extra);
+        auto extra = t.extra;
+        extra.remove("access_token");
+        extra.remove("refresh_token");
+        out["extra"] = QJsonObject::fromVariantMap(extra);
         save = true;
     }
     if (save) {
@@ -72,6 +75,8 @@ Token tokenFromJSONV3(const QJsonObject& parent, const char* tokenName)
     auto extra = tokenObject.value("extra");
     if (extra.isObject()) {
         out.extra = extra.toObject().toVariantMap();
+        out.extra.remove("access_token");
+        out.extra.remove("refresh_token");
     }
     return out;
 }

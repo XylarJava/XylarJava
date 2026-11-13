@@ -134,6 +134,8 @@ void MSADeviceCodeStep::poll()
             m_data->msaToken.issueInstant = QDateTime::currentDateTimeUtc();
             m_data->msaToken.notAfter = QDateTime::currentDateTime().addSecs(json.value("expires_in").toInt());
             m_data->msaToken.extra = json.toVariantMap();
+            m_data->msaToken.extra.remove("access_token");
+            m_data->msaToken.extra.remove("refresh_token");
             m_data->msaToken.refresh_token = json.value("refresh_token").toString();
             m_data->msaToken.token = accessToken;
             emit finished(AccountTaskState::STATE_WORKING, tr("Got MSA token"));

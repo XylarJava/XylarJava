@@ -1,0 +1,12 @@
+{
+  "name": "Liquid Glass",
+  "widgets": "Fusion",
+  "qssFilePath": "themeStyle.css",
+  "colors": {
+    "Window": "#e6e9f1", "WindowText": "#283144", "Base": "#f5f7fc",
+    "AlternateBase": "#e6edf6", "Text": "#283144", "Button": "#eef2f8",
+    "ButtonText": "#283144", "BrightText": "#ffffff", "Highlight": "#6687d9",
+    "HighlightedText": "#ffffff", "Link": "#3658a4", "ToolTipBase": "#f5f7fc",
+    "ToolTipText": "#283144", "fadeAmount": 0.15, "fadeColor": "#d9e1ef"
+  }
+}

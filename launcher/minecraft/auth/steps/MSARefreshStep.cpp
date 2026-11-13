@@ -70,6 +70,7 @@ void MSARefreshStep::onRequestDone(QByteArray* response)
         const QString description = json.value("error_description").toString().section(QLatin1Char('\n'), 0, 0).trimmed();
         qWarning() << "Microsoft token refresh failed:" << m_request->replyStatusCode() << error << description;
         if (error == "invalid_grant" || error == "interaction_required" || error == "consent_required") {
+            m_data->msaToken.extra["refresh_revoked"] = true;
             // The refresh token was revoked or expired: only a new sign-in helps.
             emit finished(AccountTaskState::STATE_FAILED_HARD, tr("The Microsoft session expired. Sign in with Microsoft again."));
         } else if (!error.isEmpty() || Net::isApplicationError(m_request->error())) {
@@ -95,6 +96,10 @@ void MSARefreshStep::onRequestDone(QByteArray* response)
     const QString refreshToken = json.value("refresh_token").toString();
     if (!refreshToken.isEmpty())
         m_data->msaToken.refresh_token = refreshToken;
-    m_data->msaToken.extra = json.toVariantMap();
+    m_data->msaToken.extra.remove("refresh_revoked");
+    for (auto it = json.begin(); it != json.end(); ++it) {
+        if (it.key() != "access_token" && it.key() != "refresh_token")
+            m_data->msaToken.extra[it.key()] = it.value().toVariant();
+    }
     emit finished(AccountTaskState::STATE_WORKING, tr("Got MSA token"));
 }

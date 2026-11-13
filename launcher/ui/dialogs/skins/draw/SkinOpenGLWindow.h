@@ -10,6 +10,8 @@
 #include "ui/dialogs/skins/draw/BoxGeometry.h"
 #include "ui/dialogs/skins/draw/Scene.h"
 
+class QWidget;
+
 class SkinProvider {
    public:
     virtual ~SkinProvider() = default;
@@ -28,6 +30,10 @@ class SkinOpenGLWindow : public QOpenGLWindow, protected QOpenGLFunctions {
     void setElytraVisible(bool visible);
 
     static bool hasOpenGL();
+    QWidget* createViewControls(QWidget* parent);
+    void resetView();
+    void showFront();
+    void showBack();
 
    protected:
     void mousePressEvent(QMouseEvent* e) override;

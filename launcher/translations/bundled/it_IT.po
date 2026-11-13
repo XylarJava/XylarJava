@@ -1,0 +1,1342 @@
+# XylarJava user interface translations; GPL-3.0-only
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: it_IT\n"
+
+msgctxt "Common"
+msgid "Home"
+msgstr "Home"
+
+msgctxt "Common"
+msgid "&Home"
+msgstr "&Home"
+
+msgctxt "Common"
+msgid "Instances"
+msgstr "Istanze"
+
+msgctxt "Common"
+msgid "&Instances"
+msgstr "&Istanze"
+
+msgctxt "Common"
+msgid "Settings"
+msgstr "Impostazioni"
+
+msgctxt "Common"
+msgid "&Settings"
+msgstr "&Impostazioni"
+
+msgctxt "Common"
+msgid "Accounts"
+msgstr "Account"
+
+msgctxt "Common"
+msgid "&Accounts"
+msgstr "&Account"
+
+msgctxt "Common"
+msgid "Appearance"
+msgstr "Aspetto"
+
+msgctxt "Common"
+msgid "&Appearance"
+msgstr "&Aspetto"
+
+msgctxt "Common"
+msgid "Language"
+msgstr "Lingua"
+
+msgctxt "Common"
+msgid "&Language"
+msgstr "&Lingua"
+
+msgctxt "Common"
+msgid "Servers"
+msgstr "Server"
+
+msgctxt "Common"
+msgid "&Servers"
+msgstr "&Server"
+
+msgctxt "Common"
+msgid "News"
+msgstr "Notizie"
+
+msgctxt "Common"
+msgid "&News"
+msgstr "&Notizie"
+
+msgctxt "Common"
+msgid "Mods"
+msgstr "Mod"
+
+msgctxt "Common"
+msgid "&Mods"
+msgstr "&Mod"
+
+msgctxt "Common"
+msgid "Screenshots"
+msgstr "Schermate"
+
+msgctxt "Common"
+msgid "&Screenshots"
+msgstr "&Schermate"
+
+msgctxt "Common"
+msgid "Help"
+msgstr "Aiuto"
+
+msgctxt "Common"
+msgid "&Help"
+msgstr "&Aiuto"
+
+msgctxt "Common"
+msgid "About"
+msgstr "Informazioni"
+
+msgctxt "Common"
+msgid "&About"
+msgstr "&Informazioni"
+
+msgctxt "Common"
+msgid "Launch"
+msgstr "Avvia"
+
+msgctxt "Common"
+msgid "&Launch"
+msgstr "&Avvia"
+
+msgctxt "Common"
+msgid "Play"
+msgstr "Gioca"
+
+msgctxt "Common"
+msgid "&Play"
+msgstr "&Gioca"
+
+msgctxt "Common"
+msgid "Repair and start"
+msgstr "Ripara e avvia"
+
+msgctxt "Common"
+msgid "&Repair and start"
+msgstr "&Ripara e avvia"
+
+msgctxt "Common"
+msgid "Repair"
+msgstr "Ripara"
+
+msgctxt "Common"
+msgid "&Repair"
+msgstr "&Ripara"
+
+msgctxt "Common"
+msgid "Add Instance"
+msgstr "Aggiungi istanza"
+
+msgctxt "Common"
+msgid "&Add Instance"
+msgstr "&Aggiungi istanza"
+
+msgctxt "Common"
+msgid "Add instance"
+msgstr "Aggiungi istanza"
+
+msgctxt "Common"
+msgid "&Add instance"
+msgstr "&Aggiungi istanza"
+
+msgctxt "Common"
+msgid "Add Microsoft"
+msgstr "Aggiungi Microsoft"
+
+msgctxt "Common"
+msgid "&Add Microsoft"
+msgstr "&Aggiungi Microsoft"
+
+msgctxt "Common"
+msgid "Add Offline"
+msgstr "Aggiungi offline"
+
+msgctxt "Common"
+msgid "&Add Offline"
+msgstr "&Aggiungi offline"
+
+msgctxt "Common"
+msgid "Add Ely.by"
+msgstr "Aggiungi Ely.by"
+
+msgctxt "Common"
+msgid "&Add Ely.by"
+msgstr "&Aggiungi Ely.by"
+
+msgctxt "Common"
+msgid "Remove"
+msgstr "Rimuovi"
+
+msgctxt "Common"
+msgid "&Remove"
+msgstr "&Rimuovi"
+
+msgctxt "Common"
+msgid "Remove account"
+msgstr "Rimuovi account"
+
+msgctxt "Common"
+msgid "&Remove account"
+msgstr "&Rimuovi account"
+
+msgctxt "Common"
+msgid "Set Default"
+msgstr "Imposta predefinito"
+
+msgctxt "Common"
+msgid "&Set Default"
+msgstr "&Imposta predefinito"
+
+msgctxt "Common"
+msgid "Default"
+msgstr "Predefinito"
+
+msgctxt "Common"
+msgid "&Default"
+msgstr "&Predefinito"
+
+msgctxt "Common"
+msgid "Refresh"
+msgstr "Aggiorna"
+
+msgctxt "Common"
+msgid "&Refresh"
+msgstr "&Aggiorna"
+
+msgctxt "Common"
+msgid "Refresh Account"
+msgstr "Aggiorna account"
+
+msgctxt "Common"
+msgid "&Refresh Account"
+msgstr "&Aggiorna account"
+
+msgctxt "Common"
+msgid "Username"
+msgstr "Nome utente"
+
+msgctxt "Common"
+msgid "&Username"
+msgstr "&Nome utente"
+
+msgctxt "Common"
+msgid "Password"
+msgstr "Password"
+
+msgctxt "Common"
+msgid "&Password"
+msgstr "&Password"
+
+msgctxt "Common"
+msgid "Sign in"
+msgstr "Accedi"
+
+msgctxt "Common"
+msgid "&Sign in"
+msgstr "&Accedi"
+
+msgctxt "Common"
+msgid "Sign out"
+msgstr "Disconnetti"
+
+msgctxt "Common"
+msgid "&Sign out"
+msgstr "&Disconnetti"
+
+msgctxt "Common"
+msgid "Sign in with Microsoft"
+msgstr "Accedi con Microsoft"
+
+msgctxt "Common"
+msgid "&Sign in with Microsoft"
+msgstr "&Accedi con Microsoft"
+
+msgctxt "Common"
+msgid "Sign in with Ely.by"
+msgstr "Accedi con Ely.by"
+
+msgctxt "Common"
+msgid "&Sign in with Ely.by"
+msgstr "&Accedi con Ely.by"
+
+msgctxt "Common"
+msgid "Account"
+msgstr "Account"
+
+msgctxt "Common"
+msgid "&Account"
+msgstr "&Account"
+
+msgctxt "Common"
+msgid "Name"
+msgstr "Nome"
+
+msgctxt "Common"
+msgid "&Name"
+msgstr "&Nome"
+
+msgctxt "Common"
+msgid "Type"
+msgstr "Tipo"
+
+msgctxt "Common"
+msgid "&Type"
+msgstr "&Tipo"
+
+msgctxt "Common"
+msgid "Status"
+msgstr "Stato"
+
+msgctxt "Common"
+msgid "&Status"
+msgstr "&Stato"
+
+msgctxt "Common"
+msgid "Online"
+msgstr "Online"
+
+msgctxt "Common"
+msgid "&Online"
+msgstr "&Online"
+
+msgctxt "Common"
+msgid "Offline"
+msgstr "Offline"
+
+msgctxt "Common"
+msgid "&Offline"
+msgstr "&Offline"
+
+msgctxt "Common"
+msgid "Expired"
+msgstr "Scaduto"
+
+msgctxt "Common"
+msgid "&Expired"
+msgstr "&Scaduto"
+
+msgctxt "Common"
+msgid "Working"
+msgstr "In corso"
+
+msgctxt "Common"
+msgid "&Working"
+msgstr "&In corso"
+
+msgctxt "Common"
+msgid "Cancel"
+msgstr "Annulla"
+
+msgctxt "Common"
+msgid "&Cancel"
+msgstr "&Annulla"
+
+msgctxt "Common"
+msgid "OK"
+msgstr "OK"
+
+msgctxt "Common"
+msgid "&OK"
+msgstr "&OK"
+
+msgctxt "Common"
+msgid "Apply"
+msgstr "Applica"
+
+msgctxt "Common"
+msgid "&Apply"
+msgstr "&Applica"
+
+msgctxt "Common"
+msgid "Close"
+msgstr "Chiudi"
+
+msgctxt "Common"
+msgid "&Close"
+msgstr "&Chiudi"
+
+msgctxt "Common"
+msgid "Save"
+msgstr "Salva"
+
+msgctxt "Common"
+msgid "&Save"
+msgstr "&Salva"
+
+msgctxt "Common"
+msgid "Delete"
+msgstr "Elimina"
+
+msgctxt "Common"
+msgid "&Delete"
+msgstr "&Elimina"
+
+msgctxt "Common"
+msgid "Edit"
+msgstr "Modifica"
+
+msgctxt "Common"
+msgid "&Edit"
+msgstr "&Modifica"
+
+msgctxt "Common"
+msgid "Add"
+msgstr "Aggiungi"
+
+msgctxt "Common"
+msgid "&Add"
+msgstr "&Aggiungi"
+
+msgctxt "Common"
+msgid "Open"
+msgstr "Apri"
+
+msgctxt "Common"
+msgid "&Open"
+msgstr "&Apri"
+
+msgctxt "Common"
+msgid "Browse"
+msgstr "Sfoglia"
+
+msgctxt "Common"
+msgid "&Browse"
+msgstr "&Sfoglia"
+
+msgctxt "Common"
+msgid "Browse..."
+msgstr "Sfoglia…"
+
+msgctxt "Common"
+msgid "&Browse..."
+msgstr "&Sfoglia…"
+
+msgctxt "Common"
+msgid "Browse…"
+msgstr "Sfoglia…"
+
+msgctxt "Common"
+msgid "&Browse…"
+msgstr "&Sfoglia…"
+
+msgctxt "Common"
+msgid "Reset"
+msgstr "Ripristina"
+
+msgctxt "Common"
+msgid "&Reset"
+msgstr "&Ripristina"
+
+msgctxt "Common"
+msgid "Front"
+msgstr "Fronte"
+
+msgctxt "Common"
+msgid "&Front"
+msgstr "&Fronte"
+
+msgctxt "Common"
+msgid "Back"
+msgstr "Indietro"
+
+msgctxt "Common"
+msgid "&Back"
+msgstr "&Indietro"
+
+msgctxt "Common"
+msgid "Next"
+msgstr "Avanti"
+
+msgctxt "Common"
+msgid "&Next"
+msgstr "&Avanti"
+
+msgctxt "Common"
+msgid "Finish"
+msgstr "Fine"
+
+msgctxt "Common"
+msgid "&Finish"
+msgstr "&Fine"
+
+msgctxt "Common"
+msgid "Welcome"
+msgstr "Benvenuto"
+
+msgctxt "Common"
+msgid "&Welcome"
+msgstr "&Benvenuto"
+
+msgctxt "Common"
+msgid "Welcome to %1"
+msgstr "Benvenuto in %1"
+
+msgctxt "Common"
+msgid "&Welcome to %1"
+msgstr "&Benvenuto in %1"
+
+msgctxt "Common"
+msgid "Select the language to use in %1"
+msgstr "Scegli la lingua di %1"
+
+msgctxt "Common"
+msgid "&Select the language to use in %1"
+msgstr "&Scegli la lingua di %1"
+
+msgctxt "Common"
+msgid "General"
+msgstr "Generali"
+
+msgctxt "Common"
+msgid "&General"
+msgstr "&Generali"
+
+msgctxt "Common"
+msgid "Features"
+msgstr "Funzionalità"
+
+msgctxt "Common"
+msgid "&Features"
+msgstr "&Funzionalità"
+
+msgctxt "Common"
+msgid "Folders"
+msgstr "Cartelle"
+
+msgctxt "Common"
+msgid "&Folders"
+msgstr "&Cartelle"
+
+msgctxt "Common"
+msgid "Console"
+msgstr "Console"
+
+msgctxt "Common"
+msgid "&Console"
+msgstr "&Console"
+
+msgctxt "Common"
+msgid "Log"
+msgstr "Registro"
+
+msgctxt "Common"
+msgid "&Log"
+msgstr "&Registro"
+
+msgctxt "Common"
+msgid "Logs"
+msgstr "Registri"
+
+msgctxt "Common"
+msgid "&Logs"
+msgstr "&Registri"
+
+msgctxt "Common"
+msgid "Custom"
+msgstr "Personalizzata"
+
+msgctxt "Common"
+msgid "&Custom"
+msgstr "&Personalizzata"
+
+msgctxt "Common"
+msgid "Filter"
+msgstr "Filtro"
+
+msgctxt "Common"
+msgid "&Filter"
+msgstr "&Filtro"
+
+msgctxt "Common"
+msgid "Version"
+msgstr "Versione"
+
+msgctxt "Common"
+msgid "&Version"
+msgstr "&Versione"
+
+msgctxt "Common"
+msgid "Versions"
+msgstr "Versioni"
+
+msgctxt "Common"
+msgid "&Versions"
+msgstr "&Versioni"
+
+msgctxt "Common"
+msgid "Releases"
+msgstr "Versioni stabili"
+
+msgctxt "Common"
+msgid "&Releases"
+msgstr "&Versioni stabili"
+
+msgctxt "Common"
+msgid "Snapshots"
+msgstr "Snapshot"
+
+msgctxt "Common"
+msgid "&Snapshots"
+msgstr "&Snapshot"
+
+msgctxt "Common"
+msgid "Experiments"
+msgstr "Sperimentali"
+
+msgctxt "Common"
+msgid "&Experiments"
+msgstr "&Sperimentali"
+
+msgctxt "Common"
+msgid "Mod Loader"
+msgstr "Modloader"
+
+msgctxt "Common"
+msgid "&Mod Loader"
+msgstr "&Modloader"
+
+msgctxt "Common"
+msgid "None"
+msgstr "Nessuno"
+
+msgctxt "Common"
+msgid "&None"
+msgstr "&Nessuno"
+
+msgctxt "Common"
+msgid "No mod loader is selected."
+msgstr "Nessun modloader selezionato."
+
+msgctxt "Common"
+msgid "&No mod loader is selected."
+msgstr "&Nessun modloader selezionato."
+
+msgctxt "Common"
+msgid "No Minecraft version is selected."
+msgstr "Nessuna versione di Minecraft selezionata."
+
+msgctxt "Common"
+msgid "&No Minecraft version is selected."
+msgstr "&Nessuna versione di Minecraft selezionata."
+
+msgctxt "Common"
+msgid "No versions are currently available for Minecraft %1"
+msgstr "Nessuna versione disponibile per Minecraft %1"
+
+msgctxt "Common"
+msgid "&No versions are currently available for Minecraft %1"
+msgstr "&Nessuna versione disponibile per Minecraft %1"
+
+msgctxt "Common"
+msgid "Import"
+msgstr "Importa"
+
+msgctxt "Common"
+msgid "&Import"
+msgstr "&Importa"
+
+msgctxt "Common"
+msgid "Export"
+msgstr "Esporta"
+
+msgctxt "Common"
+msgid "&Export"
+msgstr "&Esporta"
+
+msgctxt "Common"
+msgid "Copy"
+msgstr "Copia"
+
+msgctxt "Common"
+msgid "&Copy"
+msgstr "&Copia"
+
+msgctxt "Common"
+msgid "Copy the code"
+msgstr "Copia il codice"
+
+msgctxt "Common"
+msgid "&Copy the code"
+msgstr "&Copia il codice"
+
+msgctxt "Common"
+msgid "Copied"
+msgstr "Copiato"
+
+msgctxt "Common"
+msgid "&Copied"
+msgstr "&Copiato"
+
+msgctxt "Common"
+msgid "Contacting Microsoft..."
+msgstr "Connessione a Microsoft…"
+
+msgctxt "Common"
+msgid "&Contacting Microsoft..."
+msgstr "&Connessione a Microsoft…"
+
+msgctxt "Common"
+msgid "Open microsoft.com/link"
+msgstr "Apri microsoft.com/link"
+
+msgctxt "Common"
+msgid "&Open microsoft.com/link"
+msgstr "&Apri microsoft.com/link"
+
+msgctxt "Common"
+msgid "Sign in with the Microsoft account that owns Minecraft: Java Edition."
+msgstr "Accedi con l’account Microsoft che possiede Minecraft: Java Edition."
+
+msgctxt "Common"
+msgid "&Sign in with the Microsoft account that owns Minecraft: Java Edition."
+msgstr "&Accedi con l’account Microsoft che possiede Minecraft: Java Edition."
+
+msgctxt "Common"
+msgid "Skins & Capes"
+msgstr "Skin e mantelli"
+
+msgctxt "Common"
+msgid "&Skins & Capes"
+msgstr "&Skin e mantelli"
+
+msgctxt "Common"
+msgid "Skin and Capes"
+msgstr "Skin e mantelli"
+
+msgctxt "Common"
+msgid "&Skin and Capes"
+msgstr "&Skin e mantelli"
+
+msgctxt "Common"
+msgid "Skin"
+msgstr "Skin"
+
+msgctxt "Common"
+msgid "&Skin"
+msgstr "&Skin"
+
+msgctxt "Common"
+msgid "Skins"
+msgstr "Skin"
+
+msgctxt "Common"
+msgid "&Skins"
+msgstr "&Skin"
+
+msgctxt "Common"
+msgid "Cape"
+msgstr "Mantello"
+
+msgctxt "Common"
+msgid "&Cape"
+msgstr "&Mantello"
+
+msgctxt "Common"
+msgid "Capes"
+msgstr "Mantelli"
+
+msgctxt "Common"
+msgid "&Capes"
+msgstr "&Mantelli"
+
+msgctxt "Common"
+msgid "Upload"
+msgstr "Carica"
+
+msgctxt "Common"
+msgid "&Upload"
+msgstr "&Carica"
+
+msgctxt "Common"
+msgid "Download"
+msgstr "Scarica"
+
+msgctxt "Common"
+msgid "&Download"
+msgstr "&Scarica"
+
+msgctxt "Common"
+msgid "Upload skin"
+msgstr "Carica skin"
+
+msgctxt "Common"
+msgid "&Upload skin"
+msgstr "&Carica skin"
+
+msgctxt "Common"
+msgid "Upload cape"
+msgstr "Carica mantello"
+
+msgctxt "Common"
+msgid "&Upload cape"
+msgstr "&Carica mantello"
+
+msgctxt "Common"
+msgid "Classic"
+msgstr "Classico"
+
+msgctxt "Common"
+msgid "&Classic"
+msgstr "&Classico"
+
+msgctxt "Common"
+msgid "Slim"
+msgstr "Slim"
+
+msgctxt "Common"
+msgid "&Slim"
+msgstr "&Slim"
+
+msgctxt "Common"
+msgid "Community themes"
+msgstr "Temi della community"
+
+msgctxt "Common"
+msgid "&Community themes"
+msgstr "&Temi della community"
+
+msgctxt "Common"
+msgid "Theme"
+msgstr "Tema"
+
+msgctxt "Common"
+msgid "&Theme"
+msgstr "&Tema"
+
+msgctxt "Common"
+msgid "Dark"
+msgstr "Scuro"
+
+msgctxt "Common"
+msgid "&Dark"
+msgstr "&Scuro"
+
+msgctxt "Common"
+msgid "Light"
+msgstr "Chiaro"
+
+msgctxt "Common"
+msgid "&Light"
+msgstr "&Chiaro"
+
+msgctxt "Common"
+msgid "System"
+msgstr "Sistema"
+
+msgctxt "Common"
+msgid "&System"
+msgstr "&Sistema"
+
+msgctxt "Common"
+msgid "Icon theme"
+msgstr "Tema icone"
+
+msgctxt "Common"
+msgid "&Icon theme"
+msgstr "&Tema icone"
+
+msgctxt "Common"
+msgid "Search"
+msgstr "Cerca"
+
+msgctxt "Common"
+msgid "&Search"
+msgstr "&Cerca"
+
+msgctxt "Common"
+msgid "Search..."
+msgstr "Cerca…"
+
+msgctxt "Common"
+msgid "&Search..."
+msgstr "&Cerca…"
+
+msgctxt "Common"
+msgid "Search…"
+msgstr "Cerca…"
+
+msgctxt "Common"
+msgid "&Search…"
+msgstr "&Cerca…"
+
+msgctxt "Common"
+msgid "Update"
+msgstr "Aggiorna"
+
+msgctxt "Common"
+msgid "&Update"
+msgstr "&Aggiorna"
+
+msgctxt "Common"
+msgid "Updates"
+msgstr "Aggiornamenti"
+
+msgctxt "Common"
+msgid "&Updates"
+msgstr "&Aggiornamenti"
+
+msgctxt "Common"
+msgid "Check for updates"
+msgstr "Controlla aggiornamenti"
+
+msgctxt "Common"
+msgid "&Check for updates"
+msgstr "&Controlla aggiornamenti"
+
+msgctxt "Common"
+msgid "Manage"
+msgstr "Gestisci"
+
+msgctxt "Common"
+msgid "&Manage"
+msgstr "&Gestisci"
+
+msgctxt "Common"
+msgid "Options"
+msgstr "Opzioni"
+
+msgctxt "Common"
+msgid "&Options"
+msgstr "&Opzioni"
+
+msgctxt "Common"
+msgid "Install"
+msgstr "Installa"
+
+msgctxt "Common"
+msgid "&Install"
+msgstr "&Installa"
+
+msgctxt "Common"
+msgid "Installed"
+msgstr "Installato"
+
+msgctxt "Common"
+msgid "&Installed"
+msgstr "&Installato"
+
+msgctxt "Common"
+msgid "Enabled"
+msgstr "Attivato"
+
+msgctxt "Common"
+msgid "&Enabled"
+msgstr "&Attivato"
+
+msgctxt "Common"
+msgid "Disabled"
+msgstr "Disattivato"
+
+msgctxt "Common"
+msgid "&Disabled"
+msgstr "&Disattivato"
+
+msgctxt "Common"
+msgid "Enable"
+msgstr "Attiva"
+
+msgctxt "Common"
+msgid "&Enable"
+msgstr "&Attiva"
+
+msgctxt "Common"
+msgid "Disable"
+msgstr "Disattiva"
+
+msgctxt "Common"
+msgid "&Disable"
+msgstr "&Disattiva"
+
+msgctxt "Common"
+msgid "Memory"
+msgstr "Memoria"
+
+msgctxt "Common"
+msgid "&Memory"
+msgstr "&Memoria"
+
+msgctxt "Common"
+msgid "Minimum memory allocation"
+msgstr "Memoria minima"
+
+msgctxt "Common"
+msgid "&Minimum memory allocation"
+msgstr "&Memoria minima"
+
+msgctxt "Common"
+msgid "Maximum memory allocation"
+msgstr "Memoria massima"
+
+msgctxt "Common"
+msgid "&Maximum memory allocation"
+msgstr "&Memoria massima"
+
+msgctxt "Common"
+msgid "Window"
+msgstr "Finestra"
+
+msgctxt "Common"
+msgid "&Window"
+msgstr "&Finestra"
+
+msgctxt "Common"
+msgid "Width"
+msgstr "Larghezza"
+
+msgctxt "Common"
+msgid "&Width"
+msgstr "&Larghezza"
+
+msgctxt "Common"
+msgid "Height"
+msgstr "Altezza"
+
+msgctxt "Common"
+msgid "&Height"
+msgstr "&Altezza"
+
+msgctxt "Common"
+msgid "Fullscreen"
+msgstr "Schermo intero"
+
+msgctxt "Common"
+msgid "&Fullscreen"
+msgstr "&Schermo intero"
+
+msgctxt "Common"
+msgid "Game"
+msgstr "Gioco"
+
+msgctxt "Common"
+msgid "&Game"
+msgstr "&Gioco"
+
+msgctxt "Common"
+msgid "Controls"
+msgstr "Controlli"
+
+msgctxt "Common"
+msgid "&Controls"
+msgstr "&Controlli"
+
+msgctxt "Common"
+msgid "Advanced"
+msgstr "Avanzate"
+
+msgctxt "Common"
+msgid "&Advanced"
+msgstr "&Avanzate"
+
+msgctxt "Common"
+msgid "Network"
+msgstr "Rete"
+
+msgctxt "Common"
+msgid "&Network"
+msgstr "&Rete"
+
+msgctxt "Common"
+msgid "Proxy"
+msgstr "Proxy"
+
+msgctxt "Common"
+msgid "&Proxy"
+msgstr "&Proxy"
+
+msgctxt "Common"
+msgid "Confirm"
+msgstr "Conferma"
+
+msgctxt "Common"
+msgid "&Confirm"
+msgstr "&Conferma"
+
+msgctxt "Common"
+msgid "Yes"
+msgstr "Sì"
+
+msgctxt "Common"
+msgid "&Yes"
+msgstr "&Sì"
+
+msgctxt "Common"
+msgid "No"
+msgstr "No"
+
+msgctxt "Common"
+msgid "&No"
+msgstr "&No"
+
+msgctxt "Common"
+msgid "Error"
+msgstr "Errore"
+
+msgctxt "Common"
+msgid "&Error"
+msgstr "&Errore"
+
+msgctxt "Common"
+msgid "Warning"
+msgstr "Attenzione"
+
+msgctxt "Common"
+msgid "&Warning"
+msgstr "&Attenzione"
+
+msgctxt "Common"
+msgid "Information"
+msgstr "Informazioni"
+
+msgctxt "Common"
+msgid "&Information"
+msgstr "&Informazioni"
+
+msgctxt "Common"
+msgid "Loading..."
+msgstr "Caricamento…"
+
+msgctxt "Common"
+msgid "&Loading..."
+msgstr "&Caricamento…"
+
+msgctxt "Common"
+msgid "Waiting..."
+msgstr "In attesa…"
+
+msgctxt "Common"
+msgid "&Waiting..."
+msgstr "&In attesa…"
+
+msgctxt "Common"
+msgid "Done"
+msgstr "Completato"
+
+msgctxt "Common"
+msgid "&Done"
+msgstr "&Completato"
+
+msgctxt "Common"
+msgid "Retry"
+msgstr "Riprova"
+
+msgctxt "Common"
+msgid "&Retry"
+msgstr "&Riprova"
+
+msgctxt "Common"
+msgid "Skip"
+msgstr "Salta"
+
+msgctxt "Common"
+msgid "&Skip"
+msgstr "&Salta"
+
+msgctxt "Common"
+msgid "Play anyway"
+msgstr "Gioca comunque"
+
+msgctxt "Common"
+msgid "&Play anyway"
+msgstr "&Gioca comunque"
+
+msgctxt "Common"
+msgid "Fast and light"
+msgstr "Veloce e leggero"
+
+msgctxt "Common"
+msgid "&Fast and light"
+msgstr "&Veloce e leggero"
+
+msgctxt "Common"
+msgid "Your skin, everywhere"
+msgstr "La tua skin, ovunque"
+
+msgctxt "Common"
+msgid "&Your skin, everywhere"
+msgstr "&La tua skin, ovunque"
+
+msgctxt "Common"
+msgid "Starts quickly, stays out of the way and keeps itself up to date."
+msgstr "Si avvia velocemente e si mantiene aggiornato senza disturbarti."
+
+msgctxt "Common"
+msgid "&Starts quickly, stays out of the way and keeps itself up to date."
+msgstr "&Si avvia velocemente e si mantiene aggiornato senza disturbarti."
+
+msgctxt "Common"
+msgid "Play offline right away (optional)"
+msgstr "Gioca subito offline (facoltativo)"
+
+msgctxt "Common"
+msgid "&Play offline right away (optional)"
+msgstr "&Gioca subito offline (facoltativo)"
+
+msgctxt "Common"
+msgid "Pick a username to create an offline account now. You can sign in with Microsoft on the next steps or add more accounts later."
+msgstr "Scegli un nome utente per creare un account offline. Potrai accedere con Microsoft nei prossimi passaggi o aggiungere altri account in seguito."
+
+msgctxt "Common"
+msgid "&Pick a username to create an offline account now. You can sign in with Microsoft on the next steps or add more accounts later."
+msgstr "&Scegli un nome utente per creare un account offline. Potrai accedere con Microsoft nei prossimi passaggi o aggiungere altri account in seguito."
+
+msgctxt "Common"
+msgid "3 to 16 letters, numbers or _"
+msgstr "Da 3 a 16 lettere, numeri o _"
+
+msgctxt "Common"
+msgid "&3 to 16 letters, numbers or _"
+msgstr "&Da 3 a 16 lettere, numeri o _"
+
+msgctxt "Common"
+msgid "Choose a username with 3 to 16 letters, numbers or underscores."
+msgstr "Scegli un nome di 3–16 lettere, numeri o trattini bassi."
+
+msgctxt "Common"
+msgid "&Choose a username with 3 to 16 letters, numbers or underscores."
+msgstr "&Scegli un nome di 3–16 lettere, numeri o trattini bassi."
+
+msgctxt "Common"
+msgid "No account was created. Choose another username or try again."
+msgstr "Nessun account creato. Scegli un altro nome utente o riprova."
+
+msgctxt "Common"
+msgid "&No account was created. Choose another username or try again."
+msgstr "&Nessun account creato. Scegli un altro nome utente o riprova."
+
+msgctxt "Common"
+msgid "Profile and skin server"
+msgstr "Server di profili e skin"
+
+msgctxt "Common"
+msgid "&Profile and skin server"
+msgstr "&Server di profili e skin"
+
+msgctxt "Common"
+msgid "Enable Xylar skin rendering in my game"
+msgstr "Attiva le skin Xylar nel gioco"
+
+msgctxt "Common"
+msgid "&Enable Xylar skin rendering in my game"
+msgstr "&Attiva le skin Xylar nel gioco"
+
+msgctxt "Common"
+msgid "Your username is reserved on this service, even when skin rendering is off. Leave the server unchanged unless you host your own."
+msgstr "Il tuo nome è riservato su questo servizio anche con le skin disattivate. Cambia server solo se ne gestisci uno tuo."
+
+msgctxt "Common"
+msgid "&Your username is reserved on this service, even when skin rendering is off. Leave the server unchanged unless you host your own."
+msgstr "&Il tuo nome è riservato su questo servizio anche con le skin disattivate. Cambia server solo se ne gestisci uno tuo."
+
+msgctxt "Common"
+msgid "Username could not be verified"
+msgstr "Impossibile verificare il nome utente"
+
+msgctxt "Common"
+msgid "&Username could not be verified"
+msgstr "&Impossibile verificare il nome utente"
+
+msgctxt "Common"
+msgid "Verifying ownership of %1…"
+msgstr "Verifica della proprietà di %1…"
+
+msgctxt "Common"
+msgid "&Verifying ownership of %1…"
+msgstr "&Verifica della proprietà di %1…"
+
+msgctxt "Common"
+msgid "Import my profile access…"
+msgstr "Importa accesso al mio profilo…"
+
+msgctxt "Common"
+msgid "&Import my profile access…"
+msgstr "&Importa accesso al mio profilo…"
+
+msgctxt "Common"
+msgid "Import profile access"
+msgstr "Importa accesso al profilo"
+
+msgctxt "Common"
+msgid "&Import profile access"
+msgstr "&Importa accesso al profilo"
+
+msgctxt "Common"
+msgid "Cannot import access"
+msgstr "Impossibile importare l’accesso"
+
+msgctxt "Common"
+msgid "&Cannot import access"
+msgstr "&Impossibile importare l’accesso"
+
+msgctxt "Common"
+msgid "This account was signed in on another computer. Sign in again to use it here."
+msgstr "Questo account è stato aperto su un altro computer. Accedi di nuovo per usarlo qui."
+
+msgctxt "Common"
+msgid "&This account was signed in on another computer. Sign in again to use it here."
+msgstr "&Questo account è stato aperto su un altro computer. Accedi di nuovo per usarlo qui."
+
+msgctxt "Common"
+msgid "This username is already owned by another player. Choose another name, or import your profile access from your other device."
+msgstr "Questo nome utente appartiene già a un altro giocatore. Scegli un altro nome o importa l’accesso dal tuo altro dispositivo."
+
+msgctxt "Common"
+msgid "&This username is already owned by another player. Choose another name, or import your profile access from your other device."
+msgstr "&Questo nome utente appartiene già a un altro giocatore. Scegli un altro nome o importa l’accesso dal tuo altro dispositivo."
+
+msgctxt "Common"
+msgid "Rust — 26.3 Beta"
+msgstr "Rust — 26.3 Beta"
+
+msgctxt "Common"
+msgid "&Rust — 26.3 Beta"
+msgstr "&Rust — 26.3 Beta"
+
+msgctxt "Common"
+msgid "Rust 26.3 is in beta and does not support Java mod loaders."
+msgstr "Rust 26.3 è in beta e non supporta i modloader Java."
+
+msgctxt "Common"
+msgid "&Rust 26.3 is in beta and does not support Java mod loaders."
+msgstr "&Rust 26.3 è in beta e non supporta i modloader Java."
+
+msgctxt "Common"
+msgid "A Microsoft account that owns Minecraft: Java Edition is required for Rust."
+msgstr "Per Rust serve un account Microsoft che possiede Minecraft: Java Edition."
+
+msgctxt "Common"
+msgid "&A Microsoft account that owns Minecraft: Java Edition is required for Rust."
+msgstr "&Per Rust serve un account Microsoft che possiede Minecraft: Java Edition."
+
+msgctxt "Common"
+msgid "The Microsoft session expired. Sign in with Microsoft again."
+msgstr "La sessione Microsoft è scaduta. Accedi di nuovo con Microsoft."
+
+msgctxt "Common"
+msgid "&The Microsoft session expired. Sign in with Microsoft again."
+msgstr "&La sessione Microsoft è scaduta. Accedi di nuovo con Microsoft."
+
+msgctxt "Common"
+msgid "Refreshing the Microsoft sign-in."
+msgstr "Rinnovo dell’accesso Microsoft."
+
+msgctxt "Common"
+msgid "&Refreshing the Microsoft sign-in."
+msgstr "&Rinnovo dell’accesso Microsoft."
+
+msgctxt "Common"
+msgid "Couldn’t reach Microsoft to refresh the sign-in."
+msgstr "Impossibile contattare Microsoft per rinnovare l’accesso."
+
+msgctxt "Common"
+msgid "&Couldn’t reach Microsoft to refresh the sign-in."
+msgstr "&Impossibile contattare Microsoft per rinnovare l’accesso."
+

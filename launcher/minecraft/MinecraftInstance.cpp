@@ -22,6 +22,7 @@
 #include "launch/steps/TextPrint.h"
 
 #include "minecraft/launch/AutoInstallJava.h"
+#include "minecraft/launch/RustLaunch.h"
 #include "minecraft/launch/ClaimAccount.h"
 #include "minecraft/launch/CreateGameFolders.h"
 #include "minecraft/launch/EnsureAvailableMemory.h"
@@ -131,6 +132,8 @@ class OrSetting : public Setting {
 MinecraftInstance::MinecraftInstance(SettingsObject* globalSettings, std::unique_ptr<SettingsObject> settings, const QString& rootDir)
     : BaseInstance(globalSettings, std::move(settings), rootDir)
 {
+    m_settings->registerSetting("NativeRust", false);
+    m_settings->registerSetting("NativeRustRepair", false);
     m_components.reset(new PackProfile(this));
 }
 
@@ -244,9 +247,14 @@ void MinecraftInstance::updateRuntimeContext()
     m_components->invalidateLaunchProfile();
 }
 
+bool MinecraftInstance::canLaunch() const
+{
+    return m_settings->get("NativeRust").toBool() ? !isRunning() : BaseInstance::canLaunch();
+}
+
 QString MinecraftInstance::typeName() const
 {
-    return "Minecraft";
+    return m_settings->get("NativeRust").toBool() ? "Rust" : "Minecraft";
 }
 
 PackProfile* MinecraftInstance::getPackProfile() const
@@ -1103,6 +1111,8 @@ QStringList MinecraftInstance::getLogFileSearchPaths()
 
 QString MinecraftInstance::getStatusbarDescription()
 {
+    if (settings()->get("NativeRust").toBool())
+        return tr("Rust — 26.3 Beta");
     QStringList traits;
     if (hasVersionBroken()) {
         traits.append(tr("broken"));
@@ -1140,6 +1150,8 @@ QString MinecraftInstance::getStatusbarDescription()
 
 QList<LaunchStep::Ptr> MinecraftInstance::createUpdateTask()
 {
+    if (settings()->get("NativeRust").toBool())
+        return QList<LaunchStep::Ptr>();
     return {
         // create folders
         makeShared<FoldersTask>(this),
@@ -1154,6 +1166,24 @@ QList<LaunchStep::Ptr> MinecraftInstance::createUpdateTask()
 
 LaunchTask* MinecraftInstance::createLaunchTask(AuthSessionPtr session, MinecraftTarget::Ptr targetToJoin)
 {
+    if (settings()->get("NativeRust").toBool()) {
+        auto process = LaunchTask::create(this);
+        process->setCensorFilter(createCensorFilterFromSession(session));
+        if (!getPreLaunchCommand().isEmpty()) {
+            auto pre = makeShared<PreLaunchCommand>(process.get());
+            pre->setWorkingDirectory(gameRoot());
+            process->appendStep(pre);
+        }
+        process->appendStep(makeShared<RustLaunch>(process.get(), session, targetToJoin));
+        if (!getPostExitCommand().isEmpty()) {
+            auto post = makeShared<PostLaunchCommand>(process.get());
+            post->setWorkingDirectory(gameRoot());
+            process->appendStep(post);
+        }
+        m_launchProcess = std::move(process);
+        emit launchTaskChanged(m_launchProcess.get());
+        return m_launchProcess.get();
+    }
     updateRuntimeContext();
     m_playerName = session ? session->player_name : QString();
     auto process = LaunchTask::create(this);

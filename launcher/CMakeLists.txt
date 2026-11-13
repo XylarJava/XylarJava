@@ -298,6 +298,8 @@ set(MINECRAFT_SOURCES
     minecraft/launch/ModMinecraftJar.h
     minecraft/launch/ExtractNatives.cpp
     minecraft/launch/ExtractNatives.h
+    minecraft/launch/RustLaunch.cpp
+    minecraft/launch/RustLaunch.h
     minecraft/launch/LauncherPartLaunch.cpp
     minecraft/launch/LauncherPartLaunch.h
     minecraft/launch/MinecraftTarget.cpp
@@ -1361,6 +1363,7 @@ if (NOT Apple)
 endif()
 
 qt_add_resources(LAUNCHER_RESOURCES
+    translations/bundled/translations.qrc
     resources/polymc/multimc.qrc
     resources/pe_dark/pe_dark.qrc
     resources/pe_light/pe_light.qrc

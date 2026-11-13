@@ -11,7 +11,12 @@ class Skin3DPreview : public QWidget {
     explicit Skin3DPreview(QWidget* parent = nullptr);
     void setSkin(const QImage& skin, bool slim);
     void setCape(const QImage& cape);
-    QSize sizeHint() const override { return QSize(240, 360); }
+    QSize sizeHint() const override { return QSize(280, 390); }
+
+   public slots:
+    void resetView();
+    void showFront();
+    void showBack();
 
    protected:
     void paintEvent(QPaintEvent*) override;
@@ -20,12 +25,16 @@ class Skin3DPreview : public QWidget {
     void mouseReleaseEvent(QMouseEvent*) override;
     void mouseDoubleClickEvent(QMouseEvent*) override;
     void wheelEvent(QWheelEvent*) override;
+    void keyPressEvent(QKeyEvent*) override;
 
    private:
     QImage m_skin, m_cape;
     bool m_slim = false;
     bool m_dragging = false;
+    bool m_panning = false;
     QPointF m_last;
+    QPointF m_pan;
+    QWidget* m_controls = nullptr;
     float m_yaw = -25, m_pitch = -12;
     qreal m_zoom = 1;
 };
